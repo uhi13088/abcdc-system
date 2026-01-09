@@ -1,0 +1,537 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Header } from '@/components/layout/header';
+import {
+  Button,
+  Badge,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+  EmptyState,
+  PageLoading,
+  Select,
+  Pagination,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  Textarea,
+  Label,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Alert,
+} from '@/components/ui';
+import { CheckSquare, Check, X, Eye, Plus, Clock, Calendar, DollarSign, ShoppingCart } from 'lucide-react';
+
+interface ApprovalRequest {
+  id: string;
+  type: string;
+  requester_name: string;
+  requester_role: string;
+  final_status: string;
+  current_step: number;
+  approval_line: Array<{
+    order: number;
+    approverId: string;
+    approverName: string;
+    approverRole: string;
+    status: string;
+    comment?: string;
+    decidedAt?: string;
+  }>;
+  details: Record<string, unknown>;
+  created_at: string;
+  finalized_at: string | null;
+}
+
+const typeLabels: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
+  LEAVE: { label: '휴가', icon: Calendar },
+  OVERTIME: { label: '초과근무', icon: Clock },
+  PURCHASE: { label: '구매', icon: ShoppingCart },
+  EXPENSE: { label: '경비', icon: DollarSign },
+};
+
+const statusMap: Record<string, { label: string; variant: 'default' | 'warning' | 'success' | 'danger' }> = {
+  PENDING: { label: '대기중', variant: 'warning' },
+  APPROVED: { label: '승인', variant: 'success' },
+  REJECTED: { label: '거부', variant: 'danger' },
+  CANCELLED: { label: '취소', variant: 'default' },
+};
+
+export default function ApprovalsPage() {
+  const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [typeFilter, setTypeFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Process dialog
+  const [selectedApproval, setSelectedApproval] = useState<ApprovalRequest | null>(null);
+  const [showProcessDialog, setShowProcessDialog] = useState(false);
+  const [comment, setComment] = useState('');
+  const [processing, setProcessing] = useState(false);
+
+  // New request dialog
+  const [showNewDialog, setShowNewDialog] = useState(false);
+  const [newRequest, setNewRequest] = useState({
+    type: 'LEAVE',
+    details: {
+      startDate: '',
+      endDate: '',
+      leaveType: '연차',
+      reason: '',
+    },
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const fetchApprovals = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: '10',
+      });
+      if (typeFilter) params.set('type', typeFilter);
+      if (statusFilter) params.set('status', statusFilter);
+
+      const response = await fetch(`/api/approvals?${params}`);
+      const result = await response.json();
+
+      if (response.ok) {
+        setApprovals(result.data);
+        setTotalPages(result.pagination.totalPages);
+      }
+    } catch (error) {
+      console.error('Failed to fetch approvals:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchApprovals();
+  }, [currentPage, typeFilter, statusFilter]);
+
+  const handleProcess = async (decision: 'APPROVED' | 'REJECTED') => {
+    if (!selectedApproval) return;
+
+    setProcessing(true);
+
+    try {
+      const response = await fetch(`/api/approvals/${selectedApproval.id}/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, comment }),
+      });
+
+      if (response.ok) {
+        setShowProcessDialog(false);
+        setComment('');
+        setSelectedApproval(null);
+        fetchApprovals();
+      } else {
+        const data = await response.json();
+        alert(data.error || '처리에 실패했습니다.');
+      }
+    } catch (error) {
+      alert('처리에 실패했습니다.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleCreateRequest = async () => {
+    setError('');
+    setSubmitting(true);
+
+    try {
+      const response = await fetch('/api/approvals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newRequest),
+      });
+
+      if (response.ok) {
+        setShowNewDialog(false);
+        fetchApprovals();
+      } else {
+        const data = await response.json();
+        setError(data.error || '요청 생성에 실패했습니다.');
+      }
+    } catch (err) {
+      setError('요청 생성에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openProcessDialog = (approval: ApprovalRequest) => {
+    setSelectedApproval(approval);
+    setShowProcessDialog(true);
+  };
+
+  const formatDetails = (type: string, details: Record<string, unknown>) => {
+    switch (type) {
+      case 'LEAVE':
+        return `${details.leaveType} (${details.startDate} ~ ${details.endDate})`;
+      case 'OVERTIME':
+        return `${details.date} ${details.startTime} ~ ${details.endTime}`;
+      case 'PURCHASE':
+        return `${details.itemName} (${(details.quantity as number) * (details.unitPrice as number)}원)`;
+      default:
+        return JSON.stringify(details);
+    }
+  };
+
+  return (
+    <div>
+      <Header title="승인 관리" />
+
+      <div className="p-6">
+        {/* Toolbar */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between">
+          <div className="flex gap-4">
+            <Select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              options={[
+                { value: '', label: '전체 유형' },
+                { value: 'LEAVE', label: '휴가' },
+                { value: 'OVERTIME', label: '초과근무' },
+                { value: 'PURCHASE', label: '구매' },
+                { value: 'EXPENSE', label: '경비' },
+              ]}
+              className="w-32"
+            />
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              options={[
+                { value: '', label: '전체 상태' },
+                { value: 'PENDING', label: '대기중' },
+                { value: 'APPROVED', label: '승인' },
+                { value: 'REJECTED', label: '거부' },
+              ]}
+              className="w-32"
+            />
+          </div>
+          <Button onClick={() => setShowNewDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            새 요청
+          </Button>
+        </div>
+
+        {loading ? (
+          <PageLoading />
+        ) : approvals.length === 0 ? (
+          <EmptyState
+            icon={CheckSquare}
+            title="승인 요청이 없습니다"
+            description="새로운 승인 요청을 생성해보세요."
+            action={
+              <Button onClick={() => setShowNewDialog(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                새 요청
+              </Button>
+            }
+          />
+        ) : (
+          <>
+            <div className="bg-white rounded-lg border border-gray-200">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>유형</TableHead>
+                    <TableHead>요청자</TableHead>
+                    <TableHead>내용</TableHead>
+                    <TableHead>결재선</TableHead>
+                    <TableHead>상태</TableHead>
+                    <TableHead>요청일</TableHead>
+                    <TableHead className="text-right">액션</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {approvals.map((approval) => {
+                    const TypeIcon = typeLabels[approval.type]?.icon || CheckSquare;
+                    return (
+                      <TableRow key={approval.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <TypeIcon className="h-4 w-4 text-gray-400" />
+                            <span>{typeLabels[approval.type]?.label || approval.type}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{approval.requester_name}</p>
+                            <p className="text-sm text-gray-500">{approval.requester_role}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate">
+                          {formatDetails(approval.type, approval.details)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            {approval.approval_line.map((step, idx) => (
+                              <span key={idx}>
+                                <span
+                                  className={`inline-block w-6 h-6 rounded-full text-xs flex items-center justify-center ${
+                                    step.status === 'APPROVED'
+                                      ? 'bg-green-100 text-green-600'
+                                      : step.status === 'REJECTED'
+                                      ? 'bg-red-100 text-red-600'
+                                      : approval.current_step === step.order
+                                      ? 'bg-blue-100 text-blue-600'
+                                      : 'bg-gray-100 text-gray-400'
+                                  }`}
+                                >
+                                  {step.order}
+                                </span>
+                                {idx < approval.approval_line.length - 1 && (
+                                  <span className="text-gray-300 mx-1">→</span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusMap[approval.final_status]?.variant}>
+                            {statusMap[approval.final_status]?.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(approval.created_at).toLocaleDateString('ko-KR')}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-2">
+                            {approval.final_status === 'PENDING' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-green-600"
+                                  onClick={() => openProcessDialog(approval)}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-red-600"
+                                  onClick={() => openProcessDialog(approval)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                            <Button size="sm" variant="ghost">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="mt-6">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Process Dialog */}
+      <Dialog open={showProcessDialog} onOpenChange={setShowProcessDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>승인 처리</DialogTitle>
+          </DialogHeader>
+
+          {selectedApproval && (
+            <div className="space-y-4">
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="space-y-2">
+                    <div>
+                      <span className="text-sm text-gray-500">요청자:</span>{' '}
+                      <span className="font-medium">{selectedApproval.requester_name}</span>
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-500">유형:</span>{' '}
+                      <span className="font-medium">
+                        {typeLabels[selectedApproval.type]?.label}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-sm text-gray-500">내용:</span>{' '}
+                      <span className="font-medium">
+                        {formatDetails(selectedApproval.type, selectedApproval.details)}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div>
+                <Label>코멘트</Label>
+                <Textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="승인/거부 사유를 입력하세요 (선택)"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setShowProcessDialog(false)}>
+              취소
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => handleProcess('REJECTED')}
+              disabled={processing}
+            >
+              <X className="h-4 w-4 mr-2" />
+              거부
+            </Button>
+            <Button onClick={() => handleProcess('APPROVED')} disabled={processing}>
+              <Check className="h-4 w-4 mr-2" />
+              승인
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Request Dialog */}
+      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>승인 요청</DialogTitle>
+          </DialogHeader>
+
+          {error && (
+            <Alert variant="error" className="mb-4">
+              {error}
+            </Alert>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <Label>요청 유형</Label>
+              <Select
+                value={newRequest.type}
+                onChange={(e) =>
+                  setNewRequest({ ...newRequest, type: e.target.value })
+                }
+                options={[
+                  { value: 'LEAVE', label: '휴가' },
+                  { value: 'OVERTIME', label: '초과근무' },
+                  { value: 'PURCHASE', label: '구매' },
+                ]}
+                className="mt-1"
+              />
+            </div>
+
+            {newRequest.type === 'LEAVE' && (
+              <>
+                <div>
+                  <Label>휴가 유형</Label>
+                  <Select
+                    value={newRequest.details.leaveType as string}
+                    onChange={(e) =>
+                      setNewRequest({
+                        ...newRequest,
+                        details: { ...newRequest.details, leaveType: e.target.value },
+                      })
+                    }
+                    options={[
+                      { value: '연차', label: '연차' },
+                      { value: '반차(오전)', label: '반차(오전)' },
+                      { value: '반차(오후)', label: '반차(오후)' },
+                      { value: '병가', label: '병가' },
+                      { value: '경조사', label: '경조사' },
+                    ]}
+                    className="mt-1"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>시작일</Label>
+                    <input
+                      type="date"
+                      value={newRequest.details.startDate as string}
+                      onChange={(e) =>
+                        setNewRequest({
+                          ...newRequest,
+                          details: { ...newRequest.details, startDate: e.target.value },
+                        })
+                      }
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>종료일</Label>
+                    <input
+                      type="date"
+                      value={newRequest.details.endDate as string}
+                      onChange={(e) =>
+                        setNewRequest({
+                          ...newRequest,
+                          details: { ...newRequest.details, endDate: e.target.value },
+                        })
+                      }
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label>사유</Label>
+                  <Textarea
+                    value={newRequest.details.reason as string}
+                    onChange={(e) =>
+                      setNewRequest({
+                        ...newRequest,
+                        details: { ...newRequest.details, reason: e.target.value },
+                      })
+                    }
+                    placeholder="휴가 사유를 입력하세요"
+                    className="mt-1"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setShowNewDialog(false)}>
+              취소
+            </Button>
+            <Button onClick={handleCreateRequest} disabled={submitting}>
+              {submitting ? '요청 중...' : '요청'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
