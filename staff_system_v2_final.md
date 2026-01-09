@@ -4156,10 +4156,674 @@ Priority 3 (향후):
 
 ---
 
+## 9. 요금제 구조 💰
+
+### 9.1 플랜 개요
+
+```
+💚 FREE (무료)
+├─ 직원 10명까지
+├─ 매장 1개
+├─ QR 출퇴근
+├─ 기본 급여 계산
+└─ 모바일 앱
+
+🔵 STARTER (월 39,000원)
+├─ 직원 50명까지
+├─ 매장 3개
+├─ FREE 기능 +
+├─ 스케줄 관리
+├─ 계약서 자동 생성
+├─ 급여 명세서 발송
+└─ 기본 리포트
+
+🟣 PRO (월 99,000원) ⭐ 추천
+├─ 직원 200명까지
+├─ 매장 무제한
+├─ STARTER 기능 +
+├─ 긴급 근무 모집 (AI)
+├─ 경영 관리 (킬러 기능!)
+│   ├─ 토스 POS 자동 연동
+│   ├─ 오픈뱅킹 연동
+│   ├─ 손익계산서 자동 생성
+│   ├─ 비용 분석 & 개선 제안
+│   └─ 월별/분기별 리포트
+├─ 커스텀 브랜딩
+└─ 데이터 내보내기
+
+🏭 HACCP 애드온 (+99,000원/월)
+├─ HACCP 전용 앱
+├─ 9개 핵심 모듈
+├─ IoT 센서 연동
+└─ 심사 대비 리포트
+```
+
+### 9.2 타겟 고객
+
+```
+FREE (60%):
+└─ 소규모 자영업자, 직원 5명 이하
+
+STARTER (30%):
+└─ 중소 식당/카페, 직원 20-40명
+
+PRO (10%):
+├─ 체인점
+├─ 토스 POS 사용자 ⭐
+└─ 경영 분석 필요한 사장님
+
+HACCP (<5%):
+└─ 식품 제조 공장
+```
+
+### 9.3 데이터베이스 설계 (구독 관리)
+
+```sql
+-- 구독 플랜
+CREATE TABLE subscription_plans (
+  id UUID PRIMARY KEY,
+  name VARCHAR(50),              -- 'FREE', 'STARTER', 'PRO'
+  display_name VARCHAR(100),     -- '스타터', '프로'
+  price_monthly INTEGER,         -- 39000, 99000
+  price_yearly INTEGER,          -- 390000, 990000
+  
+  limits JSONB,                  -- { maxEmployees, maxStores }
+  features JSONB,                -- { qrCheckin, payroll, scheduling, ... }
+  
+  active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 회사 구독
+CREATE TABLE company_subscriptions (
+  id UUID PRIMARY KEY,
+  company_id UUID REFERENCES companies(id),
+  plan_id UUID REFERENCES subscription_plans(id),
+  
+  status VARCHAR(20),            -- 'ACTIVE', 'CANCELLED', 'EXPIRED'
+  billing_cycle VARCHAR(20),     -- 'MONTHLY', 'YEARLY'
+  
+  current_period_start DATE,
+  current_period_end DATE,
+  
+  payment_method JSONB,
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 결제 이력
+CREATE TABLE payment_history (
+  id UUID PRIMARY KEY,
+  subscription_id UUID REFERENCES company_subscriptions(id),
+  
+  amount INTEGER,
+  currency VARCHAR(3) DEFAULT 'KRW',
+  status VARCHAR(20),            -- 'SUCCESS', 'FAILED', 'REFUNDED'
+  
+  payment_method VARCHAR(50),
+  transaction_id VARCHAR(100),
+  
+  paid_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 기능 사용 제한 체크
+CREATE FUNCTION check_feature_limit(
+  p_company_id UUID,
+  p_feature VARCHAR(50)
+) RETURNS BOOLEAN AS $$
+DECLARE
+  v_plan JSONB;
+  v_enabled BOOLEAN;
+BEGIN
+  SELECT sp.features INTO v_plan
+  FROM company_subscriptions cs
+  JOIN subscription_plans sp ON cs.plan_id = sp.id
+  WHERE cs.company_id = p_company_id
+    AND cs.status = 'ACTIVE'
+  LIMIT 1;
+  
+  v_enabled := (v_plan->>p_feature)::BOOLEAN;
+  
+  RETURN COALESCE(v_enabled, FALSE);
+END;
+$$ LANGUAGE plpgsql;
+```
+
+---
+
+## 10. Phase 2: 경영 관리 모듈 (PRO 플랜) 🎯
+
+### 10.1 개요
+
+```
+목적: 직원 관리 + 경영 관리 통합
+대상: PRO 플랜 사용자
+핵심: 토스 POS + 오픈뱅킹 연동
+```
+
+### 10.2 데이터베이스 설계
+
+```sql
+-- 매출 소스
+CREATE TABLE revenue_sources (
+  id UUID PRIMARY KEY,
+  company_id UUID REFERENCES companies(id),
+  
+  source_type VARCHAR(20),       -- 'TOSS_POS', 'MANUAL', 'BAEMIN'
+  source_name VARCHAR(100),
+  
+  is_active BOOLEAN DEFAULT true,
+  connection_data JSONB,         -- API 연결 정보
+  last_synced_at TIMESTAMP,
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 일일 매출
+CREATE TABLE daily_sales (
+  id UUID PRIMARY KEY,
+  company_id UUID REFERENCES companies(id),
+  revenue_source_id UUID REFERENCES revenue_sources(id),
+  
+  sales_date DATE NOT NULL,
+  
+  total_amount DECIMAL(12,2),
+  card_amount DECIMAL(12,2),
+  cash_amount DECIMAL(12,2),
+  transfer_amount DECIMAL(12,2),
+  
+  transaction_count INTEGER,
+  
+  details JSONB,                 -- 시간대별, 품목별 등
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  UNIQUE(company_id, revenue_source_id, sales_date)
+);
+
+-- 비용 거래
+CREATE TABLE expense_transactions (
+  id UUID PRIMARY KEY,
+  company_id UUID REFERENCES companies(id),
+  
+  transaction_date DATE NOT NULL,
+  transaction_time TIME,
+  
+  merchant_name VARCHAR(255),
+  amount DECIMAL(12,2),
+  
+  -- AI 자동 분류
+  category VARCHAR(50),          -- '재료비', '관리비', '월세' 등
+  ai_category VARCHAR(50),
+  confidence DECIMAL(3,2),       -- 0.00 ~ 1.00
+  
+  -- 수동 수정
+  user_category VARCHAR(50),
+  user_confirmed BOOLEAN DEFAULT false,
+  
+  note TEXT,
+  
+  source VARCHAR(50),            -- 'OPENBANKING', 'MANUAL'
+  source_data JSONB,
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  INDEX idx_expense_date (company_id, transaction_date DESC),
+  INDEX idx_expense_category (company_id, category)
+);
+
+-- 고정비
+CREATE TABLE fixed_costs (
+  id UUID PRIMARY KEY,
+  company_id UUID REFERENCES companies(id),
+  
+  cost_name VARCHAR(100),        -- '월세', '관리비' 등
+  amount DECIMAL(12,2),
+  
+  frequency VARCHAR(20),         -- 'MONTHLY', 'QUARTERLY', 'YEARLY'
+  payment_day INTEGER,           -- 5, 10, 15 등
+  
+  category VARCHAR(50),
+  
+  is_active BOOLEAN DEFAULT true,
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 손익계산서
+CREATE TABLE profit_loss_statements (
+  id UUID PRIMARY KEY,
+  company_id UUID REFERENCES companies(id),
+  
+  period_type VARCHAR(20),       -- 'MONTHLY', 'QUARTERLY', 'YEARLY'
+  period_start DATE,
+  period_end DATE,
+  
+  -- 매출
+  total_revenue DECIMAL(12,2),
+  revenue_by_source JSONB,
+  
+  -- 비용
+  total_expense DECIMAL(12,2),
+  expense_by_category JSONB,
+  
+  -- 인건비 (자동 연동)
+  payroll_expense DECIMAL(12,2),
+  
+  -- 순이익
+  net_profit DECIMAL(12,2),
+  profit_margin DECIMAL(5,2),   -- %
+  
+  -- 전월 비교
+  revenue_change DECIMAL(5,2),
+  expense_change DECIMAL(5,2),
+  profit_change DECIMAL(5,2),
+  
+  details JSONB,
+  
+  generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  UNIQUE(company_id, period_type, period_start)
+);
+```
+
+### 10.3 토스 POS API 연동
+
+```typescript
+// 토스 POS 연동 서비스
+interface TossPOSService {
+  // OAuth 인증
+  async connect(companyId: string, authCode: string): Promise<void> {
+    const tokens = await this.getAccessToken(authCode);
+    
+    await db.revenueSource.create({
+      companyId,
+      sourceType: 'TOSS_POS',
+      connectionData: {
+        accessToken: encrypt(tokens.accessToken),
+        refreshToken: encrypt(tokens.refreshToken),
+        expiresAt: tokens.expiresAt
+      }
+    });
+  }
+  
+  // 매출 데이터 동기화 (매시간 자동)
+  async syncSales(sourceId: string): Promise<void> {
+    const source = await db.revenueSource.findById(sourceId);
+    const lastSyncDate = source.lastSyncedAt || startOfMonth(new Date());
+    
+    // 토스 POS API 호출
+    const salesData = await this.fetchSalesFromToss(
+      source.connectionData,
+      lastSyncDate,
+      new Date()
+    );
+    
+    // 일별로 저장
+    for (const daySales of salesData.daily) {
+      await db.dailySales.upsert({
+        companyId: source.companyId,
+        revenueSourceId: sourceId,
+        salesDate: daySales.date,
+        totalAmount: daySales.totalAmount,
+        cardAmount: daySales.cardAmount,
+        cashAmount: daySales.cashAmount,
+        transactionCount: daySales.count,
+        details: {
+          hourly: daySales.hourlyBreakdown,
+          items: daySales.itemBreakdown
+        }
+      });
+    }
+    
+    // 마지막 동기화 시간 업데이트
+    await db.revenueSource.update(sourceId, {
+      lastSyncedAt: new Date()
+    });
+  }
+}
+
+// 크론 잡 설정
+cron.schedule('0 * * * *', async () => {
+  // 매시간 토스 POS 동기화
+  const sources = await db.revenueSource
+    .where('sourceType', '==', 'TOSS_POS')
+    .where('isActive', '==', true)
+    .get();
+  
+  for (const source of sources) {
+    await TossPOSService.syncSales(source.id);
+  }
+});
+```
+
+### 10.4 오픈뱅킹 API 연동
+
+```typescript
+// 오픈뱅킹 연동 서비스
+interface OpenBankingService {
+  // 계좌 연결
+  async connect(companyId: string, authCode: string): Promise<void> {
+    const tokens = await this.getAccessToken(authCode);
+    
+    // 계좌 목록 가져오기
+    const accounts = await this.fetchAccounts(tokens.accessToken);
+    
+    for (const account of accounts) {
+      await db.bankAccount.create({
+        companyId,
+        bankName: account.bankName,
+        accountNumber: encrypt(account.accountNumber),
+        accountType: account.type,
+        connectionData: {
+          accessToken: encrypt(tokens.accessToken),
+          refreshToken: encrypt(tokens.refreshToken)
+        }
+      });
+    }
+  }
+  
+  // 거래 내역 동기화 (매일 새벽 2시)
+  async syncTransactions(accountId: string): Promise<void> {
+    const account = await db.bankAccount.findById(accountId);
+    const lastSyncDate = account.lastSyncedAt || subDays(new Date(), 30);
+    
+    // 오픈뱅킹 API 호출
+    const transactions = await this.fetchTransactions(
+      account.connectionData,
+      account.accountNumber,
+      lastSyncDate,
+      new Date()
+    );
+    
+    // AI 자동 분류 및 저장
+    for (const tx of transactions) {
+      if (tx.type === 'OUT') {  // 출금만
+        const category = await this.classifyTransaction(tx);
+        
+        await db.expenseTransaction.create({
+          companyId: account.companyId,
+          transactionDate: tx.date,
+          transactionTime: tx.time,
+          merchantName: tx.name,
+          amount: tx.amount,
+          aiCategory: category.category,
+          confidence: category.confidence,
+          source: 'OPENBANKING',
+          sourceData: tx
+        });
+      }
+    }
+  }
+  
+  // AI 자동 분류
+  async classifyTransaction(tx: Transaction): Promise<Classification> {
+    const prompt = `
+      다음 거래를 분류해주세요:
+      
+      거래처: ${tx.name}
+      금액: ${tx.amount}원
+      
+      카테고리: 재료비, 인건비, 관리비, 월세, 기타 중 하나
+      확신도: 0.0 ~ 1.0
+      
+      응답 형식:
+      {
+        "category": "재료비",
+        "confidence": 0.95,
+        "reason": "농수산물 거래"
+      }
+    `;
+    
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4-turbo',
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' }
+    });
+    
+    return JSON.parse(response.choices[0].message.content);
+  }
+}
+
+// 크론 잡
+cron.schedule('0 2 * * *', async () => {
+  // 매일 새벽 2시 거래 내역 동기화
+  const accounts = await db.bankAccount
+    .where('isActive', '==', true)
+    .get();
+  
+  for (const account of accounts) {
+    await OpenBankingService.syncTransactions(account.id);
+  }
+});
+```
+
+### 10.5 손익계산서 자동 생성
+
+```typescript
+// 손익계산서 생성 서비스
+interface ProfitLossService {
+  async generate(
+    companyId: string,
+    periodType: 'MONTHLY' | 'QUARTERLY' | 'YEARLY',
+    date: Date
+  ): Promise<ProfitLossStatement> {
+    const { start, end } = this.getPeriod(periodType, date);
+    
+    // 1. 매출 집계
+    const revenue = await db.dailySales.aggregate({
+      where: {
+        companyId,
+        salesDate: { gte: start, lte: end }
+      },
+      _sum: {
+        totalAmount: true,
+        cardAmount: true,
+        cashAmount: true
+      }
+    });
+    
+    // 2. 비용 집계
+    const expenses = await db.expenseTransaction.aggregate({
+      where: {
+        companyId,
+        transactionDate: { gte: start, lte: end }
+      },
+      _sum: { amount: true },
+      _groupBy: ['category']
+    });
+    
+    // 3. 인건비 집계 (급여 데이터에서 자동)
+    const payroll = await db.salaries.aggregate({
+      where: {
+        companyId,
+        paymentDate: { gte: start, lte: end }
+      },
+      _sum: { finalAmount: true }
+    });
+    
+    // 4. 고정비 추가
+    const fixedCosts = await db.fixedCosts
+      .where('companyId', '==', companyId)
+      .where('isActive', '==', true)
+      .get();
+    
+    const fixedCostTotal = fixedCosts.reduce((sum, cost) => {
+      return sum + this.calculateForPeriod(cost, periodType);
+    }, 0);
+    
+    // 5. 손익계산서 생성
+    const totalRevenue = revenue._sum.totalAmount || 0;
+    const totalExpense = (
+      expenses._sum.amount + 
+      payroll._sum.finalAmount + 
+      fixedCostTotal
+    );
+    const netProfit = totalRevenue - totalExpense;
+    
+    // 6. 전월 비교
+    const previousPeriod = this.getPreviousPeriod(periodType, date);
+    const prevStatement = await db.profitLossStatement
+      .where('companyId', '==', companyId)
+      .where('periodStart', '==', previousPeriod.start)
+      .first();
+    
+    const revenueChange = prevStatement
+      ? ((totalRevenue - prevStatement.totalRevenue) / prevStatement.totalRevenue) * 100
+      : 0;
+    
+    // 7. 저장
+    const statement = await db.profitLossStatement.create({
+      companyId,
+      periodType,
+      periodStart: start,
+      periodEnd: end,
+      totalRevenue,
+      totalExpense,
+      payrollExpense: payroll._sum.finalAmount,
+      netProfit,
+      profitMargin: (netProfit / totalRevenue) * 100,
+      revenueChange,
+      expenseByCategory: expenses._groupBy,
+      details: {
+        revenueBySource: revenue,
+        fixedCosts: fixedCostTotal
+      }
+    });
+    
+    return statement;
+  }
+}
+
+// 크론 잡 - 매월 1일 자동 생성
+cron.schedule('0 3 1 * *', async () => {
+  const companies = await db.company
+    .where('subscription.plan', '==', 'PRO')
+    .where('subscription.status', '==', 'ACTIVE')
+    .get();
+  
+  for (const company of companies) {
+    await ProfitLossService.generate(
+      company.id,
+      'MONTHLY',
+      subMonths(new Date(), 1)
+    );
+  }
+});
+```
+
+### 10.6 화면 설계
+
+#### PRO 플랜 대시보드
+
+```tsx
+function ProDashboard() {
+  return (
+    <Layout>
+      <Tabs>
+        <Tab label="직원 관리" />
+        <Tab label="경영 현황" active />
+      </Tabs>
+      
+      {/* 경영 현황 탭 */}
+      <BusinessDashboard>
+        {/* 오늘 매출 (토스 POS) */}
+        <SalesCard>
+          <h2>오늘 매출</h2>
+          <BigNumber>1,250,000원</BigNumber>
+          <Breakdown>
+            카드: 980,000원 (78%)
+            현금: 270,000원 (22%)
+          </Breakdown>
+          <LastSync>5분 전 동기화</LastSync>
+        </SalesCard>
+        
+        {/* 이번 달 손익 */}
+        <ProfitCard>
+          <h2>이번 달 손익</h2>
+          <Row>
+            <Metric>
+              <Label>매출</Label>
+              <Value>23,700,000원</Value>
+              <Change color="green">+12.5%</Change>
+            </Metric>
+            <Metric>
+              <Label>비용</Label>
+              <Value>19,000,000원</Value>
+              <Change color="green">-3.2%</Change>
+            </Metric>
+            <Metric highlighted>
+              <Label>순이익</Label>
+              <Value>4,700,000원</Value>
+              <Change color="green">+24.8%</Change>
+            </Metric>
+          </Row>
+        </ProfitCard>
+        
+        {/* 비용 구조 */}
+        <CostBreakdown>
+          <h3>비용 구조</h3>
+          <PieChart data={expenseByCategory} />
+          
+          <Alert severity="warning">
+            인건비 비율이 44.7%로 업계 평균보다 높아요.
+            스케줄 최적화로 15% 절감 가능합니다.
+          </Alert>
+        </CostBreakdown>
+        
+        {/* 추이 차트 */}
+        <TrendChart>
+          <h3>최근 6개월 추이</h3>
+          <LineChart data={monthly} />
+        </TrendChart>
+      </BusinessDashboard>
+    </Layout>
+  );
+}
+```
+
+### 10.7 개발 계획
+
+```
+Phase 2 (6주) - 경영 관리 모듈
+
+Week 1-2: 데이터베이스 & 인프라
+✅ DB 스키마 추가
+✅ 토스 POS OAuth 설정
+✅ 오픈뱅킹 OAuth 설정
+✅ 크론 잡 설정
+
+Week 3-4: 토스 POS 연동
+✅ API 연동
+✅ 매출 자동 수집
+✅ 대시보드 UI
+✅ 실시간 동기화
+
+Week 5: 오픈뱅킹 연동
+✅ API 연동
+✅ 거래 내역 수집
+✅ AI 자동 분류
+✅ 수동 수정 UI
+
+Week 6: 손익계산서
+✅ 자동 생성 로직
+✅ 리포트 UI
+✅ PDF 다운로드
+✅ 개선 제안 (AI)
+```
+
+---
+
 **문서 끝**
 
 > 💡 **다음 단계**: 
-> 1. Supabase 프로젝트 생성
-> 2. 데이터베이스 스키마 적용
-> 3. Next.js 프로젝트 초기화
-> 4. 계약서 작성 UI부터 시작!
+> 1. Phase 1: MVP 개발 (직원 관리)
+> 2. Phase 2: 경영 관리 모듈 (PRO 플랜)
+> 3. Phase 3: HACCP 애드온
+> 
+> **참고 문서**:
+> - `PRICING_AND_BUSINESS_FEATURES.md` - 요금제 상세
+> - `CLAUDE_CODE_GUIDE.md` - 개발 가이드
+> - `HACCP_DEV_GUIDE.md` - HACCP 개발 가이드
