@@ -1,9 +1,6 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
-
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
   title: 'ABC Staff - 관리자 대시보드',
@@ -17,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko" suppressHydrationWarning>
-      <body className={inter.variable}>
+      <body className="font-sans antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>
