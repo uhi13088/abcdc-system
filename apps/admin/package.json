@@ -12,6 +12,7 @@
   "dependencies": {
     "@abc/database": "workspace:*",
     "@abc/shared": "workspace:*",
+    "@hookform/resolvers": "^5.2.2",
     "@supabase/auth-helpers-nextjs": "^0.9.0",
     "@supabase/ssr": "^0.1.0",
     "@supabase/supabase-js": "^2.39.0",
