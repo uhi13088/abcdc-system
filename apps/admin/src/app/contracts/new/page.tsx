@@ -102,7 +102,7 @@ export default function NewContractPage() {
         transportAllowance: 0,
       },
       paymentDate: 25,
-      paymentMethod: '계좌이체' as const,
+      paymentMethod: '계좌이체' as '계좌이체' | '현금' | '혼합',
     },
     deductionConfig: {
       nationalPension: true,

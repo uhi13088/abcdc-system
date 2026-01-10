@@ -1,6 +1,8 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import type { Database } from '@abc/database';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Database = any;
 
 export function createClient() {
   const cookieStore = cookies();

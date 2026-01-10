@@ -43,20 +43,12 @@ export async function POST(
       return NextResponse.json({ error: '승인 요청을 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    const approvalData = approval as {
-      final_status: string;
-      current_step: number;
-      approval_line: unknown;
-      requester_id: string;
-      type: string;
-    };
-
-    if (approvalData.final_status !== 'PENDING') {
+    if (approval.final_status !== 'PENDING') {
       return NextResponse.json({ error: '이미 처리된 요청입니다.' }, { status: 400 });
     }
 
     // Update approval line
-    const approvalLine = approvalData.approval_line as Array<{
+    const approvalLine = approval.approval_line as Array<{
       order: number;
       approverId: string;
       approverName: string;
@@ -66,7 +58,7 @@ export async function POST(
       decidedAt?: string;
     }>;
 
-    const currentStep = approvalData.current_step;
+    const currentStep = approval.current_step;
     const currentApprover = approvalLine.find((a) => a.order === currentStep);
 
     if (!currentApprover || currentApprover.approverId !== userData.id) {
@@ -108,11 +100,11 @@ export async function POST(
     // Create notification for requester if finalized
     if (finalStatus !== 'PENDING') {
       await supabase.from('notifications').insert({
-        user_id: approvalData.requester_id,
+        user_id: approval.requester_id,
         category: 'APPROVAL',
         priority: 'HIGH',
         title: finalStatus === 'APPROVED' ? '승인 완료' : '승인 거부',
-        body: `${approvalData.type} 요청이 ${finalStatus === 'APPROVED' ? '승인' : '거부'}되었습니다.`,
+        body: `${approval.type} 요청이 ${finalStatus === 'APPROVED' ? '승인' : '거부'}되었습니다.`,
         deep_link: `/approvals/${approvalId}`,
       });
     }

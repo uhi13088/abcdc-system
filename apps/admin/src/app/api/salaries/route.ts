@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
 
     const results = [];
 
-    for (const [staffId, records] of Object.entries(staffAttendances)) {
+    for (const [staffId, records] of Object.entries(staffAttendances) as [string, typeof attendances][]) {
       // Calculate totals
       const totals = records.reduce(
         (sum, r) => ({

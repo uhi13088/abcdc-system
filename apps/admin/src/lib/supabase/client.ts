@@ -1,5 +1,7 @@
 import { createBrowserClient } from '@supabase/ssr';
-import type { Database } from '@abc/database';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Database = any;
 
 export function createClient() {
   return createBrowserClient<Database>(

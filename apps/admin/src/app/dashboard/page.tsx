@@ -59,27 +59,34 @@ async function getStats() {
 export default async function DashboardPage() {
   const stats = await getStats();
 
-  const cards = [
+  const cards: Array<{
+    title: string;
+    value: number | string;
+    icon: typeof Users;
+    change: string;
+    changeType: 'increase' | 'decrease' | 'neutral' | 'warning';
+    prefix?: string;
+  }> = [
     {
       title: '전체 직원',
       value: stats?.employeeCount || 0,
       icon: Users,
       change: '+3',
-      changeType: 'increase' as const,
+      changeType: 'increase',
     },
     {
       title: '오늘 출근',
       value: stats?.checkedInCount || 0,
       icon: Clock,
       change: `${stats?.employeeCount ? Math.round((stats.checkedInCount / stats.employeeCount) * 100) : 0}%`,
-      changeType: 'neutral' as const,
+      changeType: 'neutral',
     },
     {
       title: '이번 달 예상 급여',
       value: '12,500,000',
       icon: DollarSign,
       change: '+5.2%',
-      changeType: 'increase' as const,
+      changeType: 'increase',
       prefix: '₩',
     },
     {
@@ -87,7 +94,7 @@ export default async function DashboardPage() {
       value: stats?.pendingApprovals || 0,
       icon: CheckSquare,
       change: '처리 필요',
-      changeType: 'warning' as const,
+      changeType: 'warning',
     },
   ];
 
