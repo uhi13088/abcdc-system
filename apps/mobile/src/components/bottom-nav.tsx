@@ -2,14 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Clock, Calendar, Bell, User, PlusCircle } from 'lucide-react';
+import { Home, Clock, Calendar, Wallet, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { name: '홈', href: '/home', icon: Home },
   { name: '출퇴근', href: '/attendance', icon: Clock },
   { name: '스케줄', href: '/schedule', icon: Calendar },
-  { name: '공지', href: '/notices', icon: Bell },
+  { name: '급여', href: '/salary', icon: Wallet },
   { name: '내 정보', href: '/profile', icon: User },
 ];
 
