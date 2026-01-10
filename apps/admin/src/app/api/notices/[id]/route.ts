@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 
 // GET /api/notices/[id] - 공지사항 상세 조회
 export async function GET(

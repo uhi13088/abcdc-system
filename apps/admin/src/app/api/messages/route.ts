@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 
 // POST /api/messages - 메시지 보내기
 export async function POST(request: NextRequest) {

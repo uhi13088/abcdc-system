@@ -1,92 +1,90 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 
-// GET /api/notices - 공지사항 목록 조회
+// GET /api/haccp/pest-control
 export async function GET(request: NextRequest) {
   try {
     const supabase = createServerClient();
     const { searchParams } = new URL(request.url);
-    const category = searchParams.get('category');
+    const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
 
-    let query = supabase
-      .from('notices')
-      .select(`
-        *,
-        users:created_by (name)
-      `)
-      .order('is_pinned', { ascending: false })
-      .order('created_at', { ascending: false });
-
-    if (category) {
-      query = query.eq('category', category);
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data, error } = await query;
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('auth_id', userData.user.id)
+      .single();
+
+    if (!userProfile?.company_id) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+    }
+
+    const { data, error } = await supabase
+      .from('pest_control_checks')
+      .select(`
+        *,
+        checked_by_user:checked_by (name),
+        verified_by_user:verified_by (name)
+      `)
+      .eq('company_id', userProfile.company_id)
+      .eq('check_date', date)
+      .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching notices:', error);
+      console.error('Error fetching pest control checks:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const notices = data?.map((notice: any) => ({
-      ...notice,
-      author_name: notice.users?.name,
-    })) || [];
+    const result = (data || []).map((c: any) => ({
+      ...c,
+      checked_by_name: c.checked_by_user?.name,
+      verified_by_name: c.verified_by_user?.name,
+    }));
 
-    return NextResponse.json(notices);
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// POST /api/notices - 공지사항 생성
+// POST /api/haccp/pest-control
 export async function POST(request: NextRequest) {
   try {
     const supabase = createServerClient();
     const body = await request.json();
 
-    const { title, content, category = 'GENERAL', is_pinned = false } = body;
-
-    // Get user info
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user profile
     const { data: userProfile } = await supabase
       .from('users')
-      .select('id, company_id, role')
+      .select('id, company_id')
       .eq('auth_id', userData.user.id)
       .single();
 
-    if (!userProfile) {
-      return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
-    }
-
-    // Authorization check
-    const allowedRoles = ['super_admin', 'company_admin', 'manager'];
-    if (!allowedRoles.includes(userProfile.role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    if (!userProfile?.company_id) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
     const { data, error } = await supabase
-      .from('notices')
+      .from('pest_control_checks')
       .insert({
-        title,
-        content,
-        category,
-        is_pinned,
-        view_count: 0,
         company_id: userProfile.company_id,
-        created_by: userProfile.id,
+        checked_by: userProfile.id,
+        ...body,
       })
       .select()
       .single();
 
     if (error) {
-      console.error('Error creating notice:', error);
+      console.error('Error creating pest control check:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 

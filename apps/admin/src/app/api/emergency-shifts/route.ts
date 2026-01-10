@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 
 // GET /api/emergency-shifts - 긴급 근무 목록 조회
 export async function GET(request: NextRequest) {

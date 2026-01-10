@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 
 // GET /api/messages/sent - 보낸 메시지 목록
 export async function GET(request: NextRequest) {

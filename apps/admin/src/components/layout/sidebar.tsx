@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Bell,
   MessageSquare,
+  ShieldCheck,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -32,6 +33,7 @@ const navigation = [
   { name: '긴급 근무', href: '/emergency', icon: AlertTriangle },
   { name: '공지사항', href: '/notices', icon: Bell },
   { name: '메시지', href: '/messages', icon: MessageSquare },
+  { name: 'HACCP', href: '/haccp', icon: ShieldCheck },
   { name: '매장 관리', href: '/stores', icon: Building2 },
   { name: '설정', href: '/settings', icon: Settings },
 ];
