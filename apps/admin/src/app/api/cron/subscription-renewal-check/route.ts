@@ -131,7 +131,7 @@ export async function GET() {
           await supabase.from('notifications').insert({
             user_id: admin.id,
             category: 'BILLING',
-            priority: 'CRITICAL',
+            priority: 'HIGH',
             title: '구독 만료',
             body: '구독이 만료되어 무료 플랜으로 변경되었습니다.',
             deep_link: '/settings/subscription',

@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { ExcelGenerator, PayrollReportData } from '@abc/shared';
+import { ExcelGenerator, PayrollReportData } from '@abc/shared/server';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
     const fileName = `급여대장_${company.name}_${year}년${month}월.xlsx`;
     const encodedFileName = encodeURIComponent(fileName);
 
-    return new NextResponse(excel, {
+    return new NextResponse(new Uint8Array(excel), {
       headers: {
         'Content-Type':
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
 
     if (taxAccountant.transmission_method === 'EMAIL' && taxAccountant.email) {
       // 이메일로 전송
-      const { emailService } = await import('@abc/shared');
+      const { emailService } = await import('@abc/shared/server');
 
       // 회사 정보 조회
       const { data: company } = await supabase

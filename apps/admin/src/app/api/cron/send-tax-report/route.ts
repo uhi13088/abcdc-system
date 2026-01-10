@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { ExcelGenerator, emailService, PayrollReportData } from '@abc/shared';
+import { ExcelGenerator, emailService, PayrollReportData } from '@abc/shared/server';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',

@@ -5,6 +5,7 @@
 
 import PDFDocument from 'pdfkit';
 import { Salary, Contract, LaborLawVersion } from '../types/entities';
+import { SalaryType } from '../types/enums';
 
 // 한글 폰트 경로 (프로젝트에 맞게 조정 필요)
 const KOREAN_FONT_PATH = process.env.KOREAN_FONT_PATH || '/fonts/NotoSansKR-Regular.otf';
@@ -147,15 +148,17 @@ export class PDFGenerator {
         ];
 
         earnings.forEach(([label, amount]) => {
-          if (amount && amount > 0) {
-            doc.text(`${label}: ${this.formatCurrency(amount as number)}`, { indent: 20 });
+          const numAmount = typeof amount === 'number' ? amount : 0;
+          if (numAmount > 0) {
+            doc.text(`${label}: ${this.formatCurrency(numAmount)}`, { indent: 20 });
           }
         });
 
         if (salary.otherAllowances) {
           Object.entries(salary.otherAllowances).forEach(([key, value]) => {
-            if (value && value > 0) {
-              doc.text(`${key}: ${this.formatCurrency(value)}`, { indent: 20 });
+            const numValue = typeof value === 'number' ? value : 0;
+            if (numValue > 0) {
+              doc.text(`${key}: ${this.formatCurrency(numValue)}`, { indent: 20 });
             }
           });
         }
@@ -179,15 +182,17 @@ export class PDFGenerator {
         ];
 
         deductions.forEach(([label, amount]) => {
-          if (amount && amount > 0) {
-            doc.text(`${label}: ${this.formatCurrency(amount as number)}`, { indent: 20 });
+          const numAmount = typeof amount === 'number' ? amount : 0;
+          if (numAmount > 0) {
+            doc.text(`${label}: ${this.formatCurrency(numAmount)}`, { indent: 20 });
           }
         });
 
         if (salary.otherDeductions) {
           Object.entries(salary.otherDeductions).forEach(([key, value]) => {
-            if (value && value > 0) {
-              doc.text(`${key}: ${this.formatCurrency(value)}`, { indent: 20 });
+            const numValue = typeof value === 'number' ? value : 0;
+            if (numValue > 0) {
+              doc.text(`${key}: ${this.formatCurrency(numValue)}`, { indent: 20 });
             }
           });
         }
@@ -291,8 +296,8 @@ export class PDFGenerator {
         // 제4조 임금
         doc.fontSize(14).text('제4조 【임금】');
         doc.fontSize(11);
-        const salaryType = contract.salaryConfig.baseSalaryType === 'HOURLY' ? '시급' :
-                           contract.salaryConfig.baseSalaryType === 'DAILY' ? '일급' : '월급';
+        const salaryType = contract.salaryConfig.baseSalaryType === SalaryType.HOURLY ? '시급' :
+                           contract.salaryConfig.baseSalaryType === SalaryType.DAILY ? '일급' : '월급';
         doc.text(`급여 형태: ${salaryType}`);
         doc.text(`기본급: ${this.formatCurrency(contract.salaryConfig.baseSalaryAmount)}`);
         doc.text(`급여 지급일: 매월 ${contract.salaryConfig.paymentDate}일`);

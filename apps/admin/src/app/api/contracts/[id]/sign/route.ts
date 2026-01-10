@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { pushNotificationService } from '@abc/shared';
+import { pushNotificationService } from '@abc/shared/server';
 import { ContractPDFService } from '@/lib/services/contract-pdf.service';
 
 const supabase = createClient(

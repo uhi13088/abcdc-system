@@ -4,7 +4,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { PDFGenerator, ContractPDFData } from '@abc/shared';
+import { PDFGenerator, ContractPDFData } from '@abc/shared/server';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',

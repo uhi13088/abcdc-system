@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { PDFGenerator } from '@abc/shared';
+import { PDFGenerator } from '@abc/shared/server';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -87,7 +87,7 @@ export async function GET(
     const fileName = `급여명세서_${salary.year}년${salary.month}월_${salary.staff?.name || 'unknown'}.pdf`;
     const encodedFileName = encodeURIComponent(fileName);
 
-    return new NextResponse(pdf, {
+    return new NextResponse(new Uint8Array(pdf), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${encodedFileName}"; filename*=UTF-8''${encodedFileName}`,

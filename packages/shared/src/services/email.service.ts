@@ -318,21 +318,22 @@ export class EmailService {
    */
   async send(options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
-      const { data, error } = await this.resend.emails.send({
+      const emailPayload: Parameters<typeof this.resend.emails.send>[0] = {
         from: `${this.fromName} <${this.fromEmail}>`,
         to: Array.isArray(options.to) ? options.to : [options.to],
         subject: options.subject,
-        html: options.html,
+        html: options.html || '',
         text: options.text,
         attachments: options.attachments?.map(a => ({
           filename: a.filename,
           content: a.content,
         })),
-        reply_to: options.replyTo,
+        replyTo: options.replyTo,
         cc: options.cc,
         bcc: options.bcc,
         tags: options.tags,
-      });
+      };
+      const { data, error } = await this.resend.emails.send(emailPayload);
 
       if (error) {
         console.error('Email send error:', error);

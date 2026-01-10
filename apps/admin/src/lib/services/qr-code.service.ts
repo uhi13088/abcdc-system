@@ -69,7 +69,7 @@ export class QRCodeService {
       nonce,
     };
 
-    const token = jwt.sign(payload, QR_SECRET, { expiresIn });
+    const token = jwt.sign(payload, QR_SECRET, { expiresIn } as jwt.SignOptions);
 
     // QR 코드 데이터 URL 생성
     const qrContent = `${APP_SCHEME}://checkin/${token}`;

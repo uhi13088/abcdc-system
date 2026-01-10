@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
-import { pushNotificationService } from '@abc/shared';
+import { pushNotificationService } from '@abc/shared/server';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -279,7 +279,7 @@ async function processEscalations(): Promise<{ escalated: number }> {
       await supabase.from('notifications').insert({
         user_id: admin.id,
         category: 'HACCP',
-        priority: 'CRITICAL',
+        priority: 'HIGH',
         title: '점검 미완료 에스컬레이션',
         body: `${check.check_type} 점검이 2시간 이상 지연되고 있습니다.`,
         deep_link: '/haccp/pending-checks',
@@ -299,7 +299,7 @@ async function processEscalations(): Promise<{ escalated: number }> {
           title: '긴급: 점검 미완료',
           body: `${check.check_type} 점검 지연`,
           category: 'HACCP',
-          priority: 'CRITICAL',
+          priority: 'HIGH',
         });
       } catch (e) {
         console.error('Push notification failed:', e);

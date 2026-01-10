@@ -4,5 +4,4 @@ export * from './types';
 // Utility functions
 export * from './utils';
 
-// Services
-export * from './services';
+// Note: Server-only services are available via '@abc/shared/server'

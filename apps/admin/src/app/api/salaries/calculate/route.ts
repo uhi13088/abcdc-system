@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
             year,
             month
           );
-          calculations.push({ staffId: id, ...calculation });
+          calculations.push({ ...calculation, staffId: id });
 
           // 저장
           await supabase.from('salaries').upsert(

@@ -4,7 +4,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { pushNotificationService } from '@abc/shared';
+import { pushNotificationService } from '@abc/shared/server';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -211,7 +211,7 @@ export class IoTSensorService {
       await supabase.from('notifications').insert({
         user_id: user.id,
         category: 'HACCP',
-        priority: 'CRITICAL',
+        priority: 'HIGH',
         title: 'CCP 한계 초과 경고',
         body: `${sensor.location || sensor.sensor_name}: ${ccpName} ${value}${unit} ${limitText}`,
         deep_link: `/haccp/ccp/${sensor.ccp_definition_id}`,
@@ -232,7 +232,7 @@ export class IoTSensorService {
           title: 'CCP 한계 초과 경고',
           body: `${sensor.location}: ${value}${unit}`,
           category: 'HACCP',
-          priority: 'CRITICAL',
+          priority: 'HIGH',
         });
       } catch (e) {
         console.error('Push notification failed:', e);

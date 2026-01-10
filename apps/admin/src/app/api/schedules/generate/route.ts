@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: bulkResult.success > 0,
         total: bulkResult.total,
-        success: bulkResult.success,
+        successCount: bulkResult.success,
         failed: bulkResult.failed,
         results: bulkResult.results,
         message: `총 ${bulkResult.total}명 중 ${bulkResult.success}명의 스케줄이 생성되었습니다.`,

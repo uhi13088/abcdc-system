@@ -1,7 +1,7 @@
 /**
  * Cron: IoT Sensor Health Check
  * 5분마다 실행되어 센서 상태 체크 및 오프라인 알림
- * Schedule: */5 * * * *
+ * Schedule: every 5 minutes
  */
 
 import { NextResponse } from 'next/server';
