@@ -241,7 +241,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Vercel Cron 설정
-export const config = {
-  maxDuration: 60, // 최대 60초
-};
+// Vercel Cron 설정 - Route Segment Config
+export const maxDuration = 60; // 최대 60초
+export const dynamic = 'force-dynamic';
