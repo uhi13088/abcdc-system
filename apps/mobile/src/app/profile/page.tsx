@@ -98,6 +98,7 @@ export default function ProfilePage() {
           {menuItems.map((item, index) => (
             <button
               key={item.label}
+              onClick={() => router.push(item.href)}
               className={`w-full flex items-center justify-between p-4 ${
                 index !== menuItems.length - 1 ? 'border-b border-gray-100' : ''
               }`}
