@@ -98,6 +98,13 @@ export default function LoginPage() {
     alert('로그인 기록이 삭제되었습니다.');
   };
 
+  const enterDemoMode = () => {
+    // Set demo mode cookie (expires in 24 hours)
+    document.cookie = 'demo_mode=true; path=/; max-age=86400';
+    router.push('/dashboard');
+    router.refresh();
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -207,10 +214,18 @@ export default function LoginPage() {
 
           <button
             type="button"
-            onClick={() => setShowDemoAccounts(!showDemoAccounts)}
-            className="mt-4 w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            onClick={enterDemoMode}
+            className="mt-4 w-full flex justify-center py-3 px-4 border-2 border-primary rounded-md shadow-sm text-sm font-bold text-primary bg-primary/5 hover:bg-primary/10 transition-colors"
           >
-            {showDemoAccounts ? '닫기' : '데모 계정으로 로그인'}
+            🚀 데모 모드로 바로 입장
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowDemoAccounts(!showDemoAccounts)}
+            className="mt-2 w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+          >
+            {showDemoAccounts ? '닫기' : '데모 계정 보기'}
           </button>
 
           {showDemoAccounts && (

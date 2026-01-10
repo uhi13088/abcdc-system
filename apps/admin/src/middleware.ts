@@ -8,6 +8,16 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  // Check for demo mode cookie - allows testing without Supabase
+  const demoMode = request.cookies.get('demo_mode')?.value;
+  if (demoMode === 'true') {
+    // In demo mode, allow access to all pages except redirect from auth
+    if (request.nextUrl.pathname.startsWith('/auth')) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    return response;
+  }
+
   // Check if Supabase environment variables are configured
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
