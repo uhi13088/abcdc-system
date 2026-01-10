@@ -12,6 +12,10 @@ import {
   Building2,
   Settings,
   LogOut,
+  Clock,
+  AlertTriangle,
+  Bell,
+  MessageSquare,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -20,10 +24,14 @@ import { cn } from '@/lib/utils';
 const navigation = [
   { name: '대시보드', href: '/dashboard', icon: LayoutDashboard },
   { name: '직원 관리', href: '/employees', icon: Users },
+  { name: '출퇴근', href: '/attendance', icon: Clock },
   { name: '스케줄', href: '/schedules', icon: Calendar },
   { name: '급여 관리', href: '/salaries', icon: DollarSign },
   { name: '계약서', href: '/contracts', icon: FileText },
   { name: '승인 관리', href: '/approvals', icon: CheckSquare },
+  { name: '긴급 근무', href: '/emergency', icon: AlertTriangle },
+  { name: '공지사항', href: '/notices', icon: Bell },
+  { name: '메시지', href: '/messages', icon: MessageSquare },
   { name: '매장 관리', href: '/stores', icon: Building2 },
   { name: '설정', href: '/settings', icon: Settings },
 ];
