@@ -1,16 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { LoginSchema, type LoginInput } from '@abc/shared';
+import { LoginSchema } from '@abc/shared';
+
+// Demo accounts for testing
+const DEMO_ACCOUNTS = [
+  { email: 'admin@demo.com', password: 'demo1234', role: '관리자' },
+  { email: 'manager@demo.com', password: 'demo1234', role: '매장관리자' },
+  { email: 'staff@demo.com', password: 'demo1234', role: '직원' },
+];
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showDemoAccounts, setShowDemoAccounts] = useState(false);
+
+  // Load saved email on mount
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('rememberedEmail');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +42,13 @@ export default function LoginPage() {
         setError(validation.error.errors[0].message);
         setLoading(false);
         return;
+      }
+
+      // Save or remove email based on remember me
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', email);
+      } else {
+        localStorage.removeItem('rememberedEmail');
       }
 
       const supabase = createClient();
@@ -42,12 +67,35 @@ export default function LoginPage() {
         return;
       }
 
+      // Save login history
+      const loginHistory = JSON.parse(localStorage.getItem('loginHistory') || '[]');
+      loginHistory.unshift({
+        email,
+        timestamp: new Date().toISOString(),
+      });
+      // Keep only last 10 entries
+      localStorage.setItem('loginHistory', JSON.stringify(loginHistory.slice(0, 10)));
+
       router.push('/dashboard');
       router.refresh();
     } catch (err) {
       setError('로그인 중 오류가 발생했습니다.');
       setLoading(false);
     }
+  };
+
+  const handleDemoLogin = (account: typeof DEMO_ACCOUNTS[0]) => {
+    setEmail(account.email);
+    setPassword(account.password);
+    setShowDemoAccounts(false);
+  };
+
+  const clearLoginHistory = () => {
+    localStorage.removeItem('loginHistory');
+    localStorage.removeItem('rememberedEmail');
+    setEmail('');
+    setRememberMe(false);
+    alert('로그인 기록이 삭제되었습니다.');
   };
 
   return (
@@ -111,6 +159,30 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {/* Remember Me & Clear History */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                이메일 기억하기
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={clearLoginHistory}
+              className="text-sm text-gray-500 hover:text-gray-700 underline"
+            >
+              로그인 기록 삭제
+            </button>
+          </div>
+
           <div>
             <button
               type="submit"
@@ -121,6 +193,50 @@ export default function LoginPage() {
             </button>
           </div>
         </form>
+
+        {/* Demo Account Section */}
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-gray-50 text-gray-500">테스트용</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowDemoAccounts(!showDemoAccounts)}
+            className="mt-4 w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+          >
+            {showDemoAccounts ? '닫기' : '데모 계정으로 로그인'}
+          </button>
+
+          {showDemoAccounts && (
+            <div className="mt-3 space-y-2">
+              {DEMO_ACCOUNTS.map((account) => (
+                <button
+                  key={account.email}
+                  type="button"
+                  onClick={() => handleDemoLogin(account)}
+                  className="w-full flex items-center justify-between px-4 py-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-gray-900">{account.email}</p>
+                    <p className="text-xs text-gray-500">비밀번호: {account.password}</p>
+                  </div>
+                  <span className="px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded">
+                    {account.role}
+                  </span>
+                </button>
+              ))}
+              <p className="text-xs text-center text-gray-400 mt-2">
+                * Supabase에 해당 계정이 등록되어 있어야 합니다
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
