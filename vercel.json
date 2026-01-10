@@ -1,0 +1,6 @@
+{
+  "buildCommand": "cd apps/admin && next build",
+  "installCommand": "pnpm install",
+  "outputDirectory": "apps/admin/.next",
+  "framework": null
+}
