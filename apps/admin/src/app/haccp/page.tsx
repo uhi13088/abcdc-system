@@ -97,6 +97,13 @@ const haccpModules = [
     icon: Boxes,
     color: 'bg-pink-500',
   },
+  {
+    title: '반제품',
+    description: '중간제품 생산 관리',
+    href: '/haccp/semi-products',
+    icon: Package,
+    color: 'bg-lime-500',
+  },
 ];
 
 export default function HACCPDashboard() {

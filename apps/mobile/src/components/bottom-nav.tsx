@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Clock, Calendar, Bell, User } from 'lucide-react';
+import { Home, Clock, Calendar, Bell, User, PlusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [

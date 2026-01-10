@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, Calendar, Bell, ChevronRight } from 'lucide-react';
+import { Clock, Calendar, Bell, ChevronRight, FileText, Send } from 'lucide-react';
+import Link from 'next/link';
 import { BottomNav } from '@/components/bottom-nav';
 import { formatTime, formatDate } from '@/lib/utils';
 
@@ -71,6 +72,24 @@ export default function HomePage() {
               출근 시간: 09:02
             </p>
           )}
+
+          {/* Quick Request Buttons */}
+          <div className="flex gap-2 mt-3">
+            <Link
+              href="/request"
+              className="flex-1 py-3 bg-gray-100 rounded-xl text-center font-medium text-gray-700 flex items-center justify-center gap-2"
+            >
+              <FileText className="w-4 h-4" />
+              휴가신청
+            </Link>
+            <Link
+              href="/request"
+              className="flex-1 py-3 bg-gray-100 rounded-xl text-center font-medium text-gray-700 flex items-center justify-center gap-2"
+            >
+              <Send className="w-4 h-4" />
+              근무신청
+            </Link>
+          </div>
         </div>
       </div>
 
