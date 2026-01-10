@@ -20,7 +20,7 @@ import {
 } from '@/components/ui';
 import {
   Save, Building2, Bell, Shield, CreditCard, User, Link2,
-  RefreshCw, Check, X, ExternalLink, Database, Zap
+  RefreshCw, Check, X, ExternalLink, Database, Zap, Palette, Upload, Image
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -56,6 +56,14 @@ export default function SettingsPage() {
     overtimeRate: 1.5,
     nightRate: 0.5,
     holidayRate: 1.5,
+  });
+
+  // Brand settings
+  const [brandSettings, setBrandSettings] = useState({
+    brandName: 'ABC Staff',
+    primaryColor: '#10b981',
+    logoUrl: '',
+    faviconUrl: '',
   });
 
   // Integration settings
@@ -277,6 +285,10 @@ export default function SettingsPage() {
               <Building2 className="h-4 w-4 mr-2" />
               회사 정보
             </TabsTrigger>
+            <TabsTrigger value="brand">
+              <Palette className="h-4 w-4 mr-2" />
+              브랜드
+            </TabsTrigger>
             <TabsTrigger value="integrations">
               <Link2 className="h-4 w-4 mr-2" />
               연동/API
@@ -369,6 +381,145 @@ export default function SettingsPage() {
                 </div>
                 <div className="pt-4">
                   <Button onClick={handleSaveCompanySettings} disabled={loading}>
+                    {loading ? <ButtonLoading /> : <Save className="h-4 w-4 mr-2" />}
+                    저장
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Brand Settings */}
+          <TabsContent value="brand">
+            <Card>
+              <CardHeader>
+                <CardTitle>브랜드 설정</CardTitle>
+                <CardDescription>
+                  서비스의 브랜드 이미지를 커스터마이즈합니다.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <Label>브랜드명</Label>
+                    <Input
+                      value={brandSettings.brandName}
+                      onChange={(e) =>
+                        setBrandSettings({ ...brandSettings, brandName: e.target.value })
+                      }
+                      placeholder="서비스 이름"
+                      className="mt-1"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">사이드바 및 헤더에 표시됩니다.</p>
+                  </div>
+                  <div>
+                    <Label>브랜드 컬러</Label>
+                    <div className="flex gap-2 mt-1">
+                      <input
+                        type="color"
+                        value={brandSettings.primaryColor}
+                        onChange={(e) =>
+                          setBrandSettings({ ...brandSettings, primaryColor: e.target.value })
+                        }
+                        className="h-10 w-16 rounded border cursor-pointer"
+                      />
+                      <Input
+                        value={brandSettings.primaryColor}
+                        onChange={(e) =>
+                          setBrandSettings({ ...brandSettings, primaryColor: e.target.value })
+                        }
+                        placeholder="#10b981"
+                        className="flex-1"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">주요 버튼 및 강조 색상에 적용됩니다.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <Label>로고 이미지</Label>
+                    <div className="mt-2 border-2 border-dashed rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer">
+                      {brandSettings.logoUrl ? (
+                        <div className="space-y-2">
+                          <img
+                            src={brandSettings.logoUrl}
+                            alt="Logo"
+                            className="h-16 mx-auto object-contain"
+                          />
+                          <Button variant="outline" size="sm" onClick={() => setBrandSettings({ ...brandSettings, logoUrl: '' })}>
+                            <X className="h-4 w-4 mr-1" /> 제거
+                          </Button>
+                        </div>
+                      ) : (
+                        <label className="cursor-pointer">
+                          <Upload className="h-8 w-8 mx-auto text-gray-400" />
+                          <p className="mt-2 text-sm text-gray-500">클릭하여 로고 업로드</p>
+                          <p className="text-xs text-gray-400">PNG, JPG, SVG (최대 2MB)</p>
+                          <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setBrandSettings({ ...brandSettings, logoUrl: reader.result as string });
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }} />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Label>파비콘</Label>
+                    <div className="mt-2 border-2 border-dashed rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer">
+                      {brandSettings.faviconUrl ? (
+                        <div className="space-y-2">
+                          <img
+                            src={brandSettings.faviconUrl}
+                            alt="Favicon"
+                            className="h-8 w-8 mx-auto object-contain"
+                          />
+                          <Button variant="outline" size="sm" onClick={() => setBrandSettings({ ...brandSettings, faviconUrl: '' })}>
+                            <X className="h-4 w-4 mr-1" /> 제거
+                          </Button>
+                        </div>
+                      ) : (
+                        <label className="cursor-pointer">
+                          <Image className="h-8 w-8 mx-auto text-gray-400" />
+                          <p className="mt-2 text-sm text-gray-500">클릭하여 파비콘 업로드</p>
+                          <p className="text-xs text-gray-400">ICO, PNG (32x32px 권장)</p>
+                          <input type="file" className="hidden" accept="image/*,.ico" onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setBrandSettings({ ...brandSettings, faviconUrl: reader.result as string });
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }} />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-medium mb-3">미리보기</h4>
+                  <div className="flex items-center gap-3 bg-[#0f172a] p-3 rounded-lg w-fit">
+                    <div
+                      className="flex items-center justify-center w-8 h-8 rounded-lg text-white font-bold text-sm"
+                      style={{ backgroundColor: brandSettings.primaryColor }}
+                    >
+                      {brandSettings.brandName.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-white font-semibold">{brandSettings.brandName}</span>
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <Button disabled={loading}>
                     {loading ? <ButtonLoading /> : <Save className="h-4 w-4 mr-2" />}
                     저장
                   </Button>

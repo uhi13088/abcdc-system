@@ -85,15 +85,15 @@ export function Sidebar() {
   return (
     <div
       className={cn(
-        'flex flex-col bg-slate-900 text-slate-300 transition-all duration-300 ease-in-out h-screen fixed left-0 top-0 z-50',
+        'flex flex-col bg-[#0f172a] text-slate-300 transition-all duration-300 ease-in-out h-screen fixed left-0 top-0 z-50 border-r border-slate-800/50',
         isHovered ? 'w-64' : 'w-16'
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Logo */}
-      <div className="flex items-center h-14 px-4 border-b border-slate-700">
-        <div className="flex items-center justify-center w-8 h-8 bg-emerald-500 rounded-lg text-white font-bold text-sm">
+      <div className="flex items-center h-16 px-4 border-b border-slate-800/50">
+        <div className="flex items-center justify-center w-8 h-8 min-w-[32px] min-h-[32px] bg-emerald-500 rounded-lg text-white font-bold text-sm flex-shrink-0">
           A
         </div>
         <span
@@ -107,7 +107,7 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 space-y-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-700">
+      <nav className="flex-1 py-4 space-y-1 overflow-y-auto overflow-x-hidden scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {navigation.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           const isExpanded = expandedItems.includes(item.name) && isHovered;
