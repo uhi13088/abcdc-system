@@ -21,8 +21,6 @@ import {
   BarChart3,
   ChevronDown,
   ChevronRight,
-  Star,
-  BookOpen,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -65,8 +63,11 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [expandedItems, setExpandedItems] = useState<string[]>(['직원 관리']);
+  const [isHovered, setIsHovered] = useState(false);
 
   const handleSignOut = async () => {
+    // Clear demo mode cookie
+    document.cookie = 'demo_mode=; path=/; max-age=0';
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/auth/login');
@@ -82,41 +83,74 @@ export function Sidebar() {
   };
 
   return (
-    <div className="flex flex-col w-64 bg-white border-r border-gray-200">
+    <div
+      className={cn(
+        'flex flex-col bg-slate-900 text-slate-300 transition-all duration-300 ease-in-out h-screen fixed left-0 top-0 z-50',
+        isHovered ? 'w-64' : 'w-16'
+      )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       {/* Logo */}
-      <div className="flex items-center h-16 px-6 border-b border-gray-200">
-        <span className="text-xl font-bold text-primary">ABC Staff</span>
+      <div className="flex items-center h-14 px-4 border-b border-slate-700">
+        <div className="flex items-center justify-center w-8 h-8 bg-emerald-500 rounded-lg text-white font-bold text-sm">
+          A
+        </div>
+        <span
+          className={cn(
+            'ml-3 text-lg font-semibold text-white whitespace-nowrap transition-opacity duration-200',
+            isHovered ? 'opacity-100' : 'opacity-0'
+          )}
+        >
+          ABC Staff
+        </span>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 py-4 space-y-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-700">
         {navigation.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-          const isExpanded = expandedItems.includes(item.name);
+          const isExpanded = expandedItems.includes(item.name) && isHovered;
           const hasChildren = item.children && item.children.length > 0;
 
           if (hasChildren) {
             return (
               <div key={item.name}>
                 <button
-                  onClick={() => toggleExpand(item.name)}
+                  onClick={() => isHovered && toggleExpand(item.name)}
                   className={cn(
-                    'flex items-center w-full px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                    'flex items-center w-full px-4 py-2.5 text-sm font-medium transition-colors relative group',
                     isActive
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-slate-800 text-white'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                   )}
+                  title={!isHovered ? item.name : undefined}
                 >
-                  <item.icon className="w-5 h-5 mr-3" />
-                  <span className="flex-1 text-left">{item.name}</span>
-                  {isExpanded ? (
-                    <ChevronDown className="w-4 h-4" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4" />
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  <span
+                    className={cn(
+                      'ml-3 flex-1 text-left whitespace-nowrap transition-opacity duration-200',
+                      isHovered ? 'opacity-100' : 'opacity-0'
+                    )}
+                  >
+                    {item.name}
+                  </span>
+                  {isHovered && (
+                    isExpanded ? (
+                      <ChevronDown className="w-4 h-4 flex-shrink-0" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                    )
+                  )}
+                  {/* Tooltip for collapsed state */}
+                  {!isHovered && (
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                      {item.name}
+                    </div>
                   )}
                 </button>
                 {isExpanded && (
-                  <div className="ml-8 mt-1 space-y-1">
+                  <div className="mt-1 space-y-1 bg-slate-950/50">
                     {item.children!.map((child) => {
                       const isChildActive = pathname === child.href;
                       return (
@@ -124,10 +158,10 @@ export function Sidebar() {
                           key={child.href}
                           href={child.href}
                           className={cn(
-                            'block px-3 py-2 text-sm rounded-md transition-colors',
+                            'block pl-12 pr-4 py-2 text-sm transition-colors',
                             isChildActive
-                              ? 'bg-primary/10 text-primary font-medium'
-                              : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                              ? 'bg-slate-800 text-emerald-400 font-medium'
+                              : 'text-slate-500 hover:bg-slate-800 hover:text-white'
                           )}
                         >
                           {child.name}
@@ -145,27 +179,59 @@ export function Sidebar() {
               key={item.name}
               href={item.href}
               className={cn(
-                'flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                'flex items-center px-4 py-2.5 text-sm font-medium transition-colors relative group',
                 isActive
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-slate-800 text-white'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               )}
+              title={!isHovered ? item.name : undefined}
             >
-              <item.icon className="w-5 h-5 mr-3" />
-              {item.name}
+              <item.icon className="w-5 h-5 flex-shrink-0" />
+              <span
+                className={cn(
+                  'ml-3 whitespace-nowrap transition-opacity duration-200',
+                  isHovered ? 'opacity-100' : 'opacity-0'
+                )}
+              >
+                {item.name}
+              </span>
+              {/* Active indicator */}
+              {isActive && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-emerald-500 rounded-r" />
+              )}
+              {/* Tooltip for collapsed state */}
+              {!isHovered && (
+                <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                  {item.name}
+                </div>
+              )}
             </Link>
           );
         })}
       </nav>
 
       {/* Sign out button */}
-      <div className="p-3 border-t border-gray-200">
+      <div className="p-2 border-t border-slate-700">
         <button
           onClick={handleSignOut}
-          className="flex items-center w-full px-3 py-2 text-sm font-medium text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 transition-colors"
+          className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors rounded relative group"
+          title={!isHovered ? '로그아웃' : undefined}
         >
-          <LogOut className="w-5 h-5 mr-3" />
-          로그아웃
+          <LogOut className="w-5 h-5 flex-shrink-0" />
+          <span
+            className={cn(
+              'ml-3 whitespace-nowrap transition-opacity duration-200',
+              isHovered ? 'opacity-100' : 'opacity-0'
+            )}
+          >
+            로그아웃
+          </span>
+          {/* Tooltip for collapsed state */}
+          {!isHovered && (
+            <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+              로그아웃
+            </div>
+          )}
         </button>
       </div>
     </div>
