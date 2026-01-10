@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { ExcelGenerator, PayrollReportData } from '@abcdc/shared';
+import { ExcelGenerator, PayrollReportData } from '@abc/shared';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
 
     if (taxAccountant.transmission_method === 'EMAIL' && taxAccountant.email) {
       // 이메일로 전송
-      const { emailService } = await import('@abcdc/shared');
+      const { emailService } = await import('@abc/shared');
 
       // 회사 정보 조회
       const { data: company } = await supabase

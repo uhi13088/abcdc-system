@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
-import { pushNotificationService } from '@abcdc/shared';
+import { pushNotificationService } from '@abc/shared';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
