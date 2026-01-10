@@ -8,11 +8,11 @@ ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN (
 ));
 
 -- ============================================
--- 2. Create test company
+-- 2. Create test company (valid UUID format)
 -- ============================================
 INSERT INTO companies (id, name, business_number, ceo_name, status)
 VALUES (
-  'c0000000-0000-0000-0000-000000000001',
+  'a0000000-0000-0000-0000-000000000001',
   '테스트 회사',
   '123-45-67890',
   '홍길동',
@@ -25,7 +25,7 @@ VALUES (
 INSERT INTO brands (id, company_id, name, description)
 VALUES (
   'b0000000-0000-0000-0000-000000000001',
-  'c0000000-0000-0000-0000-000000000001',
+  'a0000000-0000-0000-0000-000000000001',
   '테스트 브랜드',
   '테스트용 브랜드입니다'
 ) ON CONFLICT (id) DO NOTHING;
@@ -35,8 +35,8 @@ VALUES (
 -- ============================================
 INSERT INTO stores (id, company_id, brand_id, name, address)
 VALUES (
-  's0000000-0000-0000-0000-000000000001',
-  'c0000000-0000-0000-0000-000000000001',
+  'a0000000-0000-0000-0000-000000000002',
+  'a0000000-0000-0000-0000-000000000001',
   'b0000000-0000-0000-0000-000000000001',
   '테스트 매장',
   '서울시 강남구 테헤란로 123'
@@ -44,26 +44,10 @@ VALUES (
 
 -- ============================================
 -- 5. Create super admin user
--- NOTE: First create user in Supabase Auth (Authentication > Users > Add user)
--- Then copy the user's UUID and replace 'YOUR_AUTH_USER_UUID' below
 -- ============================================
-
--- Option A: If you already have an Auth user, use this:
--- INSERT INTO users (id, auth_id, email, name, role, company_id, status)
--- VALUES (
---   gen_random_uuid(),
---   'YOUR_AUTH_USER_UUID',  -- Replace with actual Auth user UUID
---   'admin@test.com',
---   '슈퍼 관리자',
---   'super_admin',
---   NULL,  -- super_admin doesn't need company_id
---   'ACTIVE'
--- );
-
--- Option B: Create user without auth_id (for testing only):
 INSERT INTO users (id, email, name, role, company_id, status)
 VALUES (
-  'u0000000-0000-0000-0000-000000000001',
+  'a0000000-0000-0000-0000-000000000003',
   'admin@test.com',
   '슈퍼 관리자',
   'super_admin',
@@ -78,13 +62,13 @@ VALUES (
 -- ============================================
 INSERT INTO users (id, email, name, role, company_id, brand_id, store_id, status)
 VALUES (
-  'u0000000-0000-0000-0000-000000000002',
+  'a0000000-0000-0000-0000-000000000004',
   'company@test.com',
   '회사 관리자',
   'company_admin',
-  'c0000000-0000-0000-0000-000000000001',
+  'a0000000-0000-0000-0000-000000000001',
   'b0000000-0000-0000-0000-000000000001',
-  's0000000-0000-0000-0000-000000000001',
+  'a0000000-0000-0000-0000-000000000002',
   'ACTIVE'
 ) ON CONFLICT (email) DO UPDATE SET
   role = 'company_admin',
@@ -95,13 +79,13 @@ VALUES (
 -- ============================================
 INSERT INTO users (id, email, name, role, company_id, brand_id, store_id, status)
 VALUES (
-  'u0000000-0000-0000-0000-000000000003',
+  'a0000000-0000-0000-0000-000000000005',
   'staff@test.com',
   '테스트 직원',
   'staff',
-  'c0000000-0000-0000-0000-000000000001',
+  'a0000000-0000-0000-0000-000000000001',
   'b0000000-0000-0000-0000-000000000001',
-  's0000000-0000-0000-0000-000000000001',
+  'a0000000-0000-0000-0000-000000000002',
   'ACTIVE'
 ) ON CONFLICT (email) DO UPDATE SET
   role = 'staff',
