@@ -57,7 +57,7 @@ interface Contract {
 }
 
 const roleLabels: Record<string, string> = {
-  platform_admin: '플랫폼 관리자',
+  super_admin: '플랫폼 관리자',
   company_admin: '회사 관리자',
   manager: '본사 관리자',
   store_manager: '매장 관리자',

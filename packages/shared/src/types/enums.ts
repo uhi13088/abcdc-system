@@ -1,6 +1,6 @@
 // 사용자 역할
 export enum UserRole {
-  PLATFORM_ADMIN = 'platform_admin',  // 플랫폼 관리자
+  SUPER_ADMIN = 'super_admin',        // 슈퍼 관리자
   COMPANY_ADMIN = 'company_admin',    // 회사 관리자
   MANAGER = 'manager',                // 본사 관리자
   STORE_MANAGER = 'store_manager',    // 매장 관리자

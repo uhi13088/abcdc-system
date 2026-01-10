@@ -31,9 +31,9 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     // Filter by company
-    if (userData.role === 'platform_admin' && companyId) {
+    if (userData.role === 'super_admin' && companyId) {
       query = query.eq('company_id', companyId);
-    } else if (userData.role !== 'platform_admin') {
+    } else if (userData.role !== 'super_admin') {
       query = query.eq('company_id', userData.company_id);
     }
 
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       .eq('auth_id', user.id)
       .single();
 
-    if (!['platform_admin', 'company_admin'].includes(userData?.role || '')) {
+    if (!['super_admin', 'company_admin'].includes(userData?.role || '')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Non-platform admins can only create brands in their company
-    if (userData?.role !== 'platform_admin') {
+    if (userData?.role !== 'super_admin') {
       if (validation.data.companyId !== userData?.company_id) {
         return NextResponse.json(
           { error: '자신의 회사에만 브랜드를 생성할 수 있습니다.' },

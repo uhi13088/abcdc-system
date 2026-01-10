@@ -55,7 +55,7 @@ export async function PUT(
       .eq('auth_id', user.id)
       .single();
 
-    if (!['platform_admin', 'company_admin'].includes(userData?.role || '')) {
+    if (!['super_admin', 'company_admin'].includes(userData?.role || '')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

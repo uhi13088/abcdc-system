@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     // Role-based filtering
-    if (userData.role === 'platform_admin') {
+    if (userData.role === 'super_admin') {
       // Can see all users
     } else if (['company_admin', 'manager'].includes(userData.role)) {
       query = query.eq('company_id', userData.company_id);
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       .eq('auth_id', user.id)
       .single();
 
-    if (!['platform_admin', 'company_admin', 'manager', 'store_manager'].includes(currentUser?.role || '')) {
+    if (!['super_admin', 'company_admin', 'manager', 'store_manager'].includes(currentUser?.role || '')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

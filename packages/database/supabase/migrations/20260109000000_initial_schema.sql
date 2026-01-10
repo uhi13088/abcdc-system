@@ -94,7 +94,7 @@ CREATE TABLE users (
   email VARCHAR(255) UNIQUE NOT NULL,
   name VARCHAR(100) NOT NULL,
   role VARCHAR(50) NOT NULL CHECK (role IN (
-    'platform_admin', 'company_admin', 'manager',
+    'super_admin', 'company_admin', 'manager',
     'store_manager', 'team_leader', 'staff'
   )),
 
@@ -773,68 +773,68 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Companies: platform_admin can see all, others see their own
+-- Companies: super_admin can see all, others see their own
 CREATE POLICY companies_select ON companies FOR SELECT USING (
-  get_current_user_role() = 'platform_admin'
+  get_current_user_role() = 'super_admin'
   OR id = get_current_company_id()
 );
 
 CREATE POLICY companies_insert ON companies FOR INSERT WITH CHECK (
-  get_current_user_role() = 'platform_admin'
+  get_current_user_role() = 'super_admin'
 );
 
 CREATE POLICY companies_update ON companies FOR UPDATE USING (
-  get_current_user_role() = 'platform_admin'
+  get_current_user_role() = 'super_admin'
   OR (get_current_user_role() = 'company_admin' AND id = get_current_company_id())
 );
 
 -- Brands: company isolation
 CREATE POLICY brands_select ON brands FOR SELECT USING (
-  get_current_user_role() = 'platform_admin'
+  get_current_user_role() = 'super_admin'
   OR company_id = get_current_company_id()
 );
 
 CREATE POLICY brands_insert ON brands FOR INSERT WITH CHECK (
-  get_current_user_role() IN ('platform_admin', 'company_admin')
+  get_current_user_role() IN ('super_admin', 'company_admin')
   AND company_id = get_current_company_id()
 );
 
 CREATE POLICY brands_update ON brands FOR UPDATE USING (
-  get_current_user_role() IN ('platform_admin', 'company_admin')
+  get_current_user_role() IN ('super_admin', 'company_admin')
   AND company_id = get_current_company_id()
 );
 
 -- Stores: company isolation
 CREATE POLICY stores_select ON stores FOR SELECT USING (
-  get_current_user_role() = 'platform_admin'
+  get_current_user_role() = 'super_admin'
   OR company_id = get_current_company_id()
 );
 
 CREATE POLICY stores_insert ON stores FOR INSERT WITH CHECK (
-  get_current_user_role() IN ('platform_admin', 'company_admin', 'manager')
+  get_current_user_role() IN ('super_admin', 'company_admin', 'manager')
   AND company_id = get_current_company_id()
 );
 
 CREATE POLICY stores_update ON stores FOR UPDATE USING (
-  get_current_user_role() IN ('platform_admin', 'company_admin', 'manager', 'store_manager')
+  get_current_user_role() IN ('super_admin', 'company_admin', 'manager', 'store_manager')
   AND company_id = get_current_company_id()
 );
 
 -- Users: company isolation + self
 CREATE POLICY users_select ON users FOR SELECT USING (
-  get_current_user_role() = 'platform_admin'
+  get_current_user_role() = 'super_admin'
   OR company_id = get_current_company_id()
   OR auth_id = auth.uid()
 );
 
 CREATE POLICY users_update ON users FOR UPDATE USING (
-  get_current_user_role() IN ('platform_admin', 'company_admin', 'manager', 'store_manager')
+  get_current_user_role() IN ('super_admin', 'company_admin', 'manager', 'store_manager')
   OR auth_id = auth.uid()
 );
 
 -- Attendances: staff can see their own, managers can see store's
 CREATE POLICY attendances_select ON attendances FOR SELECT USING (
-  get_current_user_role() = 'platform_admin'
+  get_current_user_role() = 'super_admin'
   OR (
     company_id = get_current_company_id()
     AND (
@@ -846,7 +846,7 @@ CREATE POLICY attendances_select ON attendances FOR SELECT USING (
 
 -- Salaries: staff can see their own, admins can see all
 CREATE POLICY salaries_select ON salaries FOR SELECT USING (
-  get_current_user_role() = 'platform_admin'
+  get_current_user_role() = 'super_admin'
   OR (
     company_id = get_current_company_id()
     AND (

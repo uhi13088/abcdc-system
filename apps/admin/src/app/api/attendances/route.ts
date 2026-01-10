@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       .order('actual_check_in', { ascending: false });
 
     // Role-based filtering
-    if (userData.role === 'platform_admin') {
+    if (userData.role === 'super_admin') {
       // Can see all
     } else if (['company_admin', 'manager'].includes(userData.role)) {
       query = query.eq('company_id', userData.company_id);

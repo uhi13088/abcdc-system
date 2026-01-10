@@ -48,14 +48,14 @@ export async function POST(
 
     if (signerType === 'employee') {
       // Employee signing
-      if (contract.staff_id !== userData?.id && userData?.role !== 'platform_admin') {
+      if (contract.staff_id !== userData?.id && userData?.role !== 'super_admin') {
         return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
       }
       updateData.employee_signature = signature;
       updateData.employee_signed_at = now;
     } else if (signerType === 'employer') {
       // Employer signing
-      if (!['platform_admin', 'company_admin', 'manager', 'store_manager'].includes(userData?.role || '')) {
+      if (!['super_admin', 'company_admin', 'manager', 'store_manager'].includes(userData?.role || '')) {
         return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
       }
       updateData.employer_signature = signature;

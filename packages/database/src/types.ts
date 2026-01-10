@@ -175,7 +175,7 @@ export interface Database {
           auth_id: string | null;
           email: string;
           name: string;
-          role: 'platform_admin' | 'company_admin' | 'manager' | 'store_manager' | 'team_leader' | 'staff';
+          role: 'super_admin' | 'company_admin' | 'manager' | 'store_manager' | 'team_leader' | 'staff';
           company_id: string | null;
           brand_id: string | null;
           store_id: string | null;
@@ -200,7 +200,7 @@ export interface Database {
           auth_id?: string | null;
           email: string;
           name: string;
-          role: 'platform_admin' | 'company_admin' | 'manager' | 'store_manager' | 'team_leader' | 'staff';
+          role: 'super_admin' | 'company_admin' | 'manager' | 'store_manager' | 'team_leader' | 'staff';
           company_id?: string | null;
           brand_id?: string | null;
           store_id?: string | null;
@@ -225,7 +225,7 @@ export interface Database {
           auth_id?: string | null;
           email?: string;
           name?: string;
-          role?: 'platform_admin' | 'company_admin' | 'manager' | 'store_manager' | 'team_leader' | 'staff';
+          role?: 'super_admin' | 'company_admin' | 'manager' | 'store_manager' | 'team_leader' | 'staff';
           company_id?: string | null;
           brand_id?: string | null;
           store_id?: string | null;

@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     // Filter based on user role
-    if (userData.role === 'platform_admin') {
+    if (userData.role === 'super_admin') {
       if (companyId) query = query.eq('company_id', companyId);
       if (brandId) query = query.eq('brand_id', brandId);
     } else if (['company_admin', 'manager'].includes(userData.role)) {
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       .eq('auth_id', user.id)
       .single();
 
-    if (!['platform_admin', 'company_admin', 'manager'].includes(userData?.role || '')) {
+    if (!['super_admin', 'company_admin', 'manager'].includes(userData?.role || '')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Non-platform admins can only create stores in their company
-    if (userData?.role !== 'platform_admin') {
+    if (userData?.role !== 'super_admin') {
       if (validation.data.companyId !== userData?.company_id) {
         return NextResponse.json(
           { error: '자신의 회사에만 매장을 생성할 수 있습니다.' },

@@ -27,7 +27,7 @@ export async function GET() {
     // Others can only see their own company
     let query = supabase.from('companies').select('*');
 
-    if (userData.role !== 'platform_admin') {
+    if (userData.role !== 'super_admin') {
       query = query.eq('id', userData.company_id);
     }
 
@@ -46,7 +46,7 @@ export async function GET() {
   }
 }
 
-// POST /api/companies - 회사 생성 (platform_admin only)
+// POST /api/companies - 회사 생성 (super_admin only)
 export async function POST(request: NextRequest) {
   try {
     const supabase = createClient();
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       .eq('auth_id', user.id)
       .single();
 
-    if (userData?.role !== 'platform_admin') {
+    if (userData?.role !== 'super_admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
