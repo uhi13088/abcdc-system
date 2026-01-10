@@ -143,6 +143,61 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+  apps/mobile:
+    dependencies:
+      '@abc/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@supabase/ssr':
+        specifier: ^0.6.1
+        version: 0.6.1(@supabase/supabase-js@2.90.1)
+      '@supabase/supabase-js':
+        specifier: ^2.49.4
+        version: 2.90.1
+      class-variance-authority:
+        specifier: ^0.7.0
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.0
+        version: 2.1.1
+      lucide-react:
+        specifier: ^0.312.0
+        version: 0.312.0(react@18.3.1)
+      next:
+        specifier: ^14.1.0
+        version: 14.1.0(react-dom@18.3.1)(react@18.3.1)
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+      tailwind-merge:
+        specifier: ^2.2.0
+        version: 2.6.0
+    devDependencies:
+      '@types/node':
+        specifier: ^20.11.0
+        version: 20.19.27
+      '@types/react':
+        specifier: ^18.2.48
+        version: 18.3.27
+      '@types/react-dom':
+        specifier: ^18.2.18
+        version: 18.3.7(@types/react@18.3.27)
+      autoprefixer:
+        specifier: ^10.4.17
+        version: 10.4.23(postcss@8.5.6)
+      postcss:
+        specifier: ^8.4.33
+        version: 8.5.6
+      tailwindcss:
+        specifier: ^3.4.1
+        version: 3.4.19
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
   apps/platform:
     dependencies:
       '@abc/database':
