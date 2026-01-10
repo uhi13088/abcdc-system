@@ -20,7 +20,7 @@ import {
 } from '@/components/ui';
 import {
   Save, Building2, Bell, Shield, CreditCard, User, Link2,
-  RefreshCw, Check, X, ExternalLink, Database, Zap, Palette, Upload, Image
+  RefreshCw, Check, X, ExternalLink, Database, Zap, Palette, Upload, ImageIcon
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -486,7 +486,7 @@ export default function SettingsPage() {
                         </div>
                       ) : (
                         <label className="cursor-pointer">
-                          <Image className="h-8 w-8 mx-auto text-gray-400" />
+                          <ImageIcon className="h-8 w-8 mx-auto text-gray-400" />
                           <p className="mt-2 text-sm text-gray-500">클릭하여 파비콘 업로드</p>
                           <p className="text-xs text-gray-400">ICO, PNG (32x32px 권장)</p>
                           <input type="file" className="hidden" accept="image/*,.ico" onChange={(e) => {
