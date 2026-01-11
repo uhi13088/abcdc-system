@@ -148,13 +148,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { data, error } = await supabase
+    // Use admin client to bypass RLS for brand creation
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
       .from('brands')
       .insert({
         company_id: validation.data.companyId,
         name: validation.data.name,
-        logo_url: validation.data.logoUrl,
-        description: validation.data.description,
+        logo_url: validation.data.logoUrl || null,
+        description: validation.data.description || null,
       })
       .select()
       .single();
