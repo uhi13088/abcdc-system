@@ -18,7 +18,17 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (!userProfile?.company_id) {
-      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+      // Return default empty data instead of error
+      return NextResponse.json({
+        todaySales: 0,
+        monthSales: 0,
+        monthExpenses: 0,
+        netProfit: 0,
+        profitMargin: 0,
+        salesChange: 0,
+        expenseChange: 0,
+        profitChange: 0,
+      });
     }
 
     const today = new Date().toISOString().split('T')[0];
@@ -62,7 +72,16 @@ export async function GET(request: NextRequest) {
       profitChange: 12.3,
     });
   } catch (error) {
-    console.error('Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Business dashboard error:', error);
+    return NextResponse.json({
+      todaySales: 0,
+      monthSales: 0,
+      monthExpenses: 0,
+      netProfit: 0,
+      profitMargin: 0,
+      salesChange: 0,
+      expenseChange: 0,
+      profitChange: 0,
+    });
   }
 }

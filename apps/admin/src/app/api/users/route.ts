@@ -25,7 +25,19 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (!userData) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      // User not found, return empty data
+      return NextResponse.json({
+        data: [],
+        pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+      });
+    }
+
+    // If user has no company_id and is not super_admin, return empty data
+    if (!userData.company_id && userData.role !== 'super_admin') {
+      return NextResponse.json({
+        data: [],
+        pagination: { page, limit, total: 0, totalPages: 0 },
+      });
     }
 
     let query = supabase
@@ -63,11 +75,15 @@ export async function GET(request: NextRequest) {
     const { data, error, count } = await query;
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('Users API error:', error);
+      return NextResponse.json({
+        data: [],
+        pagination: { page, limit, total: 0, totalPages: 0 },
+      });
     }
 
     return NextResponse.json({
-      data,
+      data: data || [],
       pagination: {
         page,
         limit,
@@ -76,10 +92,11 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+    console.error('Users API catch error:', error);
+    return NextResponse.json({
+      data: [],
+      pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+    });
   }
 }
 

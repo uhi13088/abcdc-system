@@ -22,7 +22,12 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (!userData) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json([]);
+    }
+
+    // If user has no company_id and is not super_admin, return empty array
+    if (!userData.company_id && userData.role !== 'super_admin') {
+      return NextResponse.json([]);
     }
 
     let query = supabase
@@ -40,15 +45,14 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('Brands API error:', error);
+      return NextResponse.json([]);
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(data || []);
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+    console.error('Brands API catch error:', error);
+    return NextResponse.json([]);
   }
 }
 
