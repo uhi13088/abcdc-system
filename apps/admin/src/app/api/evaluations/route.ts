@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching evaluations:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ evaluations: [] });
     }
 
     // Transform data for frontend
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ evaluations });
   } catch (error) {
     console.error('Evaluations API error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ evaluations: [] });
   }
 }
 
