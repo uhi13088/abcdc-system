@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/stores/[id]
@@ -57,14 +57,16 @@ export async function PUT(
 
     const updateData: Record<string, unknown> = {};
     if (body.name) updateData.name = body.name;
-    if (body.address !== undefined) updateData.address = body.address;
-    if (body.phone !== undefined) updateData.phone = body.phone;
-    if (body.latitude !== undefined) updateData.latitude = body.latitude;
-    if (body.longitude !== undefined) updateData.longitude = body.longitude;
+    if (body.address !== undefined) updateData.address = body.address || null;
+    if (body.phone !== undefined) updateData.phone = body.phone || null;
+    if (body.latitude !== undefined) updateData.latitude = body.latitude || null;
+    if (body.longitude !== undefined) updateData.longitude = body.longitude || null;
     if (body.allowedRadius !== undefined) updateData.allowed_radius = body.allowedRadius;
-    if (body.defaultHourlyRate !== undefined) updateData.default_hourly_rate = body.defaultHourlyRate;
+    if (body.defaultHourlyRate !== undefined) updateData.default_hourly_rate = body.defaultHourlyRate || null;
 
-    const { data, error } = await supabase
+    // Use admin client to bypass RLS
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
       .from('stores')
       .update(updateData)
       .eq('id', params.id)
@@ -110,7 +112,9 @@ export async function DELETE(
       );
     }
 
-    const { error } = await supabase
+    // Use admin client to bypass RLS
+    const adminClient = createAdminClient();
+    const { error } = await adminClient
       .from('stores')
       .delete()
       .eq('id', params.id);

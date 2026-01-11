@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/brands/[id]
@@ -56,10 +56,12 @@ export async function PUT(
 
     const updateData: Record<string, unknown> = {};
     if (body.name) updateData.name = body.name;
-    if (body.logoUrl !== undefined) updateData.logo_url = body.logoUrl;
-    if (body.description !== undefined) updateData.description = body.description;
+    if (body.logoUrl !== undefined) updateData.logo_url = body.logoUrl || null;
+    if (body.description !== undefined) updateData.description = body.description || null;
 
-    const { data, error } = await supabase
+    // Use admin client to bypass RLS
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
       .from('brands')
       .update(updateData)
       .eq('id', params.id)
@@ -113,7 +115,9 @@ export async function DELETE(
       );
     }
 
-    const { error } = await supabase
+    // Use admin client to bypass RLS
+    const adminClient = createAdminClient();
+    const { error } = await adminClient
       .from('brands')
       .delete()
       .eq('id', params.id);

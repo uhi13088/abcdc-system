@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { CreateStoreSchema } from '@abc/shared';
 
@@ -128,9 +128,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { data, error } = await supabase
+    // Use admin client to bypass RLS
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
       .from('stores')
-      .insert(validation.data)
+      .insert({
+        company_id: validation.data.companyId,
+        brand_id: validation.data.brandId,
+        name: validation.data.name,
+        address: validation.data.address || null,
+        phone: validation.data.phone || null,
+        latitude: validation.data.latitude || null,
+        longitude: validation.data.longitude || null,
+        allowed_radius: validation.data.allowedRadius,
+        early_checkin_minutes: validation.data.earlyCheckinMinutes,
+        early_checkout_minutes: validation.data.earlyCheckoutMinutes,
+        default_hourly_rate: validation.data.defaultHourlyRate || null,
+      })
       .select()
       .single();
 

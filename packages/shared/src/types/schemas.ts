@@ -70,8 +70,8 @@ export const UpdateCompanySchema = CreateCompanySchema.partial();
 export const CreateBrandSchema = z.object({
   companyId: requiredUUID('회사'),
   name: requiredString('브랜드명').max(255, '브랜드명은 255자 이하로 입력해주세요'),
-  logoUrl: z.string().url('올바른 URL 형식이 아닙니다').optional(),
-  description: z.string().optional(),
+  logoUrl: z.string().url('올바른 URL 형식이 아닙니다').nullish(),
+  description: z.string().nullish(),
 });
 
 export const UpdateBrandSchema = CreateBrandSchema.partial().omit({ companyId: true });
