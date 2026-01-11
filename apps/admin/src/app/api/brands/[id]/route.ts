@@ -39,7 +39,7 @@ export async function GET(
   }
 }
 
-// PUT /api/brands/[id]
+// PUT/PATCH /api/brands/[id]
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -77,6 +77,14 @@ export async function PUT(
       { status: 500 }
     );
   }
+}
+
+// PATCH /api/brands/[id] (alias for PUT)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  return PUT(request, { params });
 }
 
 // DELETE /api/brands/[id]

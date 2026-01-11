@@ -21,6 +21,8 @@ import {
   BarChart3,
   ChevronDown,
   ChevronRight,
+  Package,
+  Store,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -55,14 +57,22 @@ const navigation: NavItem[] = [
   { name: '메시지', href: '/messages', icon: MessageSquare },
   { name: 'HACCP', href: '/haccp', icon: ShieldCheck },
   { name: '경영관리', href: '/business', icon: BarChart3 },
-  { name: '매장 관리', href: '/stores', icon: Building2 },
+  {
+    name: '조직 관리',
+    href: '/brands',
+    icon: Building2,
+    children: [
+      { name: '브랜드 관리', href: '/brands' },
+      { name: '매장 관리', href: '/stores' },
+    ],
+  },
   { name: '설정', href: '/settings', icon: Settings },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['직원 관리']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['직원 관리', '조직 관리']);
   const [isHovered, setIsHovered] = useState(false);
 
   const handleSignOut = async () => {
