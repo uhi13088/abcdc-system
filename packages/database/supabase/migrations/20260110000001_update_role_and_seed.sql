@@ -43,12 +43,12 @@ VALUES (
 ) ON CONFLICT (id) DO NOTHING;
 
 -- ============================================
--- 5. Create super admin user
+-- 5. Create super admin user (production)
 -- ============================================
 INSERT INTO users (id, email, name, role, company_id, status)
 VALUES (
   'a0000000-0000-0000-0000-000000000003',
-  'admin@test.com',
+  'uhi1308@naver.com',
   '슈퍼 관리자',
   'super_admin',
   NULL,

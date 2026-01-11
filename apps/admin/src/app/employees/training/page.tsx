@@ -27,6 +27,13 @@ interface TrainingRecord {
   status: 'COMPLETED' | 'IN_PROGRESS' | 'EXPIRED';
 }
 
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 const CATEGORY_COLORS: Record<string, string> = {
   ONBOARDING: 'bg-blue-100 text-blue-700',
   SAFETY: 'bg-red-100 text-red-700',
@@ -49,7 +56,9 @@ export default function TrainingPage() {
   const [activeTab, setActiveTab] = useState<'records' | 'programs'>('records');
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [records, setRecords] = useState<TrainingRecord[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -68,27 +77,29 @@ export default function TrainingPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      // TODO: Replace with real API calls
 
-      const mockTrainings: Training[] = [
-        { id: 't1', title: '신입 직원 오리엔테이션', description: '회사 소개 및 기본 업무 안내', category: 'ONBOARDING', duration_hours: 4, is_mandatory: true },
-        { id: 't2', title: '식품 안전 기초 교육', description: 'HACCP 기본 원칙 및 위생 관리', category: 'HACCP', duration_hours: 2, is_mandatory: true, valid_months: 12 },
-        { id: 't3', title: '화재 대피 훈련', description: '비상 상황 대응 및 대피 절차', category: 'SAFETY', duration_hours: 1, is_mandatory: true, valid_months: 12 },
-        { id: 't4', title: '고객 응대 서비스 교육', description: '고객 만족을 위한 서비스 스킬', category: 'SERVICE', duration_hours: 3, is_mandatory: false },
-        { id: 't5', title: 'POS 시스템 운영 교육', description: '결제 시스템 및 재고 관리', category: 'SKILL', duration_hours: 2, is_mandatory: false },
-        { id: 't6', title: '성희롱 예방 교육', description: '직장 내 성희롱 예방 법정교육', category: 'COMPLIANCE', duration_hours: 1, is_mandatory: true, valid_months: 12 },
-      ];
+      // Fetch trainings, records, and users in parallel
+      const [trainingsRes, recordsRes, usersRes] = await Promise.all([
+        fetch('/api/training'),
+        fetch('/api/training/records'),
+        fetch('/api/users?limit=100'),
+      ]);
 
-      const mockRecords: TrainingRecord[] = [
-        { id: 'r1', staff_id: 'u1', staff_name: '김철수', training_id: 't1', training_title: '신입 직원 오리엔테이션', training_category: 'ONBOARDING', completed_at: '2024-01-05', status: 'COMPLETED', score: 95 },
-        { id: 'r2', staff_id: 'u1', staff_name: '김철수', training_id: 't2', training_title: '식품 안전 기초 교육', training_category: 'HACCP', completed_at: '2024-01-06', expires_at: '2025-01-06', status: 'COMPLETED', score: 88 },
-        { id: 'r3', staff_id: 'u1', staff_name: '김철수', training_id: 't3', training_title: '화재 대피 훈련', training_category: 'SAFETY', completed_at: '2023-01-10', expires_at: '2024-01-10', status: 'EXPIRED' },
-        { id: 'r4', staff_id: 'u2', staff_name: '이영희', training_id: 't1', training_title: '신입 직원 오리엔테이션', training_category: 'ONBOARDING', completed_at: '2024-01-08', status: 'COMPLETED', score: 100 },
-        { id: 'r5', staff_id: 'u2', staff_name: '이영희', training_id: 't4', training_title: '고객 응대 서비스 교육', training_category: 'SERVICE', completed_at: '2024-01-09', status: 'IN_PROGRESS' },
-      ];
+      const trainingsData = await trainingsRes.json();
+      const recordsData = await recordsRes.json();
+      const usersData = await usersRes.json();
 
-      setTrainings(mockTrainings);
-      setRecords(mockRecords);
+      if (trainingsData.trainings) {
+        setTrainings(trainingsData.trainings);
+      }
+
+      if (recordsData.records) {
+        setRecords(recordsData.records);
+      }
+
+      if (usersData.data) {
+        setUsers(usersData.data);
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -99,12 +110,36 @@ export default function TrainingPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // TODO: Replace with real API call
-      console.log('Creating training record:', formData);
+      setSubmitting(true);
+      const response = await fetch('/api/training/records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: formData.staff_id,
+          training_id: formData.training_id,
+          completed_at: formData.completed_at,
+          score: formData.score ? parseInt(formData.score) : null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '교육 이수 등록에 실패했습니다.');
+      }
+
       setShowModal(false);
+      setFormData({
+        staff_id: '',
+        training_id: '',
+        completed_at: new Date().toISOString().split('T')[0],
+        score: '',
+      });
       fetchData();
     } catch (error) {
       console.error('Failed to create record:', error);
+      alert(error instanceof Error ? error.message : '교육 이수 등록에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -350,9 +385,11 @@ export default function TrainingPage() {
                   required
                 >
                   <option value="">직원을 선택하세요</option>
-                  <option value="u1">김철수</option>
-                  <option value="u2">이영희</option>
-                  <option value="u3">박지민</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name} ({user.email})
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -403,14 +440,16 @@ export default function TrainingPage() {
                   type="button"
                   onClick={() => setShowModal(false)}
                   className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+                  disabled={submitting}
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  disabled={submitting}
                 >
-                  등록
+                  {submitting ? '등록 중...' : '등록'}
                 </button>
               </div>
             </form>

@@ -1,4 +1,5 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -7,6 +8,22 @@ type Database = any;
 // Placeholder URL and key for demo mode when env vars are not set
 const DEMO_URL = 'https://placeholder.supabase.co';
 const DEMO_KEY = 'placeholder-key';
+
+/**
+ * Create a Supabase admin client with service role key
+ * Use this for admin operations like creating users
+ */
+export function createAdminClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEMO_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || DEMO_KEY;
+
+  return createSupabaseClient<Database>(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+}
 
 export function createClient() {
   const cookieStore = cookies();

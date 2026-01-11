@@ -21,14 +21,23 @@ interface Evaluation {
   strengths: string;
   improvements: string;
   goals: string;
-  status: 'DRAFT' | 'SUBMITTED' | 'REVIEWED';
+  status: 'DRAFT' | 'SUBMITTED' | 'REVIEWED' | 'APPROVED' | 'REJECTED';
+}
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
 }
 
 const RATING_LABELS = ['매우 미흡', '미흡', '보통', '우수', '매우 우수'];
 
 export default function EvaluationsPage() {
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [periodFilter, setPeriodFilter] = useState('');
@@ -49,44 +58,29 @@ export default function EvaluationsPage() {
   });
 
   useEffect(() => {
-    fetchEvaluations();
+    fetchData();
   }, [periodFilter]);
 
-  const fetchEvaluations = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      // TODO: Replace with real API call
-      const mockData: Evaluation[] = [
-        {
-          id: '1',
-          staff_id: 'u1',
-          staff_name: '김철수',
-          evaluator_name: '박매니저',
-          evaluation_period: '2024년 1분기',
-          evaluation_date: '2024-01-10',
-          overall_score: 4.2,
-          categories: { attendance: 5, performance: 4, teamwork: 4, initiative: 4, skill: 4 },
-          strengths: '성실한 근무 태도와 뛰어난 고객 응대 능력',
-          improvements: '업무 우선순위 설정 능력 향상 필요',
-          goals: 'Q2까지 POS 시스템 완벽 숙지, 신입 교육 담당',
-          status: 'REVIEWED',
-        },
-        {
-          id: '2',
-          staff_id: 'u2',
-          staff_name: '이영희',
-          evaluator_name: '박매니저',
-          evaluation_period: '2024년 1분기',
-          evaluation_date: '2024-01-10',
-          overall_score: 3.8,
-          categories: { attendance: 4, performance: 4, teamwork: 3, initiative: 4, skill: 4 },
-          strengths: '빠른 학습 능력과 적극적인 업무 태도',
-          improvements: '팀 커뮤니케이션 스킬 향상 필요',
-          goals: '주방 보조 업무 교차 훈련 완료',
-          status: 'SUBMITTED',
-        },
-      ];
-      setEvaluations(mockData);
+
+      // Fetch evaluations and users in parallel
+      const [evaluationsRes, usersRes] = await Promise.all([
+        fetch(`/api/evaluations${periodFilter ? `?period=${encodeURIComponent(periodFilter)}` : ''}`),
+        fetch('/api/users?limit=100'),
+      ]);
+
+      const evaluationsData = await evaluationsRes.json();
+      const usersData = await usersRes.json();
+
+      if (evaluationsData.evaluations) {
+        setEvaluations(evaluationsData.evaluations);
+      }
+
+      if (usersData.data) {
+        setUsers(usersData.data);
+      }
     } catch (error) {
       console.error('Failed to fetch evaluations:', error);
     } finally {
@@ -94,15 +88,50 @@ export default function EvaluationsPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'SUBMITTED' = 'SUBMITTED') => {
     e.preventDefault();
     try {
-      // TODO: Replace with real API call
-      console.log('Creating evaluation:', formData);
+      setSubmitting(true);
+      const response = await fetch('/api/evaluations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: formData.staff_id,
+          evaluation_period: formData.evaluation_period,
+          categories: formData.categories,
+          strengths: formData.strengths,
+          improvements: formData.improvements,
+          goals: formData.goals,
+          status,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '평가 등록에 실패했습니다.');
+      }
+
       setShowModal(false);
-      fetchEvaluations();
+      setFormData({
+        staff_id: '',
+        evaluation_period: `${new Date().getFullYear()}년 ${Math.ceil((new Date().getMonth() + 1) / 3)}분기`,
+        categories: {
+          attendance: 3,
+          performance: 3,
+          teamwork: 3,
+          initiative: 3,
+          skill: 3,
+        },
+        strengths: '',
+        improvements: '',
+        goals: '',
+      });
+      fetchData();
     } catch (error) {
       console.error('Failed to create evaluation:', error);
+      alert(error instanceof Error ? error.message : '평가 등록에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -114,19 +143,23 @@ export default function EvaluationsPage() {
   };
 
   const getStatusBadge = (status: Evaluation['status']) => {
-    const styles = {
+    const styles: Record<string, string> = {
       DRAFT: 'bg-gray-100 text-gray-700',
       SUBMITTED: 'bg-yellow-100 text-yellow-700',
       REVIEWED: 'bg-green-100 text-green-700',
+      APPROVED: 'bg-green-100 text-green-700',
+      REJECTED: 'bg-red-100 text-red-700',
     };
-    const labels = {
+    const labels: Record<string, string> = {
       DRAFT: '작성중',
       SUBMITTED: '제출됨',
       REVIEWED: '검토완료',
+      APPROVED: '승인됨',
+      REJECTED: '반려됨',
     };
     return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full ${styles[status]}`}>
-        {labels[status]}
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${styles[status] || 'bg-gray-100 text-gray-700'}`}>
+        {labels[status] || status}
       </span>
     );
   };
@@ -346,9 +379,11 @@ export default function EvaluationsPage() {
                     required
                   >
                     <option value="">직원을 선택하세요</option>
-                    <option value="u1">김철수</option>
-                    <option value="u2">이영희</option>
-                    <option value="u3">박지민</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} ({user.email})
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -445,20 +480,24 @@ export default function EvaluationsPage() {
                   type="button"
                   onClick={() => setShowModal(false)}
                   className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+                  disabled={submitting}
                 >
                   취소
                 </button>
                 <button
                   type="button"
-                  className="flex-1 px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50"
+                  onClick={(e) => handleSubmit(e, 'DRAFT')}
+                  className="flex-1 px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 disabled:opacity-50"
+                  disabled={submitting}
                 >
-                  임시저장
+                  {submitting ? '저장 중...' : '임시저장'}
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  disabled={submitting}
                 >
-                  제출
+                  {submitting ? '제출 중...' : '제출'}
                 </button>
               </div>
             </form>

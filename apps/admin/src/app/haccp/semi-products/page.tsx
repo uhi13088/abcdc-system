@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Package, Clock, Users, CheckCircle, XCircle } from 'lucide-react';
 
 interface SemiProduct {
@@ -49,138 +49,126 @@ interface SemiProduct {
 }
 
 export default function SemiProductsPage() {
+  const [semiProducts, setSemiProducts] = useState<SemiProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // Mock data
-  const semiProducts: SemiProduct[] = [
-    {
-      id: '1',
-      lotNumber: 'SP-20260110-001',
-      productCode: 'SP001',
-      productName: '양념장 베이스',
-      productionDate: '2026-01-10',
-      inputMaterials: [
-        { materialCode: 'M001', materialName: '고춧가루', materialLot: 'ML-001', quantity: 10, unit: 'kg' },
-        { materialCode: 'M002', materialName: '마늘', materialLot: 'ML-002', quantity: 5, unit: 'kg' },
-        { materialCode: 'M003', materialName: '간장', materialLot: 'ML-003', quantity: 20, unit: 'L' },
-      ],
-      production: {
-        process: '혼합/숙성',
-        plannedQty: 50,
-        actualQty: 48,
-        unit: 'kg',
-        yield: 96,
-        startTime: '09:00',
-        endTime: '11:30',
-        workers: ['김생산', '이품질'],
-      },
-      quality: {
-        appearance: 'NORMAL',
-        texture: 'NORMAL',
-        color: 'NORMAL',
-        sampleTest: true,
-        testResult: 'PASS',
-        inspectedBy: '박검사',
-      },
-      storage: {
-        location: '냉장고 A-2',
-        temperature: 4,
-        storageCondition: '냉장 보관 (0-10°C)',
-        storedAt: '2026-01-10T11:45:00',
-      },
-      usage: {
-        used: 20,
-        remaining: 28,
-        usedFor: ['김치찌개용', '비빔밥용'],
-      },
-      createdAt: '2026-01-10T09:00:00',
+  const [formData, setFormData] = useState<{
+    product_code: string;
+    product_name: string;
+    production_date: string;
+    production: {
+      process: string;
+      planned_qty: number;
+      actual_qty: number;
+      unit: string;
+      start_time: string;
+      end_time: string;
+    };
+    quality: {
+      appearance: 'NORMAL' | 'ABNORMAL';
+      texture: 'NORMAL' | 'ABNORMAL';
+      color: 'NORMAL' | 'ABNORMAL';
+    };
+    storage: {
+      location: string;
+      temperature: number | null;
+      storage_condition: string;
+    };
+  }>({
+    product_code: '',
+    product_name: '',
+    production_date: new Date().toISOString().split('T')[0],
+    production: {
+      process: '',
+      planned_qty: 0,
+      actual_qty: 0,
+      unit: 'kg',
+      start_time: '',
+      end_time: '',
     },
-    {
-      id: '2',
-      lotNumber: 'SP-20260110-002',
-      productCode: 'SP002',
-      productName: '육수 원액',
-      productionDate: '2026-01-10',
-      inputMaterials: [
-        { materialCode: 'M004', materialName: '사골', materialLot: 'ML-004', quantity: 30, unit: 'kg' },
-        { materialCode: 'M005', materialName: '채소류', materialLot: 'ML-005', quantity: 10, unit: 'kg' },
-      ],
-      production: {
-        process: '끓이기/여과',
-        plannedQty: 100,
-        actualQty: 95,
-        unit: 'L',
-        yield: 95,
-        startTime: '06:00',
-        endTime: '14:00',
-        workers: ['최조리'],
-      },
-      quality: {
-        appearance: 'NORMAL',
-        texture: 'NORMAL',
-        color: 'NORMAL',
-        sampleTest: true,
-        testResult: 'PASS',
-        inspectedBy: '박검사',
-      },
-      storage: {
-        location: '냉장고 B-1',
-        temperature: 2,
-        storageCondition: '냉장 보관 (0-5°C)',
-        storedAt: '2026-01-10T14:30:00',
-      },
-      usage: {
-        used: 50,
-        remaining: 45,
-        usedFor: ['설렁탕', '곰탕'],
-      },
-      createdAt: '2026-01-10T06:00:00',
+    quality: {
+      appearance: 'NORMAL',
+      texture: 'NORMAL',
+      color: 'NORMAL',
     },
-    {
-      id: '3',
-      lotNumber: 'SP-20260109-001',
-      productCode: 'SP003',
-      productName: '반죽 (밀가루)',
-      productionDate: '2026-01-09',
-      inputMaterials: [
-        { materialCode: 'M006', materialName: '밀가루', materialLot: 'ML-006', quantity: 25, unit: 'kg' },
-        { materialCode: 'M007', materialName: '물', materialLot: '-', quantity: 15, unit: 'L' },
-        { materialCode: 'M008', materialName: '소금', materialLot: 'ML-008', quantity: 0.5, unit: 'kg' },
-      ],
-      production: {
-        process: '반죽/숙성',
-        plannedQty: 40,
-        actualQty: 38,
-        unit: 'kg',
-        yield: 95,
-        startTime: '07:00',
-        endTime: '09:00',
-        workers: ['정반죽'],
-      },
-      quality: {
-        appearance: 'NORMAL',
-        texture: 'NORMAL',
-        color: 'NORMAL',
-        sampleTest: false,
-        testResult: null,
-        inspectedBy: '',
-      },
-      storage: {
-        location: '냉장고 C-1',
-        temperature: 5,
-        storageCondition: '냉장 보관',
-        storedAt: '2026-01-09T09:15:00',
-      },
-      usage: {
-        used: 38,
-        remaining: 0,
-        usedFor: ['만두피', '국수면'],
-      },
-      createdAt: '2026-01-09T07:00:00',
+    storage: {
+      location: '',
+      temperature: null,
+      storage_condition: '',
     },
-  ];
+  });
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/haccp/semi-products');
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setSemiProducts(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch semi-products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSubmitting(true);
+      const response = await fetch('/api/haccp/semi-products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '반제품 등록에 실패했습니다.');
+      }
+
+      setShowAddModal(false);
+      setFormData({
+        product_code: '',
+        product_name: '',
+        production_date: new Date().toISOString().split('T')[0],
+        production: {
+          process: '',
+          planned_qty: 0,
+          actual_qty: 0,
+          unit: 'kg',
+          start_time: '',
+          end_time: '',
+        },
+        quality: {
+          appearance: 'NORMAL',
+          texture: 'NORMAL',
+          color: 'NORMAL',
+        },
+        storage: {
+          location: '',
+          temperature: null,
+          storage_condition: '',
+        },
+      });
+      fetchData();
+    } catch (error) {
+      console.error('Failed to create semi-product:', error);
+      alert(error instanceof Error ? error.message : '반제품 등록에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const filteredProducts = semiProducts.filter(
     (product) =>
@@ -291,6 +279,11 @@ export default function SemiProductsPage() {
       </div>
 
       {/* Semi-products List */}
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      ) : (
       <div className="space-y-4">
         {filteredProducts.map((product) => (
           <div
@@ -427,6 +420,7 @@ export default function SemiProductsPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Add Modal */}
       {showAddModal && (
@@ -437,7 +431,7 @@ export default function SemiProductsPage() {
               <p className="text-sm text-gray-500 mt-1">새로운 반제품 생산 기록을 등록합니다</p>
             </div>
 
-            <form className="p-6 space-y-6">
+            <form onSubmit={handleSubmit} className="p-6 space-y-6">
               {/* Basic Info */}
               <div>
                 <h3 className="text-sm font-medium text-gray-900 mb-3">기본 정보</h3>
@@ -447,7 +441,10 @@ export default function SemiProductsPage() {
                     <input
                       type="text"
                       placeholder="SP001"
+                      value={formData.product_code}
+                      onChange={(e) => setFormData({ ...formData, product_code: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      required
                     />
                   </div>
                   <div>
@@ -455,7 +452,10 @@ export default function SemiProductsPage() {
                     <input
                       type="text"
                       placeholder="양념장 베이스"
+                      value={formData.product_name}
+                      onChange={(e) => setFormData({ ...formData, product_name: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      required
                     />
                   </div>
                   <div>
@@ -471,8 +471,10 @@ export default function SemiProductsPage() {
                     <label className="block text-sm text-gray-600 mb-1">생산일</label>
                     <input
                       type="date"
-                      defaultValue={new Date().toISOString().split('T')[0]}
+                      value={formData.production_date}
+                      onChange={(e) => setFormData({ ...formData, production_date: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                      required
                     />
                   </div>
                 </div>
@@ -487,12 +489,18 @@ export default function SemiProductsPage() {
                     <input
                       type="text"
                       placeholder="혼합/숙성"
+                      value={formData.production.process}
+                      onChange={(e) => setFormData({ ...formData, production: { ...formData.production, process: e.target.value } })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-600 mb-1">단위</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <select
+                      value={formData.production.unit}
+                      onChange={(e) => setFormData({ ...formData, production: { ...formData.production, unit: e.target.value } })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
                       <option value="kg">kg</option>
                       <option value="L">L</option>
                       <option value="개">개</option>
@@ -504,6 +512,8 @@ export default function SemiProductsPage() {
                     <input
                       type="number"
                       placeholder="50"
+                      value={formData.production.planned_qty || ''}
+                      onChange={(e) => setFormData({ ...formData, production: { ...formData.production, planned_qty: parseFloat(e.target.value) || 0 } })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                   </div>
@@ -512,6 +522,8 @@ export default function SemiProductsPage() {
                     <input
                       type="number"
                       placeholder="48"
+                      value={formData.production.actual_qty || ''}
+                      onChange={(e) => setFormData({ ...formData, production: { ...formData.production, actual_qty: parseFloat(e.target.value) || 0 } })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                   </div>
@@ -519,6 +531,8 @@ export default function SemiProductsPage() {
                     <label className="block text-sm text-gray-600 mb-1">시작 시간</label>
                     <input
                       type="time"
+                      value={formData.production.start_time}
+                      onChange={(e) => setFormData({ ...formData, production: { ...formData.production, start_time: e.target.value } })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                   </div>
@@ -526,6 +540,8 @@ export default function SemiProductsPage() {
                     <label className="block text-sm text-gray-600 mb-1">종료 시간</label>
                     <input
                       type="time"
+                      value={formData.production.end_time}
+                      onChange={(e) => setFormData({ ...formData, production: { ...formData.production, end_time: e.target.value } })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                   </div>
@@ -538,21 +554,33 @@ export default function SemiProductsPage() {
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm text-gray-600 mb-1">외관</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <select
+                      value={formData.quality.appearance}
+                      onChange={(e) => setFormData({ ...formData, quality: { ...formData.quality, appearance: e.target.value as 'NORMAL' | 'ABNORMAL' } })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
                       <option value="NORMAL">정상</option>
                       <option value="ABNORMAL">이상</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm text-gray-600 mb-1">질감</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <select
+                      value={formData.quality.texture}
+                      onChange={(e) => setFormData({ ...formData, quality: { ...formData.quality, texture: e.target.value as 'NORMAL' | 'ABNORMAL' } })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
                       <option value="NORMAL">정상</option>
                       <option value="ABNORMAL">이상</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm text-gray-600 mb-1">색상</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <select
+                      value={formData.quality.color}
+                      onChange={(e) => setFormData({ ...formData, quality: { ...formData.quality, color: e.target.value as 'NORMAL' | 'ABNORMAL' } })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
                       <option value="NORMAL">정상</option>
                       <option value="ABNORMAL">이상</option>
                     </select>
@@ -569,6 +597,8 @@ export default function SemiProductsPage() {
                     <input
                       type="text"
                       placeholder="냉장고 A-1"
+                      value={formData.storage.location}
+                      onChange={(e) => setFormData({ ...formData, storage: { ...formData.storage, location: e.target.value } })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                   </div>
@@ -577,6 +607,8 @@ export default function SemiProductsPage() {
                     <input
                       type="number"
                       placeholder="4"
+                      value={formData.storage.temperature ?? ''}
+                      onChange={(e) => setFormData({ ...formData, storage: { ...formData.storage, temperature: e.target.value ? parseFloat(e.target.value) : null } })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                   </div>
@@ -585,29 +617,32 @@ export default function SemiProductsPage() {
                     <input
                       type="text"
                       placeholder="냉장 보관 (0-10°C)"
+                      value={formData.storage.storage_condition}
+                      onChange={(e) => setFormData({ ...formData, storage: { ...formData.storage, storage_condition: e.target.value } })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                   </div>
                 </div>
               </div>
-            </form>
 
-            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                취소
-              </button>
-              <button
-                type="submit"
-                onClick={() => setShowAddModal(false)}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
-              >
-                등록
-              </button>
-            </div>
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  disabled={submitting}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  disabled={submitting}
+                >
+                  {submitting ? '등록 중...' : '등록'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
