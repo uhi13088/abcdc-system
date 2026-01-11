@@ -95,43 +95,31 @@ export default function SettingsPage() {
   }, []);
 
   const fetchSettings = async () => {
-    const supabase = createClient();
+    try {
+      const supabase = createClient();
 
-    // Fetch company settings
-    const { data: company } = await supabase
-      .from('companies')
-      .select('*')
-      .single();
+      // Get current user info first
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    if (company) {
-      setCompanySettings({
-        name: company.name || '',
-        businessNumber: company.business_number || '',
-        ceoName: company.ceo_name || '',
-        address: company.address || '',
-        phone: company.phone || '',
-      });
-    }
+      // Fetch user's company info from users table (company info was saved during registration)
+      const { data: userData } = await supabase
+        .from('users')
+        .select('company_name, business_number, company_address, company_phone')
+        .eq('auth_id', user.id)
+        .single();
 
-    // Fetch integrations
-    const { data: integrationsData } = await supabase
-      .from('integrations')
-      .select('*');
-
-    if (integrationsData) {
-      const newIntegrations = { ...integrations };
-      integrationsData.forEach((item: any) => {
-        if (item.provider === 'toss_pos') {
-          newIntegrations.tossPos = {
-            enabled: item.enabled,
-            apiKey: item.api_key || '',
-            storeId: item.store_id || '',
-            connected: item.connected,
-          };
-        }
-        // ... other integrations
-      });
-      setIntegrations(newIntegrations);
+      if (userData) {
+        setCompanySettings({
+          name: userData.company_name || '',
+          businessNumber: userData.business_number || '',
+          ceoName: '', // Not in users table
+          address: userData.company_address || '',
+          phone: userData.company_phone || '',
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
     }
   };
 
@@ -141,21 +129,27 @@ export default function SettingsPage() {
 
     try {
       const supabase = createClient();
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('로그인이 필요합니다.');
+
+      // Update user's company info in users table
       const { error } = await supabase
-        .from('companies')
-        .upsert({
-          name: companySettings.name,
+        .from('users')
+        .update({
+          company_name: companySettings.name,
           business_number: companySettings.businessNumber,
-          ceo_name: companySettings.ceoName,
-          address: companySettings.address,
-          phone: companySettings.phone,
+          company_address: companySettings.address,
+          company_phone: companySettings.phone,
           updated_at: new Date().toISOString(),
-        });
+        })
+        .eq('auth_id', user.id);
 
       if (error) throw error;
       setMessage({ type: 'success', text: '회사 정보가 저장되었습니다.' });
-    } catch (error) {
-      setMessage({ type: 'error', text: '저장에 실패했습니다.' });
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || '저장에 실패했습니다.' });
     } finally {
       setLoading(false);
     }
@@ -638,175 +632,17 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Kakao Work Integration */}
+              {/* Kakao Work Integration - Hidden for now
               <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 3c-5.5 0-10 3.58-10 8 0 2.88 1.87 5.39 4.69 6.83-.15.57-.51 2.04-.59 2.36-.1.4.15.39.31.28.13-.08 2.07-1.37 2.91-1.93.87.13 1.77.2 2.68.2 5.5 0 10-3.58 10-8s-4.5-8-10-8z"/>
-                        </svg>
-                        카카오워크 연동
-                      </CardTitle>
-                      <CardDescription>
-                        알림 및 메시지를 카카오워크로 전송합니다.
-                      </CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {integrations.kakaoWork.connected ? (
-                        <span className="flex items-center gap-1 text-sm text-green-600">
-                          <Check className="h-4 w-4" /> 연결됨
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-sm text-gray-500">
-                          <X className="h-4 w-4" /> 미연결
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="kakao-enabled"
-                      checked={integrations.kakaoWork.enabled}
-                      onChange={(e) =>
-                        setIntegrations(prev => ({
-                          ...prev,
-                          kakaoWork: { ...prev.kakaoWork, enabled: e.target.checked }
-                        }))
-                      }
-                      className="h-4 w-4"
-                    />
-                    <Label htmlFor="kakao-enabled">연동 활성화</Label>
-                  </div>
-
-                  {integrations.kakaoWork.enabled && (
-                    <>
-                      <div>
-                        <Label>Bot API Key</Label>
-                        <Input
-                          type="password"
-                          value={integrations.kakaoWork.apiKey}
-                          onChange={(e) =>
-                            setIntegrations(prev => ({
-                              ...prev,
-                              kakaoWork: { ...prev.kakaoWork, apiKey: e.target.value }
-                            }))
-                          }
-                          placeholder="Bot API Key"
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => handleTestConnection('kakao-work')}
-                          disabled={testingConnection === 'kakao-work'}
-                        >
-                          {testingConnection === 'kakao-work' ? (
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Zap className="h-4 w-4 mr-2" />
-                          )}
-                          연결 테스트
-                        </Button>
-                        <Button onClick={() => handleSaveIntegration('kakao_work')} disabled={loading}>
-                          <Save className="h-4 w-4 mr-2" />
-                          저장
-                        </Button>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
+                ...카카오워크 연동 (추후 지원 예정)
               </Card>
+              */}
 
-              {/* Slack Integration */}
+              {/* Slack Integration - Hidden for now
               <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zm1.271 0a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zm0 1.271a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zm10.124 2.521a2.528 2.528 0 0 1 2.52-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.52V8.834zm-1.271 0a2.528 2.528 0 0 1-2.521 2.521 2.528 2.528 0 0 1-2.521-2.521V2.522A2.528 2.528 0 0 1 15.166 0a2.528 2.528 0 0 1 2.521 2.522v6.312zm-2.521 10.124a2.528 2.528 0 0 1 2.521 2.52A2.528 2.528 0 0 1 15.166 24a2.528 2.528 0 0 1-2.521-2.522v-2.52h2.521zm0-1.271a2.528 2.528 0 0 1-2.521-2.521 2.528 2.528 0 0 1 2.521-2.521h6.312A2.528 2.528 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.521h-6.312z"/>
-                        </svg>
-                        Slack 연동
-                      </CardTitle>
-                      <CardDescription>
-                        알림을 Slack 채널로 전송합니다.
-                      </CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {integrations.slack.connected ? (
-                        <span className="flex items-center gap-1 text-sm text-green-600">
-                          <Check className="h-4 w-4" /> 연결됨
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-sm text-gray-500">
-                          <X className="h-4 w-4" /> 미연결
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="slack-enabled"
-                      checked={integrations.slack.enabled}
-                      onChange={(e) =>
-                        setIntegrations(prev => ({
-                          ...prev,
-                          slack: { ...prev.slack, enabled: e.target.checked }
-                        }))
-                      }
-                      className="h-4 w-4"
-                    />
-                    <Label htmlFor="slack-enabled">연동 활성화</Label>
-                  </div>
-
-                  {integrations.slack.enabled && (
-                    <>
-                      <div>
-                        <Label>Webhook URL</Label>
-                        <Input
-                          type="password"
-                          value={integrations.slack.webhookUrl}
-                          onChange={(e) =>
-                            setIntegrations(prev => ({
-                              ...prev,
-                              slack: { ...prev.slack, webhookUrl: e.target.value }
-                            }))
-                          }
-                          placeholder="https://hooks.slack.com/services/..."
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => handleTestConnection('slack')}
-                          disabled={testingConnection === 'slack'}
-                        >
-                          {testingConnection === 'slack' ? (
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Zap className="h-4 w-4 mr-2" />
-                          )}
-                          연결 테스트
-                        </Button>
-                        <Button onClick={() => handleSaveIntegration('slack')} disabled={loading}>
-                          <Save className="h-4 w-4 mr-2" />
-                          저장
-                        </Button>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
+                ...Slack 연동 (추후 지원 예정)
               </Card>
+              */}
 
               {/* Realtime Status */}
               <Card>
