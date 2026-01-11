@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, Suspense } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import {
   Button,
@@ -36,6 +38,7 @@ interface Store {
   default_hourly_rate: number;
   qr_code: string;
   created_at: string;
+  brand_id: string;
   brands: { id: string; name: string };
   companies: { id: string; name: string };
 }
@@ -46,15 +49,42 @@ interface Brand {
   company_id: string;
 }
 
-export default function StoresPage() {
-  const [stores, setStores] = useState<Store[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [brandFilter, setBrandFilter] = useState('');
+// API fetchers
+const fetchBrands = async (): Promise<Brand[]> => {
+  const res = await fetch('/api/brands');
+  if (!res.ok) throw new Error('Failed to fetch brands');
+  return res.json();
+};
 
-  // New store dialog
+const fetchStores = async (brandId?: string): Promise<Store[]> => {
+  const params = new URLSearchParams();
+  if (brandId) params.set('brandId', brandId);
+  const res = await fetch(`/api/stores?${params}`);
+  if (!res.ok) throw new Error('Failed to fetch stores');
+  return res.json();
+};
+
+function StoresPageContent() {
+  const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const initialBrandId = searchParams.get('brandId') || '';
+  const [brandFilter, setBrandFilter] = useState(initialBrandId);
+
+  // React Query - data fetching with caching
+  const { data: brands = [] } = useQuery({
+    queryKey: ['brands'],
+    queryFn: fetchBrands,
+    staleTime: 30 * 1000,
+  });
+
+  const { data: stores = [], isLoading: storesLoading } = useQuery({
+    queryKey: ['stores', brandFilter],
+    queryFn: () => fetchStores(brandFilter),
+    staleTime: 30 * 1000,
+  });
+
+  // Dialog state
   const [showNewDialog, setShowNewDialog] = useState(false);
-  const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [newStore, setNewStore] = useState({
     name: '',
     brandId: '',
@@ -65,112 +95,86 @@ export default function StoresPage() {
     defaultHourlyRate: 9860,
   });
   const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
   // QR Dialog
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [selectedQr, setSelectedQr] = useState('');
 
-  const fetchStores = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (brandFilter) params.set('brandId', brandFilter);
-
-      const response = await fetch(`/api/stores?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setStores(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch stores:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchBrands = async () => {
-    const response = await fetch('/api/brands');
-    if (response.ok) {
-      const data = await response.json();
-      setBrands(data);
-    }
-  };
-
-  useEffect(() => {
-    fetchBrands();
-  }, []);
-
-  useEffect(() => {
-    fetchStores();
-  }, [brandFilter]);
-
-  const handleCreateStore = async () => {
-    setError('');
-    setSubmitting(true);
-
-    try {
-      const brand = brands.find((b) => b.id === newStore.brandId);
-
-      const response = await fetch('/api/stores', {
+  // Mutations
+  const createMutation = useMutation({
+    mutationFn: async (data: typeof newStore) => {
+      const brand = brands.find((b) => b.id === data.brandId);
+      const res = await fetch('/api/stores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...newStore,
+          ...data,
           companyId: brand?.company_id,
         }),
       });
-
-      if (response.ok) {
-        setShowNewDialog(false);
-        setNewStore({
-          name: '',
-          brandId: '',
-          companyId: '',
-          address: '',
-          phone: '',
-          allowedRadius: 100,
-          defaultHourlyRate: 9860,
-        });
-        fetchStores();
-      } else {
-        const data = await response.json();
-        setError(data.error || '매장 생성에 실패했습니다.');
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || '매장 생성에 실패했습니다.');
       }
-    } catch (err) {
-      setError('매장 생성에 실패했습니다.');
-    } finally {
-      setSubmitting(false);
-    }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
+      setShowNewDialog(false);
+      setNewStore({
+        name: '',
+        brandId: '',
+        companyId: '',
+        address: '',
+        phone: '',
+        allowedRadius: 100,
+        defaultHourlyRate: 9860,
+      });
+      setError('');
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/stores/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || '삭제에 실패했습니다.');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stores'] });
+    },
+    onError: (err: Error) => {
+      alert(err.message);
+    },
+  });
+
+  const handleCreateStore = () => {
+    setError('');
+    createMutation.mutate(newStore);
   };
 
-  const handleDeleteStore = async (id: string) => {
+  const handleDeleteStore = (id: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return;
-
-    try {
-      const response = await fetch(`/api/stores/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        fetchStores();
-      } else {
-        const data = await response.json();
-        alert(data.error || '삭제에 실패했습니다.');
-      }
-    } catch (error) {
-      alert('삭제에 실패했습니다.');
-    }
+    deleteMutation.mutate(id);
   };
 
   const openQrDialog = (store: Store) => {
-    // Generate QR code URL (simplified - in production use a proper QR library)
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
       JSON.stringify({ storeId: store.id, name: store.name })
     )}`;
     setSelectedQr(qrUrl);
     setShowQrDialog(true);
   };
+
+  const avgHourlyRate = stores.length > 0
+    ? Math.round(stores.reduce((sum, s) => sum + (s.default_hourly_rate || 0), 0) / stores.length)
+    : 0;
 
   return (
     <div>
@@ -210,12 +214,7 @@ export default function StoresPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500">평균 시급</p>
-                  <p className="text-2xl font-bold">
-                    ₩{Math.round(
-                      stores.reduce((sum, s) => sum + (s.default_hourly_rate || 0), 0) /
-                        (stores.length || 1)
-                    ).toLocaleString()}
-                  </p>
+                  <p className="text-2xl font-bold">₩{avgHourlyRate.toLocaleString()}</p>
                 </div>
                 <div className="p-3 bg-purple-100 rounded-full">
                   <Users className="h-6 w-6 text-purple-600" />
@@ -238,21 +237,27 @@ export default function StoresPage() {
               className="w-40"
             />
           </div>
-          <Button onClick={() => setShowNewDialog(true)}>
+          <Button onClick={() => setShowNewDialog(true)} disabled={brands.length === 0}>
             <Plus className="h-4 w-4 mr-2" />
             매장 등록
           </Button>
         </div>
 
-        {loading ? (
+        {brands.length === 0 && !storesLoading && (
+          <Alert variant="info" className="mb-6">
+            매장을 등록하려면 먼저 브랜드를 등록해야 합니다.
+          </Alert>
+        )}
+
+        {storesLoading ? (
           <PageLoading />
         ) : stores.length === 0 ? (
           <EmptyState
             icon={Building2}
             title="매장이 없습니다"
-            description="새로운 매장을 등록해보세요."
+            description={brands.length === 0 ? "먼저 브랜드를 등록해주세요." : "새로운 매장을 등록해보세요."}
             action={
-              <Button onClick={() => setShowNewDialog(true)}>
+              <Button onClick={() => setShowNewDialog(true)} disabled={brands.length === 0}>
                 <Plus className="h-4 w-4 mr-2" />
                 매장 등록
               </Button>
@@ -291,19 +296,11 @@ export default function StoresPage() {
                         {store.phone || '-'}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      ₩{(store.default_hourly_rate || 0).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(store.created_at).toLocaleDateString('ko-KR')}
-                    </TableCell>
+                    <TableCell>₩{(store.default_hourly_rate || 0).toLocaleString()}</TableCell>
+                    <TableCell>{new Date(store.created_at).toLocaleDateString('ko-KR')}</TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openQrDialog(store)}
-                        >
+                        <Button size="sm" variant="ghost" onClick={() => openQrDialog(store)}>
                           <QrCode className="h-4 w-4" />
                         </Button>
                         <Button size="sm" variant="ghost">
@@ -313,6 +310,7 @@ export default function StoresPage() {
                           size="sm"
                           variant="ghost"
                           onClick={() => handleDeleteStore(store.id)}
+                          disabled={deleteMutation.isPending}
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
@@ -412,8 +410,11 @@ export default function StoresPage() {
             <Button variant="outline" onClick={() => setShowNewDialog(false)}>
               취소
             </Button>
-            <Button onClick={handleCreateStore} disabled={submitting}>
-              {submitting ? '등록 중...' : '등록'}
+            <Button
+              onClick={handleCreateStore}
+              disabled={createMutation.isPending || !newStore.name || !newStore.brandId}
+            >
+              {createMutation.isPending ? '등록 중...' : '등록'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -440,5 +441,14 @@ export default function StoresPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// Wrap with Suspense for useSearchParams
+export default function StoresPage() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <StoresPageContent />
+    </Suspense>
   );
 }

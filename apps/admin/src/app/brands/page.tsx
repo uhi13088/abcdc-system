@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/layout/header';
 import {
   Button,
@@ -36,22 +37,44 @@ interface Brand {
   description: string | null;
   company_id: string;
   created_at: string;
-  companies?: { name: string };
-  store_count?: number;
 }
 
-interface Store {
+interface StoreItem {
   id: string;
   brand_id: string;
 }
 
+// API fetchers
+const fetchBrands = async (): Promise<Brand[]> => {
+  const res = await fetch('/api/brands');
+  if (!res.ok) throw new Error('Failed to fetch brands');
+  return res.json();
+};
+
+const fetchStores = async (): Promise<StoreItem[]> => {
+  const res = await fetch('/api/stores');
+  if (!res.ok) throw new Error('Failed to fetch stores');
+  return res.json();
+};
+
 export default function BrandsPage() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [stores, setStores] = useState<Store[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [hasCompany, setHasCompany] = useState(true);
 
-  // New brand dialog
+  // React Query - data fetching with caching
+  const { data: brands = [], isLoading: brandsLoading } = useQuery({
+    queryKey: ['brands'],
+    queryFn: fetchBrands,
+    staleTime: 30 * 1000, // Cache for 30 seconds
+  });
+
+  const { data: stores = [] } = useQuery({
+    queryKey: ['stores'],
+    queryFn: fetchStores,
+    staleTime: 30 * 1000,
+  });
+
+  // Dialog state
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [newBrand, setNewBrand] = useState({
@@ -60,144 +83,119 @@ export default function BrandsPage() {
     logoUrl: '',
   });
   const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
 
-  const checkCompany = async () => {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: userData } = await supabase
-      .from('users')
-      .select('company_id, role')
-      .eq('auth_id', user.id)
-      .single();
-
-    setHasCompany(!!userData?.company_id || userData?.role === 'super_admin');
-  };
-
-  const fetchBrands = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/brands');
-      if (response.ok) {
-        const data = await response.json();
-        setBrands(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch brands:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStores = async () => {
-    try {
-      const response = await fetch('/api/stores');
-      if (response.ok) {
-        const data = await response.json();
-        setStores(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch stores:', error);
-    }
-  };
-
+  // Check company on mount
   useEffect(() => {
+    const checkCompany = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('company_id, role')
+        .eq('auth_id', user.id)
+        .single();
+
+      setHasCompany(!!userData?.company_id || userData?.role === 'super_admin');
+    };
     checkCompany();
-    fetchBrands();
-    fetchStores();
   }, []);
 
-  // Count stores per brand
+  // Mutations
+  const createMutation = useMutation({
+    mutationFn: async (data: typeof newBrand) => {
+      const res = await fetch('/api/brands', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: data.name,
+          description: data.description || null,
+          logoUrl: data.logoUrl || null,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || '브랜드 생성에 실패했습니다.');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['brands'] });
+      closeDialog();
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: typeof newBrand }) => {
+      const res = await fetch(`/api/brands/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: data.name,
+          description: data.description || null,
+          logoUrl: data.logoUrl || null,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || '브랜드 수정에 실패했습니다.');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['brands'] });
+      closeDialog();
+    },
+    onError: (err: Error) => {
+      setError(err.message);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/brands/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || '삭제에 실패했습니다.');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['brands'] });
+    },
+    onError: (err: Error) => {
+      alert(err.message);
+    },
+  });
+
+  // Helpers
   const getStoreCount = (brandId: string) => {
     return stores.filter((s) => s.brand_id === brandId).length;
   };
 
-  const handleCreateBrand = async () => {
+  const handleCreateBrand = () => {
     setError('');
-    setSubmitting(true);
-
-    try {
-      const response = await fetch('/api/brands', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newBrand.name,
-          description: newBrand.description || null,
-          logoUrl: newBrand.logoUrl || null,
-        }),
-      });
-
-      if (response.ok) {
-        setShowNewDialog(false);
-        setNewBrand({ name: '', description: '', logoUrl: '' });
-        fetchBrands();
-      } else {
-        const data = await response.json();
-        setError(data.error || '브랜드 생성에 실패했습니다.');
-      }
-    } catch (err) {
-      setError('브랜드 생성에 실패했습니다.');
-    } finally {
-      setSubmitting(false);
-    }
+    createMutation.mutate(newBrand);
   };
 
-  const handleUpdateBrand = async () => {
+  const handleUpdateBrand = () => {
     if (!editingBrand) return;
     setError('');
-    setSubmitting(true);
-
-    try {
-      const response = await fetch(`/api/brands/${editingBrand.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newBrand.name,
-          description: newBrand.description || null,
-          logoUrl: newBrand.logoUrl || null,
-        }),
-      });
-
-      if (response.ok) {
-        setEditingBrand(null);
-        setNewBrand({ name: '', description: '', logoUrl: '' });
-        fetchBrands();
-      } else {
-        const data = await response.json();
-        setError(data.error || '브랜드 수정에 실패했습니다.');
-      }
-    } catch (err) {
-      setError('브랜드 수정에 실패했습니다.');
-    } finally {
-      setSubmitting(false);
-    }
+    updateMutation.mutate({ id: editingBrand.id, data: newBrand });
   };
 
-  const handleDeleteBrand = async (id: string) => {
+  const handleDeleteBrand = (id: string) => {
     const storeCount = getStoreCount(id);
     if (storeCount > 0) {
       alert(`이 브랜드에 ${storeCount}개의 매장이 있습니다. 먼저 매장을 삭제해주세요.`);
       return;
     }
-
     if (!confirm('정말 삭제하시겠습니까?')) return;
-
-    try {
-      const response = await fetch(`/api/brands/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        fetchBrands();
-      } else {
-        const data = await response.json();
-        alert(data.error || '삭제에 실패했습니다.');
-      }
-    } catch (error) {
-      alert('삭제에 실패했습니다.');
-    }
+    deleteMutation.mutate(id);
   };
 
   const openEditDialog = (brand: Brand) => {
@@ -216,6 +214,8 @@ export default function BrandsPage() {
     setNewBrand({ name: '', description: '', logoUrl: '' });
     setError('');
   };
+
+  const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div>
@@ -293,9 +293,7 @@ export default function BrandsPage() {
                 <div>
                   <p className="text-sm text-gray-500">브랜드당 평균 매장</p>
                   <p className="text-2xl font-bold">
-                    {brands.length > 0
-                      ? (stores.length / brands.length).toFixed(1)
-                      : 0}
+                    {brands.length > 0 ? (stores.length / brands.length).toFixed(1) : 0}
                   </p>
                 </div>
                 <div className="p-3 bg-green-100 rounded-full">
@@ -314,7 +312,7 @@ export default function BrandsPage() {
           </Button>
         </div>
 
-        {loading ? (
+        {brandsLoading ? (
           <PageLoading />
         ) : brands.length === 0 ? (
           <EmptyState
@@ -322,7 +320,7 @@ export default function BrandsPage() {
             title="브랜드가 없습니다"
             description="새로운 브랜드를 등록해보세요. 브랜드를 먼저 등록해야 매장을 등록할 수 있습니다."
             action={
-              <Button onClick={() => setShowNewDialog(true)}>
+              <Button onClick={() => setShowNewDialog(true)} disabled={!hasCompany}>
                 <Plus className="h-4 w-4 mr-2" />
                 브랜드 등록
               </Button>
@@ -386,6 +384,7 @@ export default function BrandsPage() {
                           size="sm"
                           variant="ghost"
                           onClick={() => handleDeleteBrand(brand.id)}
+                          disabled={deleteMutation.isPending}
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
@@ -454,9 +453,9 @@ export default function BrandsPage() {
             </Button>
             <Button
               onClick={editingBrand ? handleUpdateBrand : handleCreateBrand}
-              disabled={submitting || !newBrand.name.trim()}
+              disabled={isSubmitting || !newBrand.name.trim()}
             >
-              {submitting ? '처리 중...' : editingBrand ? '수정' : '등록'}
+              {isSubmitting ? '처리 중...' : editingBrand ? '수정' : '등록'}
             </Button>
           </DialogFooter>
         </DialogContent>
