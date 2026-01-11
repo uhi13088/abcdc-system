@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
       ssn_encrypted: encryptSSN(ssn),
       ssn_hash: ssnHash,
       birth_date: calculatedBirthDate,
-      role: 'admin',
+      role: 'company_admin',
       status: 'ACTIVE',
       company_id: companyId,
     };
