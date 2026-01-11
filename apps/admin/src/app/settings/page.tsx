@@ -20,7 +20,7 @@ import {
 } from '@/components/ui';
 import {
   Save, Building2, Bell, Shield, CreditCard, User, Link2,
-  RefreshCw, Check, X, ExternalLink, Database, Zap, Palette, Upload, ImageIcon
+  RefreshCw, Check, X, ExternalLink, Database, Zap, Info
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -48,23 +48,6 @@ export default function SettingsPage() {
     salaryAlerts: true,
   });
 
-  // Labor law settings
-  const [laborSettings, setLaborSettings] = useState({
-    minimumWage: 9860,
-    standardDailyHours: 8,
-    standardWeeklyHours: 40,
-    overtimeRate: 1.5,
-    nightRate: 0.5,
-    holidayRate: 1.5,
-  });
-
-  // Brand settings
-  const [brandSettings, setBrandSettings] = useState({
-    brandName: 'ABC Staff',
-    primaryColor: '#10b981',
-    logoUrl: '',
-    faviconUrl: '',
-  });
 
   // Integration settings
   const [integrations, setIntegrations] = useState({
@@ -102,21 +85,30 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch user's company info from users table (company info was saved during registration)
+      // Get user's company_id from users table
       const { data: userData } = await supabase
         .from('users')
-        .select('company_name, business_number, company_address, company_phone')
+        .select('company_id, role')
         .eq('auth_id', user.id)
         .single();
 
-      if (userData) {
-        setCompanySettings({
-          name: userData.company_name || '',
-          businessNumber: userData.business_number || '',
-          ceoName: '', // Not in users table
-          address: userData.company_address || '',
-          phone: userData.company_phone || '',
-        });
+      // If user has a company, fetch company info
+      if (userData?.company_id) {
+        const { data: companyData } = await supabase
+          .from('companies')
+          .select('name, business_number, ceo_name, address, phone')
+          .eq('id', userData.company_id)
+          .single();
+
+        if (companyData) {
+          setCompanySettings({
+            name: companyData.name || '',
+            businessNumber: companyData.business_number || '',
+            ceoName: companyData.ceo_name || '',
+            address: companyData.address || '',
+            phone: companyData.phone || '',
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -134,19 +126,54 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('로그인이 필요합니다.');
 
-      // Update user's company info in users table
-      const { error } = await supabase
+      // Get user's current company_id
+      const { data: userData } = await supabase
         .from('users')
-        .update({
-          company_name: companySettings.name,
-          business_number: companySettings.businessNumber,
-          company_address: companySettings.address,
-          company_phone: companySettings.phone,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('auth_id', user.id);
+        .select('id, company_id')
+        .eq('auth_id', user.id)
+        .single();
 
-      if (error) throw error;
+      if (!userData) throw new Error('사용자 정보를 찾을 수 없습니다.');
+
+      const companyData = {
+        name: companySettings.name,
+        business_number: companySettings.businessNumber || null,
+        ceo_name: companySettings.ceoName || null,
+        address: companySettings.address || null,
+        phone: companySettings.phone || null,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (userData.company_id) {
+        // Update existing company
+        const { error } = await supabase
+          .from('companies')
+          .update(companyData)
+          .eq('id', userData.company_id);
+
+        if (error) throw error;
+      } else {
+        // Create new company and link to user
+        const { data: newCompany, error: createError } = await supabase
+          .from('companies')
+          .insert({
+            ...companyData,
+            status: 'ACTIVE',
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+
+        // Link company to user
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ company_id: newCompany.id })
+          .eq('id', userData.id);
+
+        if (updateError) throw updateError;
+      }
+
       setMessage({ type: 'success', text: '회사 정보가 저장되었습니다.' });
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || '저장에 실패했습니다.' });
@@ -279,10 +306,6 @@ export default function SettingsPage() {
               <Building2 className="h-4 w-4 mr-2" />
               회사 정보
             </TabsTrigger>
-            <TabsTrigger value="brand">
-              <Palette className="h-4 w-4 mr-2" />
-              브랜드
-            </TabsTrigger>
             <TabsTrigger value="integrations">
               <Link2 className="h-4 w-4 mr-2" />
               연동/API
@@ -375,145 +398,6 @@ export default function SettingsPage() {
                 </div>
                 <div className="pt-4">
                   <Button onClick={handleSaveCompanySettings} disabled={loading}>
-                    {loading ? <ButtonLoading /> : <Save className="h-4 w-4 mr-2" />}
-                    저장
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Brand Settings */}
-          <TabsContent value="brand">
-            <Card>
-              <CardHeader>
-                <CardTitle>브랜드 설정</CardTitle>
-                <CardDescription>
-                  서비스의 브랜드 이미지를 커스터마이즈합니다.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <Label>브랜드명</Label>
-                    <Input
-                      value={brandSettings.brandName}
-                      onChange={(e) =>
-                        setBrandSettings({ ...brandSettings, brandName: e.target.value })
-                      }
-                      placeholder="서비스 이름"
-                      className="mt-1"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">사이드바 및 헤더에 표시됩니다.</p>
-                  </div>
-                  <div>
-                    <Label>브랜드 컬러</Label>
-                    <div className="flex gap-2 mt-1">
-                      <input
-                        type="color"
-                        value={brandSettings.primaryColor}
-                        onChange={(e) =>
-                          setBrandSettings({ ...brandSettings, primaryColor: e.target.value })
-                        }
-                        className="h-10 w-16 rounded border cursor-pointer"
-                      />
-                      <Input
-                        value={brandSettings.primaryColor}
-                        onChange={(e) =>
-                          setBrandSettings({ ...brandSettings, primaryColor: e.target.value })
-                        }
-                        placeholder="#10b981"
-                        className="flex-1"
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">주요 버튼 및 강조 색상에 적용됩니다.</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <Label>로고 이미지</Label>
-                    <div className="mt-2 border-2 border-dashed rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer">
-                      {brandSettings.logoUrl ? (
-                        <div className="space-y-2">
-                          <img
-                            src={brandSettings.logoUrl}
-                            alt="Logo"
-                            className="h-16 mx-auto object-contain"
-                          />
-                          <Button variant="outline" size="sm" onClick={() => setBrandSettings({ ...brandSettings, logoUrl: '' })}>
-                            <X className="h-4 w-4 mr-1" /> 제거
-                          </Button>
-                        </div>
-                      ) : (
-                        <label className="cursor-pointer">
-                          <Upload className="h-8 w-8 mx-auto text-gray-400" />
-                          <p className="mt-2 text-sm text-gray-500">클릭하여 로고 업로드</p>
-                          <p className="text-xs text-gray-400">PNG, JPG, SVG (최대 2MB)</p>
-                          <input type="file" className="hidden" accept="image/*" onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onloadend = () => {
-                                setBrandSettings({ ...brandSettings, logoUrl: reader.result as string });
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }} />
-                        </label>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <Label>파비콘</Label>
-                    <div className="mt-2 border-2 border-dashed rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer">
-                      {brandSettings.faviconUrl ? (
-                        <div className="space-y-2">
-                          <img
-                            src={brandSettings.faviconUrl}
-                            alt="Favicon"
-                            className="h-8 w-8 mx-auto object-contain"
-                          />
-                          <Button variant="outline" size="sm" onClick={() => setBrandSettings({ ...brandSettings, faviconUrl: '' })}>
-                            <X className="h-4 w-4 mr-1" /> 제거
-                          </Button>
-                        </div>
-                      ) : (
-                        <label className="cursor-pointer">
-                          <ImageIcon className="h-8 w-8 mx-auto text-gray-400" />
-                          <p className="mt-2 text-sm text-gray-500">클릭하여 파비콘 업로드</p>
-                          <p className="text-xs text-gray-400">ICO, PNG (32x32px 권장)</p>
-                          <input type="file" className="hidden" accept="image/*,.ico" onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onloadend = () => {
-                                setBrandSettings({ ...brandSettings, faviconUrl: reader.result as string });
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }} />
-                        </label>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-medium mb-3">미리보기</h4>
-                  <div className="flex items-center gap-3 bg-[#0f172a] p-3 rounded-lg w-fit">
-                    <div
-                      className="flex items-center justify-center w-8 h-8 rounded-lg text-white font-bold text-sm"
-                      style={{ backgroundColor: brandSettings.primaryColor }}
-                    >
-                      {brandSettings.brandName.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="text-white font-semibold">{brandSettings.brandName}</span>
-                  </div>
-                </div>
-
-                <div className="pt-4">
-                  <Button disabled={loading}>
                     {loading ? <ButtonLoading /> : <Save className="h-4 w-4 mr-2" />}
                     저장
                   </Button>
@@ -819,83 +703,107 @@ export default function SettingsPage() {
           <TabsContent value="labor">
             <Card>
               <CardHeader>
-                <CardTitle>근로기준 설정</CardTitle>
+                <CardTitle>근로기준 현황</CardTitle>
                 <CardDescription>
-                  급여 계산에 사용되는 근로기준법 관련 설정입니다.
+                  플랫폼에서 관리하는 근로기준법 설정입니다. 급여 계산에 자동 적용됩니다.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <Alert variant="info">
-                  이 설정은 2024년 근로기준법을 기준으로 합니다. 법률이 변경되면 자동으로 업데이트됩니다.
-                </Alert>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>최저시급 (원)</Label>
-                    <Input
-                      type="number"
-                      value={laborSettings.minimumWage}
-                      onChange={(e) =>
-                        setLaborSettings({
-                          ...laborSettings,
-                          minimumWage: parseInt(e.target.value) || 0,
-                        })
-                      }
-                      className="mt-1"
-                      disabled
-                    />
+              <CardContent className="space-y-6">
+                {/* 전년도 대비 변경사항 */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    2025년 변경사항
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between py-2 border-b border-blue-100">
+                      <span className="text-blue-800">최저시급</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 line-through">₩9,860</span>
+                        <span className="text-blue-600">→</span>
+                        <span className="font-semibold text-blue-900">₩10,030</span>
+                        <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">+1.7%</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between py-2 border-b border-blue-100">
+                      <span className="text-blue-800">건강보험료율</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 line-through">3.495%</span>
+                        <span className="text-blue-600">→</span>
+                        <span className="font-semibold text-blue-900">3.545%</span>
+                        <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">+0.05%p</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <span className="text-blue-800">장기요양보험료율</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 line-through">12.27%</span>
+                        <span className="text-blue-600">→</span>
+                        <span className="font-semibold text-blue-900">12.81%</span>
+                        <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">+0.54%p</span>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <Label>1일 소정근로시간</Label>
-                    <Input
-                      type="number"
-                      value={laborSettings.standardDailyHours}
-                      className="mt-1"
-                      disabled
-                    />
+                  <p className="text-xs text-blue-600 mt-3">
+                    * 시행일: 2025년 1월 1일 | 플랫폼에서 자동 관리됩니다
+                  </p>
+                </div>
+
+                {/* 현재 적용 중인 설정 */}
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-4">현재 적용 중인 설정</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">최저시급</p>
+                      <p className="text-xl font-bold text-gray-900">₩10,030</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">1일 소정근로시간</p>
+                      <p className="text-xl font-bold text-gray-900">8시간</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">주 소정근로시간</p>
+                      <p className="text-xl font-bold text-gray-900">40시간</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">연장근로 할증</p>
+                      <p className="text-xl font-bold text-gray-900">150%</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">야간근로 할증</p>
+                      <p className="text-xl font-bold text-gray-900">50%</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">휴일근로 할증</p>
+                      <p className="text-xl font-bold text-gray-900">150%</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>주당 소정근로시간</Label>
-                    <Input
-                      type="number"
-                      value={laborSettings.standardWeeklyHours}
-                      className="mt-1"
-                      disabled
-                    />
+                {/* 4대보험 요율 */}
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-4">4대보험 요율 (근로자 부담분)</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">국민연금</p>
+                      <p className="text-xl font-bold text-gray-900">4.5%</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">건강보험</p>
+                      <p className="text-xl font-bold text-gray-900">3.545%</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">장기요양보험</p>
+                      <p className="text-xl font-bold text-gray-900">12.81%</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">고용보험</p>
+                      <p className="text-xl font-bold text-gray-900">0.9%</p>
+                    </div>
                   </div>
-                  <div>
-                    <Label>연장근로 할증률</Label>
-                    <Input
-                      type="text"
-                      value={`${laborSettings.overtimeRate * 100}%`}
-                      className="mt-1"
-                      disabled
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>야간근로 할증률</Label>
-                    <Input
-                      type="text"
-                      value={`${laborSettings.nightRate * 100}%`}
-                      className="mt-1"
-                      disabled
-                    />
-                  </div>
-                  <div>
-                    <Label>휴일근로 할증률</Label>
-                    <Input
-                      type="text"
-                      value={`${laborSettings.holidayRate * 100}%`}
-                      className="mt-1"
-                      disabled
-                    />
-                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    * 장기요양보험은 건강보험료의 12.81%입니다
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -921,26 +829,41 @@ export default function SettingsPage() {
                       활성
                     </span>
                   </div>
-                  <div className="space-y-2 text-sm">
-                    <p>다음 결제일: 2024년 2월 1일</p>
+                  <div className="space-y-2 text-sm mb-4">
+                    <p>다음 결제일: 2025년 2월 1일</p>
                     <p>직원 수 제한: 무제한</p>
                     <p>매장 수 제한: 무제한</p>
                   </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm">
+                      결제 수단 변경
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      결제 내역
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <Card className="border-2">
+                <h4 className="font-medium mb-4">플랜 선택</h4>
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <Card className="border-2 hover:border-gray-300 cursor-pointer transition-colors">
                     <CardContent className="pt-6 text-center">
                       <h4 className="font-semibold">FREE</h4>
                       <p className="text-2xl font-bold mt-2">무료</p>
                       <p className="text-sm text-gray-500 mt-1">최대 5명</p>
+                      <Button variant="outline" size="sm" className="mt-4 w-full">
+                        다운그레이드
+                      </Button>
                     </CardContent>
                   </Card>
-                  <Card className="border-2">
+                  <Card className="border-2 hover:border-gray-300 cursor-pointer transition-colors">
                     <CardContent className="pt-6 text-center">
                       <h4 className="font-semibold">STARTER</h4>
                       <p className="text-2xl font-bold mt-2">₩39,000</p>
                       <p className="text-sm text-gray-500 mt-1">최대 20명</p>
+                      <Button variant="outline" size="sm" className="mt-4 w-full">
+                        다운그레이드
+                      </Button>
                     </CardContent>
                   </Card>
                   <Card className="border-2 border-primary">
@@ -948,9 +871,22 @@ export default function SettingsPage() {
                       <h4 className="font-semibold text-primary">PRO</h4>
                       <p className="text-2xl font-bold mt-2">₩99,000</p>
                       <p className="text-sm text-gray-500 mt-1">무제한</p>
-                      <span className="inline-block mt-2 text-xs text-primary">현재 플랜</span>
+                      <Button size="sm" className="mt-4 w-full" disabled>
+                        현재 플랜
+                      </Button>
                     </CardContent>
                   </Card>
+                </div>
+
+                <div className="border-t pt-6">
+                  <h4 className="font-medium mb-2 text-red-600">구독 취소</h4>
+                  <p className="text-sm text-gray-500 mb-4">
+                    구독을 취소하면 다음 결제일부터 FREE 플랜으로 전환됩니다.
+                    현재 결제 기간이 끝날 때까지 PRO 기능을 계속 사용할 수 있습니다.
+                  </p>
+                  <Button variant="destructive" size="sm">
+                    구독 취소
+                  </Button>
                 </div>
               </CardContent>
             </Card>

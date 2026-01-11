@@ -77,20 +77,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Check if user has a company_id
-    if (!userData?.company_id && userData?.role !== 'super_admin') {
-      return NextResponse.json(
-        { error: '브랜드를 생성하려면 먼저 회사 정보를 등록해야 합니다. 설정 > 회사 정보에서 등록해주세요.' },
-        { status: 400 }
-      );
-    }
-
     const body = await request.json();
+    let companyId = userData?.company_id;
+
+    // Auto-create company if user doesn't have one
+    if (!companyId && userData?.role !== 'super_admin') {
+      // Get user info for company name
+      const { data: userInfo } = await supabase
+        .from('users')
+        .select('id, name, email')
+        .eq('auth_id', user.id)
+        .single();
+
+      // Create a new company
+      const { data: newCompany, error: companyError } = await supabase
+        .from('companies')
+        .insert({
+          name: userInfo?.name ? `${userInfo.name}의 회사` : '내 회사',
+          status: 'ACTIVE',
+        })
+        .select()
+        .single();
+
+      if (companyError) {
+        console.error('Failed to create company:', companyError);
+        return NextResponse.json({ error: '회사 생성에 실패했습니다.' }, { status: 500 });
+      }
+
+      // Link company to user
+      await supabase
+        .from('users')
+        .update({ company_id: newCompany.id })
+        .eq('id', userInfo?.id);
+
+      companyId = newCompany.id;
+    }
 
     // Auto-fill companyId from user's company for non-super_admin
     const brandData = {
       ...body,
-      companyId: userData?.role === 'super_admin' ? body.companyId : userData?.company_id,
+      companyId: userData?.role === 'super_admin' ? body.companyId : companyId,
     };
 
     // Validate input

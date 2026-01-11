@@ -81,6 +81,9 @@ importers:
       react-hook-form:
         specifier: ^7.49.0
         version: 7.70.0(react@18.3.1)
+      swr:
+        specifier: ^2.3.8
+        version: 2.3.8(react@18.3.1)
       tailwind-merge:
         specifier: ^2.2.0
         version: 2.6.0
@@ -2500,6 +2503,11 @@ packages:
     requiresBuild: true
     dev: false
     optional: true
+
+  /dequal@2.0.3:
+    resolution: {integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==}
+    engines: {node: '>=6'}
+    dev: false
 
   /dfa@1.2.0:
     resolution: {integrity: sha512-ED3jP8saaweFTjeGX8HQPjeC1YYyZs98jGNZx6IiBvxW7JG5v492kamAQB3m2wop07CvU/RQmzcKr6bgcC5D/Q==}
@@ -5500,6 +5508,16 @@ packages:
     dependencies:
       standardwebhooks: 1.0.0
       uuid: 10.0.0
+    dev: false
+
+  /swr@2.3.8(react@18.3.1):
+    resolution: {integrity: sha512-gaCPRVoMq8WGDcWj9p4YWzCMPHzE0WNl6W8ADIx9c3JBEIdMkJGMzW+uzXvxHMltwcYACr9jP+32H8/hgwMR7w==}
+    peerDependencies:
+      react: ^16.11.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    dependencies:
+      dequal: 2.0.3
+      react: 18.3.1
+      use-sync-external-store: 1.6.0(react@18.3.1)
     dev: false
 
   /tailwind-merge@2.6.0:

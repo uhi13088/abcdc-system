@@ -210,6 +210,59 @@ export default function LaborLawPage() {
               </div>
             </div>
 
+            {/* 전년도 대비 변경사항 */}
+            {archivedVersions.length > 0 && (
+              <div className="mt-6 pt-6 border-t">
+                <h3 className="text-sm font-semibold text-gray-700 mb-4">전년도 대비 변경사항</h3>
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-blue-800">최저시급</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 line-through">
+                          ₩{archivedVersions[0].minimumWageHourly.toLocaleString()}
+                        </span>
+                        <span className="text-blue-600">→</span>
+                        <span className="font-semibold text-blue-900">
+                          ₩{activeVersion.minimumWageHourly.toLocaleString()}
+                        </span>
+                        <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
+                          +{((activeVersion.minimumWageHourly - archivedVersions[0].minimumWageHourly) / archivedVersions[0].minimumWageHourly * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-blue-800">건강보험</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 line-through">
+                          {archivedVersions[0].healthInsuranceRate}%
+                        </span>
+                        <span className="text-blue-600">→</span>
+                        <span className="font-semibold text-blue-900">
+                          {activeVersion.healthInsuranceRate}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-blue-800">장기요양</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 line-through">
+                          {archivedVersions[0].longTermCareRate}%
+                        </span>
+                        <span className="text-blue-600">→</span>
+                        <span className="font-semibold text-blue-900">
+                          {activeVersion.longTermCareRate}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-3">
+                    * 이 변경사항은 모든 구독 고객사에 자동 적용됩니다
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="mt-6 pt-6 border-t">
               <h3 className="text-sm font-semibold text-gray-700 mb-4">4대보험 요율</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

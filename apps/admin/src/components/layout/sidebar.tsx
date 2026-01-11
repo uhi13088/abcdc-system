@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, memo, useCallback } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -69,28 +69,28 @@ const navigation: NavItem[] = [
   { name: '설정', href: '/settings', icon: Settings },
 ];
 
-export function Sidebar() {
+function SidebarComponent() {
   const pathname = usePathname();
   const router = useRouter();
   const [expandedItems, setExpandedItems] = useState<string[]>(['직원 관리', '조직 관리']);
   const [isHovered, setIsHovered] = useState(false);
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     // Clear demo mode cookie
     document.cookie = 'demo_mode=; path=/; max-age=0';
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push('/auth/login');
     router.refresh();
-  };
+  }, [router]);
 
-  const toggleExpand = (name: string) => {
+  const toggleExpand = useCallback((name: string) => {
     setExpandedItems(prev =>
       prev.includes(name)
         ? prev.filter(item => item !== name)
         : [...prev, name]
     );
-  };
+  }, []);
 
   return (
     <div
@@ -167,6 +167,7 @@ export function Sidebar() {
                         <Link
                           key={child.href}
                           href={child.href}
+                          prefetch={true}
                           className={cn(
                             'block pl-12 pr-4 py-2 text-sm transition-colors',
                             isChildActive
@@ -188,6 +189,7 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              prefetch={true}
               className={cn(
                 'flex items-center px-4 py-2.5 text-sm font-medium transition-colors relative group',
                 isActive
@@ -247,3 +249,6 @@ export function Sidebar() {
     </div>
   );
 }
+
+// Memoize to prevent unnecessary re-renders
+export const Sidebar = memo(SidebarComponent);
