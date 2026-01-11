@@ -104,31 +104,8 @@ async function getStats() {
 export default async function DashboardPage() {
   const stats = await getStats();
 
-  // Show setup message if user needs to configure their account
-  if (stats?.needsSetup) {
-    return (
-      <div>
-        <Header title="대시보드" />
-        <div className="p-6">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-            <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-            <h2 className="text-lg font-semibold text-yellow-800 mb-2">
-              계정 설정이 필요합니다
-            </h2>
-            <p className="text-yellow-700 mb-4">
-              회사 정보가 설정되지 않았습니다. 관리자에게 문의하거나 설정 페이지에서 회사 정보를 등록해주세요.
-            </p>
-            <a
-              href="/settings"
-              className="inline-flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
-            >
-              설정으로 이동
-            </a>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Check if user has no company (optional - show info banner)
+  const showCompanyBanner = stats?.needsSetup;
 
   const cards: Array<{
     title: string;
@@ -174,6 +151,24 @@ export default async function DashboardPage() {
       <Header title="대시보드" />
 
       <div className="p-6 space-y-6">
+        {/* Optional company setup banner */}
+        {showCompanyBanner && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
+            <div className="flex items-center">
+              <AlertCircle className="w-5 h-5 text-blue-500 mr-3" />
+              <p className="text-sm text-blue-700">
+                회사 정보를 등록하면 직원 관리, 급여 계산 등 더 많은 기능을 사용할 수 있습니다.
+              </p>
+            </div>
+            <a
+              href="/settings"
+              className="text-sm font-medium text-blue-600 hover:text-blue-800 whitespace-nowrap ml-4"
+            >
+              설정하기 &rarr;
+            </a>
+          </div>
+        )}
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {cards.map((card) => (
