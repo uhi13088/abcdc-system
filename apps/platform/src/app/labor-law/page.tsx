@@ -1,0 +1,491 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
+
+interface LaborLawVersion {
+  id: string;
+  version: string;
+  effectiveDate: string;
+  minimumWageHourly: number;
+  overtimeRate: number;
+  nightRate: number;
+  holidayRate: number;
+  nationalPensionRate: number;
+  healthInsuranceRate: number;
+  longTermCareRate: number;
+  employmentInsuranceRate: number;
+  status: 'DRAFT' | 'VERIFIED' | 'ACTIVE' | 'ARCHIVED';
+  createdAt: string;
+}
+
+export default function LaborLawPage() {
+  const [versions, setVersions] = useState<LaborLawVersion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingVersion, setEditingVersion] = useState<LaborLawVersion | null>(null);
+  const [formData, setFormData] = useState({
+    version: '',
+    effectiveDate: '',
+    minimumWageHourly: 10030,
+    overtimeRate: 1.5,
+    nightRate: 0.5,
+    holidayRate: 1.5,
+    nationalPensionRate: 4.5,
+    healthInsuranceRate: 3.545,
+    longTermCareRate: 12.81,
+    employmentInsuranceRate: 0.9,
+  });
+
+  useEffect(() => {
+    fetchVersions();
+  }, []);
+
+  const fetchVersions = async () => {
+    try {
+      // Demo data
+      setVersions([
+        {
+          id: '1',
+          version: '2026.01',
+          effectiveDate: '2026-01-01',
+          minimumWageHourly: 10030,
+          overtimeRate: 1.5,
+          nightRate: 0.5,
+          holidayRate: 1.5,
+          nationalPensionRate: 4.5,
+          healthInsuranceRate: 3.545,
+          longTermCareRate: 12.81,
+          employmentInsuranceRate: 0.9,
+          status: 'ACTIVE',
+          createdAt: '2025-12-01',
+        },
+        {
+          id: '2',
+          version: '2026.07',
+          effectiveDate: '2026-07-01',
+          minimumWageHourly: 10350,
+          overtimeRate: 1.5,
+          nightRate: 0.5,
+          holidayRate: 1.5,
+          nationalPensionRate: 4.5,
+          healthInsuranceRate: 3.595,
+          longTermCareRate: 12.95,
+          employmentInsuranceRate: 0.9,
+          status: 'VERIFIED',
+          createdAt: '2026-01-05',
+        },
+        {
+          id: '3',
+          version: '2025.01',
+          effectiveDate: '2025-01-01',
+          minimumWageHourly: 9860,
+          overtimeRate: 1.5,
+          nightRate: 0.5,
+          holidayRate: 1.5,
+          nationalPensionRate: 4.5,
+          healthInsuranceRate: 3.495,
+          longTermCareRate: 12.27,
+          employmentInsuranceRate: 0.9,
+          status: 'ARCHIVED',
+          createdAt: '2024-12-01',
+        },
+      ]);
+    } catch (error) {
+      console.error('Failed to fetch labor law versions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusBadge = (status: LaborLawVersion['status']) => {
+    const config = {
+      DRAFT: { color: 'bg-gray-100 text-gray-700', icon: Edit2, label: '초안' },
+      VERIFIED: { color: 'bg-blue-100 text-blue-700', icon: Clock, label: '검증됨' },
+      ACTIVE: { color: 'bg-green-100 text-green-700', icon: CheckCircle, label: '적용 중' },
+      ARCHIVED: { color: 'bg-orange-100 text-orange-700', icon: AlertCircle, label: '만료' },
+    };
+    const { color, icon: Icon, label } = config[status];
+    return (
+      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${color}`}>
+        <Icon className="w-3 h-3" />
+        {label}
+      </span>
+    );
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // API call would go here
+    setIsCreateOpen(false);
+    setEditingVersion(null);
+    alert(editingVersion ? '버전이 수정되었습니다.' : '새 버전이 추가되었습니다.');
+  };
+
+  const handleActivate = async (id: string) => {
+    if (!confirm('이 버전을 활성화하시겠습니까? 현재 활성 버전은 만료됩니다.')) return;
+    // API call would go here
+    alert('버전이 활성화되었습니다.');
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('이 버전을 삭제하시겠습니까?')) return;
+    // API call would go here
+    setVersions(versions.filter(v => v.id !== id));
+  };
+
+  const activeVersion = versions.find(v => v.status === 'ACTIVE');
+  const pendingVersions = versions.filter(v => v.status === 'VERIFIED' || v.status === 'DRAFT');
+  const archivedVersions = versions.filter(v => v.status === 'ARCHIVED');
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">근로기준법 관리</h1>
+          <p className="text-gray-600 mt-1">최저임금 및 4대보험 요율을 관리합니다</p>
+        </div>
+        <button
+          onClick={() => {
+            setEditingVersion(null);
+            setFormData({
+              version: '',
+              effectiveDate: '',
+              minimumWageHourly: 10030,
+              overtimeRate: 1.5,
+              nightRate: 0.5,
+              holidayRate: 1.5,
+              nationalPensionRate: 4.5,
+              healthInsuranceRate: 3.545,
+              longTermCareRate: 12.81,
+              employmentInsuranceRate: 0.9,
+            });
+            setIsCreateOpen(true);
+          }}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          신규 버전 추가
+        </button>
+      </div>
+
+      {/* 현재 적용 중인 법령 */}
+      {activeVersion && (
+        <div className="bg-white rounded-xl shadow-sm border">
+          <div className="px-6 py-4 border-b flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">현재 적용 중</h2>
+            {getStatusBadge('ACTIVE')}
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div>
+                <p className="text-sm text-gray-500">버전</p>
+                <p className="text-xl font-bold text-gray-900">{activeVersion.version}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">시행일</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {format(new Date(activeVersion.effectiveDate), 'yyyy년 M월 d일', { locale: ko })}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">최저시급</p>
+                <p className="text-xl font-bold text-blue-600">
+                  {activeVersion.minimumWageHourly.toLocaleString()}원
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">연장근로수당</p>
+                <p className="text-xl font-bold text-gray-900">{activeVersion.overtimeRate}배</p>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-6 border-t">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4">4대보험 요율</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500">국민연금</p>
+                  <p className="text-lg font-semibold">{activeVersion.nationalPensionRate}%</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500">건강보험</p>
+                  <p className="text-lg font-semibold">{activeVersion.healthInsuranceRate}%</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500">장기요양보험</p>
+                  <p className="text-lg font-semibold">{activeVersion.longTermCareRate}%</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-xs text-gray-500">고용보험</p>
+                  <p className="text-lg font-semibold">{activeVersion.employmentInsuranceRate}%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 예정된 업데이트 */}
+      {pendingVersions.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border">
+          <div className="px-6 py-4 border-b">
+            <h2 className="text-lg font-semibold text-gray-900">예정된 업데이트</h2>
+          </div>
+          <div className="divide-y">
+            {pendingVersions.map(version => (
+              <div key={version.id} className="p-6 hover:bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    {getStatusBadge(version.status)}
+                    <div>
+                      <p className="font-semibold text-gray-900">{version.version}</p>
+                      <p className="text-sm text-gray-500">
+                        시행 예정일: {format(new Date(version.effectiveDate), 'yyyy년 M월 d일', { locale: ko })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg font-bold text-blue-600">
+                      {version.minimumWageHourly.toLocaleString()}원/시
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleActivate(version.id)}
+                        className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      >
+                        활성화
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingVersion(version);
+                          setFormData({
+                            version: version.version,
+                            effectiveDate: version.effectiveDate,
+                            minimumWageHourly: version.minimumWageHourly,
+                            overtimeRate: version.overtimeRate,
+                            nightRate: version.nightRate,
+                            holidayRate: version.holidayRate,
+                            nationalPensionRate: version.nationalPensionRate,
+                            healthInsuranceRate: version.healthInsuranceRate,
+                            longTermCareRate: version.longTermCareRate,
+                            employmentInsuranceRate: version.employmentInsuranceRate,
+                          });
+                          setIsCreateOpen(true);
+                        }}
+                        className="p-1.5 text-gray-600 hover:bg-gray-100 rounded"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(version.id)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 이전 버전 */}
+      {archivedVersions.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border">
+          <div className="px-6 py-4 border-b">
+            <h2 className="text-lg font-semibold text-gray-900">이전 버전</h2>
+          </div>
+          <table className="min-w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">버전</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">시행일</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">최저시급</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {archivedVersions.map(version => (
+                <tr key={version.id}>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{version.version}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    {format(new Date(version.effectiveDate), 'yyyy-MM-dd')}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {version.minimumWageHourly.toLocaleString()}원
+                  </td>
+                  <td className="px-6 py-4">{getStatusBadge(version.status)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 생성/수정 모달 */}
+      {isCreateOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b">
+              <h2 className="text-xl font-bold">
+                {editingVersion ? '버전 수정' : '신규 버전 추가'}
+              </h2>
+            </div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    버전 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.version}
+                    onChange={(e) => setFormData({ ...formData, version: e.target.value })}
+                    placeholder="예: 2026.07"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    시행일 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.effectiveDate}
+                    onChange={(e) => setFormData({ ...formData, effectiveDate: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  최저시급 (원) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  value={formData.minimumWageHourly}
+                  onChange={(e) => setFormData({ ...formData, minimumWageHourly: parseInt(e.target.value) })}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">연장근로수당 (배)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.overtimeRate}
+                    onChange={(e) => setFormData({ ...formData, overtimeRate: parseFloat(e.target.value) })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">야간근로수당 (배)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.nightRate}
+                    onChange={(e) => setFormData({ ...formData, nightRate: parseFloat(e.target.value) })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">휴일근로수당 (배)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={formData.holidayRate}
+                    onChange={(e) => setFormData({ ...formData, holidayRate: parseFloat(e.target.value) })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-semibold text-gray-700 mb-4">4대보험 요율 (%)</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">국민연금</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.nationalPensionRate}
+                      onChange={(e) => setFormData({ ...formData, nationalPensionRate: parseFloat(e.target.value) })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">건강보험</label>
+                    <input
+                      type="number"
+                      step="0.001"
+                      value={formData.healthInsuranceRate}
+                      onChange={(e) => setFormData({ ...formData, healthInsuranceRate: parseFloat(e.target.value) })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">장기요양보험</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.longTermCareRate}
+                      onChange={(e) => setFormData({ ...formData, longTermCareRate: parseFloat(e.target.value) })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">고용보험</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.employmentInsuranceRate}
+                      onChange={(e) => setFormData({ ...formData, employmentInsuranceRate: parseFloat(e.target.value) })}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreateOpen(false);
+                    setEditingVersion(null);
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  {editingVersion ? '수정' : '추가'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

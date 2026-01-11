@@ -1,0 +1,98 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "buildCommand": "turbo run build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/sync-toss-pos",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/send-tax-report",
+      "schedule": "0 9 5 * *"
+    },
+    {
+      "path": "/api/cron/apply-law-updates",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/haccp-reminder",
+      "schedule": "0 8,14,22 * * *"
+    },
+    {
+      "path": "/api/cron/subscription-renewal-check",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/sensor-health-check",
+      "schedule": "*/5 * * * *"
+    }
+  ],
+  "regions": ["icn1"],
+  "env": {
+    "NEXT_PUBLIC_APP_URL": "@app_url",
+    "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
+    "NEXT_PUBLIC_TOSS_CLIENT_KEY": "@toss_client_key",
+    "TOSS_SECRET_KEY": "@toss_secret_key",
+    "OPENAI_API_KEY": "@openai_api_key",
+    "RESEND_API_KEY": "@resend_api_key",
+    "TOSS_CLIENT_ID": "@toss_client_id",
+    "TOSS_CLIENT_SECRET": "@toss_client_secret",
+    "OPEN_BANKING_CLIENT_ID": "@open_banking_client_id",
+    "OPEN_BANKING_CLIENT_SECRET": "@open_banking_client_secret"
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/webhooks/stripe",
+      "destination": "/api/webhooks/stripe"
+    }
+  ],
+  "functions": {
+    "api/webhooks/stripe/route.ts": {
+      "maxDuration": 30
+    },
+    "api/cron/**/*.ts": {
+      "maxDuration": 60
+    },
+    "api/haccp/audit-report/route.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  }
+}
