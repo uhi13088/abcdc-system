@@ -155,6 +155,15 @@ function StoresPageContent() {
   });
 
   const handleCreateStore = () => {
+    // Client-side validation
+    if (!newStore.name.trim()) {
+      setError('매장명을 입력해주세요');
+      return;
+    }
+    if (!newStore.brandId) {
+      setError('브랜드를 선택해주세요');
+      return;
+    }
     setError('');
     createMutation.mutate(newStore);
   };
@@ -344,8 +353,11 @@ function StoresPageContent() {
                 value={newStore.name}
                 onChange={(e) => setNewStore({ ...newStore, name: e.target.value })}
                 placeholder="강남점"
-                className="mt-1"
+                className={`mt-1 ${!newStore.name && error ? 'border-red-500' : ''}`}
               />
+              {!newStore.name && error && (
+                <p className="text-xs text-red-500 mt-1">매장명을 입력해주세요</p>
+              )}
             </div>
             <div>
               <Label required>브랜드</Label>
@@ -353,11 +365,14 @@ function StoresPageContent() {
                 value={newStore.brandId}
                 onChange={(e) => setNewStore({ ...newStore, brandId: e.target.value })}
                 options={[
-                  { value: '', label: '브랜드 선택' },
+                  { value: '', label: '브랜드를 선택해주세요' },
                   ...brands.map((b) => ({ value: b.id, label: b.name })),
                 ]}
-                className="mt-1"
+                className={`mt-1 ${!newStore.brandId && error ? 'border-red-500' : ''}`}
               />
+              {!newStore.brandId && error && (
+                <p className="text-xs text-red-500 mt-1">브랜드를 선택해주세요</p>
+              )}
             </div>
             <div>
               <Label>주소</Label>
