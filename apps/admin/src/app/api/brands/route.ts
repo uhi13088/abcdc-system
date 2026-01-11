@@ -77,10 +77,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Check if user has a company_id
+    if (!userData?.company_id && userData?.role !== 'super_admin') {
+      return NextResponse.json(
+        { error: '브랜드를 생성하려면 먼저 회사 정보를 등록해야 합니다. 설정 > 회사 정보에서 등록해주세요.' },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
 
+    // Auto-fill companyId from user's company for non-super_admin
+    const brandData = {
+      ...body,
+      companyId: userData?.role === 'super_admin' ? body.companyId : userData?.company_id,
+    };
+
     // Validate input
-    const validation = CreateBrandSchema.safeParse(body);
+    const validation = CreateBrandSchema.safeParse(brandData);
     if (!validation.success) {
       return NextResponse.json(
         { error: validation.error.errors[0].message },
@@ -100,7 +114,12 @@ export async function POST(request: NextRequest) {
 
     const { data, error } = await supabase
       .from('brands')
-      .insert(validation.data)
+      .insert({
+        company_id: validation.data.companyId,
+        name: validation.data.name,
+        logo_url: validation.data.logoUrl,
+        description: validation.data.description,
+      })
       .select()
       .single();
 
