@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { CreateBrandSchema } from '@abc/shared';
 
@@ -89,8 +89,11 @@ export async function POST(request: NextRequest) {
         .eq('auth_id', user.id)
         .single();
 
-      // Create a new company
-      const { data: newCompany, error: companyError } = await supabase
+      // Use admin client to bypass RLS for company creation
+      const adminClient = createAdminClient();
+
+      // Create a new company using service role to bypass RLS
+      const { data: newCompany, error: companyError } = await adminClient
         .from('companies')
         .insert({
           name: userInfo?.name ? `${userInfo.name}의 회사` : '내 회사',
@@ -101,14 +104,20 @@ export async function POST(request: NextRequest) {
 
       if (companyError) {
         console.error('Failed to create company:', companyError);
-        return NextResponse.json({ error: '회사 생성에 실패했습니다.' }, { status: 500 });
+        return NextResponse.json({
+          error: `회사 생성에 실패했습니다: ${companyError.message}`
+        }, { status: 500 });
       }
 
-      // Link company to user
-      await supabase
+      // Link company to user using admin client
+      const { error: updateError } = await adminClient
         .from('users')
         .update({ company_id: newCompany.id })
         .eq('id', userInfo?.id);
+
+      if (updateError) {
+        console.error('Failed to link company to user:', updateError);
+      }
 
       companyId = newCompany.id;
     }
