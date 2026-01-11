@@ -119,19 +119,24 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // 주민등록번호 중복 검사 (해시로 비교)
+    // 주민등록번호 중복 검사 (해시로 비교) - ssn_hash 컬럼이 있는 경우에만
     const ssnHash = hashSSN(ssn);
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id')
-      .eq('ssn_hash', ssnHash)
-      .single();
+    try {
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('ssn_hash', ssnHash)
+        .single();
 
-    if (existingUser) {
-      return NextResponse.json(
-        { error: '이미 등록된 주민등록번호입니다.' },
-        { status: 400 }
-      );
+      if (existingUser) {
+        return NextResponse.json(
+          { error: '이미 등록된 주민등록번호입니다.' },
+          { status: 400 }
+        );
+      }
+    } catch {
+      // ssn_hash 컬럼이 없거나 에러 발생 시 무시 (첫 사용자일 수 있음)
+      console.log('SSN hash check skipped (column may not exist yet)');
     }
 
     // 1. Create auth user
@@ -209,23 +214,45 @@ export async function POST(request: NextRequest) {
     const fullAddress = addressDetail ? `${address} ${addressDetail}` : address;
 
     // 3. Create user profile in users table
-    const { data: userData, error: userError } = await supabase
+    // 먼저 ssn_hash 포함해서 시도, 실패하면 ssn_hash 없이 재시도
+    let userData;
+    let userError;
+
+    const userDataWithHash = {
+      auth_id: authData.user.id,
+      email: email,
+      name: name,
+      phone: phone,
+      address: fullAddress,
+      ssn_encrypted: encryptSSN(ssn),
+      ssn_hash: ssnHash,
+      birth_date: calculatedBirthDate,
+      role: 'admin',
+      status: 'ACTIVE',
+      company_id: companyId,
+    };
+
+    const result1 = await supabase
       .from('users')
-      .insert({
-        auth_id: authData.user.id,
-        email: email,
-        name: name,
-        phone: phone,
-        address: fullAddress,
-        ssn_encrypted: encryptSSN(ssn),
-        ssn_hash: ssnHash,
-        birth_date: calculatedBirthDate,
-        role: 'admin',
-        status: 'ACTIVE',
-        company_id: companyId,
-      })
+      .insert(userDataWithHash)
       .select()
       .single();
+
+    if (result1.error && result1.error.message.includes('ssn_hash')) {
+      // ssn_hash 컬럼이 없으면 제외하고 재시도
+      console.log('Retrying without ssn_hash column');
+      const { ssn_hash, ...userDataWithoutHash } = userDataWithHash;
+      const result2 = await supabase
+        .from('users')
+        .insert(userDataWithoutHash)
+        .select()
+        .single();
+      userData = result2.data;
+      userError = result2.error;
+    } else {
+      userData = result1.data;
+      userError = result1.error;
+    }
 
     if (userError) {
       console.error('User profile error:', userError);
