@@ -84,13 +84,17 @@ export async function POST(request: NextRequest) {
       addressDetail,
       ssn,
       birthDate,
-      companyName
+      // 회사 정보 (선택)
+      companyName,
+      businessNumber,
+      companyAddress,
+      companyPhone,
     } = body;
 
     // 필수 필드 검증
-    if (!email || !password || !name || !phone || !ssn) {
+    if (!email || !password || !name || !phone || !ssn || !address) {
       return NextResponse.json(
-        { error: '이메일, 비밀번호, 이름, 전화번호, 주민등록번호는 필수입니다.' },
+        { error: '이메일, 비밀번호, 이름, 전화번호, 주민등록번호, 주소는 필수입니다.' },
         { status: 400 }
       );
     }
@@ -174,6 +178,9 @@ export async function POST(request: NextRequest) {
           .from('companies')
           .insert({
             name: companyName,
+            business_number: businessNumber || null,
+            address: companyAddress || null,
+            phone: companyPhone || null,
             status: 'ACTIVE',
           })
           .select('id')

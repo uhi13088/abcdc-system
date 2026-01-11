@@ -12,11 +12,15 @@ export default function RegisterPage() {
     confirmPassword: '',
     name: '',
     phone: '',
-    ssn1: '', // 주민번호 앞자리
-    ssn2: '', // 주민번호 뒷자리
+    ssn1: '',
+    ssn2: '',
     address: '',
     addressDetail: '',
+    // 회사 정보 (선택)
     companyName: '',
+    businessNumber: '',
+    companyAddress: '',
+    companyPhone: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -28,13 +32,26 @@ export default function RegisterPage() {
     const { name, value } = e.target;
 
     // 전화번호 자동 포맷팅
-    if (name === 'phone') {
+    if (name === 'phone' || name === 'companyPhone') {
       const cleaned = value.replace(/\D/g, '');
       let formatted = cleaned;
       if (cleaned.length >= 4 && cleaned.length < 8) {
         formatted = `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`;
       } else if (cleaned.length >= 8) {
         formatted = `${cleaned.slice(0, 3)}-${cleaned.slice(3, 7)}-${cleaned.slice(7, 11)}`;
+      }
+      setFormData(prev => ({ ...prev, [name]: formatted }));
+      return;
+    }
+
+    // 사업자번호 자동 포맷팅 (000-00-00000)
+    if (name === 'businessNumber') {
+      const cleaned = value.replace(/\D/g, '').slice(0, 10);
+      let formatted = cleaned;
+      if (cleaned.length >= 4 && cleaned.length < 6) {
+        formatted = `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`;
+      } else if (cleaned.length >= 6) {
+        formatted = `${cleaned.slice(0, 3)}-${cleaned.slice(3, 5)}-${cleaned.slice(5)}`;
       }
       setFormData(prev => ({ ...prev, [name]: formatted }));
       return;
@@ -79,8 +96,8 @@ export default function RegisterPage() {
     setLoading(true);
 
     // 필수 필드 검증
-    if (!formData.email || !formData.password || !formData.name || !formData.phone) {
-      setError('이메일, 비밀번호, 이름, 전화번호는 필수입니다.');
+    if (!formData.email || !formData.password || !formData.name || !formData.phone || !formData.address) {
+      setError('이메일, 비밀번호, 이름, 전화번호, 주소는 필수입니다.');
       setLoading(false);
       return;
     }
@@ -120,7 +137,11 @@ export default function RegisterPage() {
           ssn: `${formData.ssn1}-${formData.ssn2}`,
           address: formData.address,
           addressDetail: formData.addressDetail,
+          // 회사 정보 (선택)
           companyName: formData.companyName || null,
+          businessNumber: formData.businessNumber || null,
+          companyAddress: formData.companyAddress || null,
+          companyPhone: formData.companyPhone || null,
         }),
       });
 
@@ -181,7 +202,10 @@ export default function RegisterPage() {
             </div>
           )}
 
+          {/* 개인 정보 섹션 */}
           <div className="space-y-4">
+            <h3 className="text-lg font-medium text-gray-900 border-b pb-2">개인 정보</h3>
+
             {/* 이메일 */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
@@ -276,12 +300,13 @@ export default function RegisterPage() {
             {/* 주소 */}
             <div>
               <label htmlFor="address" className="block text-sm font-medium text-gray-700">
-                주소 <span className="text-gray-400">(선택)</span>
+                주소 <span className="text-red-500">*</span>
               </label>
               <input
                 id="address"
                 name="address"
                 type="text"
+                required
                 value={formData.address}
                 onChange={handleChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
@@ -297,11 +322,18 @@ export default function RegisterPage() {
                 placeholder="상세주소 (동/호수)"
               />
             </div>
+          </div>
+
+          {/* 회사 정보 섹션 (선택) */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-gray-900 border-b pb-2">
+              회사 정보 <span className="text-sm font-normal text-gray-400">(선택)</span>
+            </h3>
 
             {/* 회사명 */}
             <div>
               <label htmlFor="companyName" className="block text-sm font-medium text-gray-700">
-                회사명 <span className="text-gray-400">(선택)</span>
+                회사명
               </label>
               <input
                 id="companyName"
@@ -313,6 +345,60 @@ export default function RegisterPage() {
                 placeholder="ABC 디저트"
               />
             </div>
+
+            {/* 사업자번호 */}
+            <div>
+              <label htmlFor="businessNumber" className="block text-sm font-medium text-gray-700">
+                사업자번호
+              </label>
+              <input
+                id="businessNumber"
+                name="businessNumber"
+                type="text"
+                value={formData.businessNumber}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                placeholder="000-00-00000"
+                maxLength={12}
+              />
+            </div>
+
+            {/* 회사 주소 */}
+            <div>
+              <label htmlFor="companyAddress" className="block text-sm font-medium text-gray-700">
+                회사 주소
+              </label>
+              <input
+                id="companyAddress"
+                name="companyAddress"
+                type="text"
+                value={formData.companyAddress}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                placeholder="서울시 강남구 역삼동 123-45"
+              />
+            </div>
+
+            {/* 회사 전화번호 */}
+            <div>
+              <label htmlFor="companyPhone" className="block text-sm font-medium text-gray-700">
+                회사 전화번호
+              </label>
+              <input
+                id="companyPhone"
+                name="companyPhone"
+                type="tel"
+                value={formData.companyPhone}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                placeholder="02-1234-5678"
+              />
+            </div>
+          </div>
+
+          {/* 비밀번호 섹션 */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-gray-900 border-b pb-2">비밀번호 설정</h3>
 
             {/* 비밀번호 */}
             <div>
