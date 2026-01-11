@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { LoginSchema } from '@abc/shared';
 
@@ -198,6 +199,18 @@ export default function LoginPage() {
             >
               {loading ? '로그인 중...' : '로그인'}
             </button>
+          </div>
+
+          <div className="text-center">
+            <p className="text-sm text-gray-600">
+              계정이 없으신가요?{' '}
+              <Link
+                href="/auth/register"
+                className="font-medium text-primary hover:text-primary/90"
+              >
+                관리자 회원가입
+              </Link>
+            </p>
           </div>
         </form>
 
