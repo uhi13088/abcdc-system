@@ -130,7 +130,8 @@ export async function POST(request: NextRequest) {
 
     // Non-platform admins can only create brands in their company
     if (userData?.role !== 'super_admin') {
-      if (validation.data.companyId !== userData?.company_id) {
+      // Use companyId variable which is updated after auto-creation
+      if (validation.data.companyId !== companyId) {
         return NextResponse.json(
           { error: '자신의 회사에만 브랜드를 생성할 수 있습니다.' },
           { status: 403 }
