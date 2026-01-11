@@ -26,9 +26,8 @@ import {
   CardContent,
   Textarea,
 } from '@/components/ui';
-import { Building2, Plus, Edit, Trash2, Store, Package, AlertCircle } from 'lucide-react';
+import { Building2, Plus, Edit, Trash2, Store, Package } from 'lucide-react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
 
 interface Brand {
   id: string;
@@ -59,7 +58,6 @@ const fetchStores = async (): Promise<StoreItem[]> => {
 
 export default function BrandsPage() {
   const queryClient = useQueryClient();
-  const [hasCompany, setHasCompany] = useState(true);
 
   // React Query - data fetching with caching
   const { data: brands = [], isLoading: brandsLoading } = useQuery({
@@ -84,23 +82,6 @@ export default function BrandsPage() {
   });
   const [error, setError] = useState('');
 
-  // Check company on mount
-  useEffect(() => {
-    const checkCompany = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('company_id, role')
-        .eq('auth_id', user.id)
-        .single();
-
-      setHasCompany(!!userData?.company_id || userData?.role === 'super_admin');
-    };
-    checkCompany();
-  }, []);
 
   // Mutations
   const createMutation = useMutation({
@@ -222,27 +203,6 @@ export default function BrandsPage() {
       <Header title="브랜드 관리" />
 
       <div className="p-6">
-        {/* Company Required Warning */}
-        {!hasCompany && (
-          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-start">
-              <AlertCircle className="w-5 h-5 text-yellow-500 mr-3 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-yellow-800">회사 정보 등록 필요</p>
-                <p className="text-sm text-yellow-700 mt-1">
-                  브랜드를 생성하려면 먼저 회사 정보를 등록해야 합니다.
-                </p>
-                <Link
-                  href="/settings"
-                  className="text-sm font-medium text-yellow-600 hover:text-yellow-800 underline mt-2 inline-block"
-                >
-                  설정에서 회사 정보 등록하기 →
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Info Banner */}
         <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-start">
@@ -306,7 +266,7 @@ export default function BrandsPage() {
 
         {/* Toolbar */}
         <div className="mb-6 flex justify-end">
-          <Button onClick={() => setShowNewDialog(true)} disabled={!hasCompany}>
+          <Button onClick={() => setShowNewDialog(true)} >
             <Plus className="h-4 w-4 mr-2" />
             브랜드 등록
           </Button>
@@ -320,7 +280,7 @@ export default function BrandsPage() {
             title="브랜드가 없습니다"
             description="새로운 브랜드를 등록해보세요. 브랜드를 먼저 등록해야 매장을 등록할 수 있습니다."
             action={
-              <Button onClick={() => setShowNewDialog(true)} disabled={!hasCompany}>
+              <Button onClick={() => setShowNewDialog(true)} >
                 <Plus className="h-4 w-4 mr-2" />
                 브랜드 등록
               </Button>

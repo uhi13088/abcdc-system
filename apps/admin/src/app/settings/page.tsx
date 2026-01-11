@@ -20,7 +20,7 @@ import {
 } from '@/components/ui';
 import {
   Save, Building2, Bell, Shield, CreditCard, User, Link2,
-  RefreshCw, Check, X, ExternalLink, Database, Zap, Palette, Upload, ImageIcon
+  RefreshCw, Check, X, ExternalLink, Database, Zap, Upload, ImageIcon, AlertTriangle, Info
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -50,7 +50,7 @@ export default function SettingsPage() {
 
   // Labor law settings
   const [laborSettings, setLaborSettings] = useState({
-    minimumWage: 9860,
+    minimumWage: 10030, // 2025년 최저임금
     standardDailyHours: 8,
     standardWeeklyHours: 40,
     overtimeRate: 1.5,
@@ -58,13 +58,16 @@ export default function SettingsPage() {
     holidayRate: 1.5,
   });
 
-  // Brand settings
-  const [brandSettings, setBrandSettings] = useState({
-    brandName: 'ABC Staff',
-    primaryColor: '#10b981',
-    logoUrl: '',
-    faviconUrl: '',
-  });
+  // Check if minimum wage needs update (every January)
+  const [showWageReminder, setShowWageReminder] = useState(false);
+
+  useEffect(() => {
+    // Show reminder in January
+    const now = new Date();
+    if (now.getMonth() === 0) { // January
+      setShowWageReminder(true);
+    }
+  }, []);
 
   // Integration settings
   const [integrations, setIntegrations] = useState({
@@ -323,10 +326,6 @@ export default function SettingsPage() {
               <Building2 className="h-4 w-4 mr-2" />
               회사 정보
             </TabsTrigger>
-            <TabsTrigger value="brand">
-              <Palette className="h-4 w-4 mr-2" />
-              브랜드
-            </TabsTrigger>
             <TabsTrigger value="integrations">
               <Link2 className="h-4 w-4 mr-2" />
               연동/API
@@ -419,145 +418,6 @@ export default function SettingsPage() {
                 </div>
                 <div className="pt-4">
                   <Button onClick={handleSaveCompanySettings} disabled={loading}>
-                    {loading ? <ButtonLoading /> : <Save className="h-4 w-4 mr-2" />}
-                    저장
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Brand Settings */}
-          <TabsContent value="brand">
-            <Card>
-              <CardHeader>
-                <CardTitle>브랜드 설정</CardTitle>
-                <CardDescription>
-                  서비스의 브랜드 이미지를 커스터마이즈합니다.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <Label>브랜드명</Label>
-                    <Input
-                      value={brandSettings.brandName}
-                      onChange={(e) =>
-                        setBrandSettings({ ...brandSettings, brandName: e.target.value })
-                      }
-                      placeholder="서비스 이름"
-                      className="mt-1"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">사이드바 및 헤더에 표시됩니다.</p>
-                  </div>
-                  <div>
-                    <Label>브랜드 컬러</Label>
-                    <div className="flex gap-2 mt-1">
-                      <input
-                        type="color"
-                        value={brandSettings.primaryColor}
-                        onChange={(e) =>
-                          setBrandSettings({ ...brandSettings, primaryColor: e.target.value })
-                        }
-                        className="h-10 w-16 rounded border cursor-pointer"
-                      />
-                      <Input
-                        value={brandSettings.primaryColor}
-                        onChange={(e) =>
-                          setBrandSettings({ ...brandSettings, primaryColor: e.target.value })
-                        }
-                        placeholder="#10b981"
-                        className="flex-1"
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">주요 버튼 및 강조 색상에 적용됩니다.</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <Label>로고 이미지</Label>
-                    <div className="mt-2 border-2 border-dashed rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer">
-                      {brandSettings.logoUrl ? (
-                        <div className="space-y-2">
-                          <img
-                            src={brandSettings.logoUrl}
-                            alt="Logo"
-                            className="h-16 mx-auto object-contain"
-                          />
-                          <Button variant="outline" size="sm" onClick={() => setBrandSettings({ ...brandSettings, logoUrl: '' })}>
-                            <X className="h-4 w-4 mr-1" /> 제거
-                          </Button>
-                        </div>
-                      ) : (
-                        <label className="cursor-pointer">
-                          <Upload className="h-8 w-8 mx-auto text-gray-400" />
-                          <p className="mt-2 text-sm text-gray-500">클릭하여 로고 업로드</p>
-                          <p className="text-xs text-gray-400">PNG, JPG, SVG (최대 2MB)</p>
-                          <input type="file" className="hidden" accept="image/*" onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onloadend = () => {
-                                setBrandSettings({ ...brandSettings, logoUrl: reader.result as string });
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }} />
-                        </label>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <Label>파비콘</Label>
-                    <div className="mt-2 border-2 border-dashed rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer">
-                      {brandSettings.faviconUrl ? (
-                        <div className="space-y-2">
-                          <img
-                            src={brandSettings.faviconUrl}
-                            alt="Favicon"
-                            className="h-8 w-8 mx-auto object-contain"
-                          />
-                          <Button variant="outline" size="sm" onClick={() => setBrandSettings({ ...brandSettings, faviconUrl: '' })}>
-                            <X className="h-4 w-4 mr-1" /> 제거
-                          </Button>
-                        </div>
-                      ) : (
-                        <label className="cursor-pointer">
-                          <ImageIcon className="h-8 w-8 mx-auto text-gray-400" />
-                          <p className="mt-2 text-sm text-gray-500">클릭하여 파비콘 업로드</p>
-                          <p className="text-xs text-gray-400">ICO, PNG (32x32px 권장)</p>
-                          <input type="file" className="hidden" accept="image/*,.ico" onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onloadend = () => {
-                                setBrandSettings({ ...brandSettings, faviconUrl: reader.result as string });
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }} />
-                        </label>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-medium mb-3">미리보기</h4>
-                  <div className="flex items-center gap-3 bg-[#0f172a] p-3 rounded-lg w-fit">
-                    <div
-                      className="flex items-center justify-center w-8 h-8 rounded-lg text-white font-bold text-sm"
-                      style={{ backgroundColor: brandSettings.primaryColor }}
-                    >
-                      {brandSettings.brandName.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="text-white font-semibold">{brandSettings.brandName}</span>
-                  </div>
-                </div>
-
-                <div className="pt-4">
-                  <Button disabled={loading}>
                     {loading ? <ButtonLoading /> : <Save className="h-4 w-4 mr-2" />}
                     저장
                   </Button>
@@ -869,8 +729,36 @@ export default function SettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {showWageReminder && (
+                  <Alert variant="warning" className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-yellow-800">최저임금 확인 필요</p>
+                      <p className="text-sm text-yellow-700 mt-1">
+                        새해가 시작되었습니다. 최저임금이 변경되었는지 확인해주세요.
+                        <a
+                          href="https://www.minimumwage.go.kr"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-1 underline font-medium"
+                        >
+                          최저임금위원회 바로가기 →
+                        </a>
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => setShowWageReminder(false)}
+                      >
+                        확인 완료
+                      </Button>
+                    </div>
+                  </Alert>
+                )}
                 <Alert variant="info">
-                  이 설정은 2024년 근로기준법을 기준으로 합니다. 법률이 변경되면 자동으로 업데이트됩니다.
+                  <Info className="h-4 w-4 mr-2 inline" />
+                  이 설정은 2025년 근로기준법을 기준으로 합니다. 최저임금: ₩10,030/시간
                 </Alert>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -965,26 +853,41 @@ export default function SettingsPage() {
                       활성
                     </span>
                   </div>
-                  <div className="space-y-2 text-sm">
-                    <p>다음 결제일: 2024년 2월 1일</p>
+                  <div className="space-y-2 text-sm mb-4">
+                    <p>다음 결제일: 2025년 2월 1일</p>
                     <p>직원 수 제한: 무제한</p>
                     <p>매장 수 제한: 무제한</p>
                   </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm">
+                      결제 수단 변경
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      결제 내역
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <Card className="border-2">
+                <h4 className="font-medium mb-4">플랜 선택</h4>
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <Card className="border-2 hover:border-gray-300 cursor-pointer transition-colors">
                     <CardContent className="pt-6 text-center">
                       <h4 className="font-semibold">FREE</h4>
                       <p className="text-2xl font-bold mt-2">무료</p>
                       <p className="text-sm text-gray-500 mt-1">최대 5명</p>
+                      <Button variant="outline" size="sm" className="mt-4 w-full">
+                        다운그레이드
+                      </Button>
                     </CardContent>
                   </Card>
-                  <Card className="border-2">
+                  <Card className="border-2 hover:border-gray-300 cursor-pointer transition-colors">
                     <CardContent className="pt-6 text-center">
                       <h4 className="font-semibold">STARTER</h4>
                       <p className="text-2xl font-bold mt-2">₩39,000</p>
                       <p className="text-sm text-gray-500 mt-1">최대 20명</p>
+                      <Button variant="outline" size="sm" className="mt-4 w-full">
+                        다운그레이드
+                      </Button>
                     </CardContent>
                   </Card>
                   <Card className="border-2 border-primary">
@@ -992,9 +895,22 @@ export default function SettingsPage() {
                       <h4 className="font-semibold text-primary">PRO</h4>
                       <p className="text-2xl font-bold mt-2">₩99,000</p>
                       <p className="text-sm text-gray-500 mt-1">무제한</p>
-                      <span className="inline-block mt-2 text-xs text-primary">현재 플랜</span>
+                      <Button size="sm" className="mt-4 w-full" disabled>
+                        현재 플랜
+                      </Button>
                     </CardContent>
                   </Card>
+                </div>
+
+                <div className="border-t pt-6">
+                  <h4 className="font-medium mb-2 text-red-600">구독 취소</h4>
+                  <p className="text-sm text-gray-500 mb-4">
+                    구독을 취소하면 다음 결제일부터 FREE 플랜으로 전환됩니다.
+                    현재 결제 기간이 끝날 때까지 PRO 기능을 계속 사용할 수 있습니다.
+                  </p>
+                  <Button variant="destructive" size="sm">
+                    구독 취소
+                  </Button>
                 </div>
               </CardContent>
             </Card>

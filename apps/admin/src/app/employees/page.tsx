@@ -56,6 +56,11 @@ const roleLabels: Record<string, string> = {
   staff: '직원',
 };
 
+// Role options for dropdowns (exclude super_admin - for internal use only)
+const roleOptions = Object.entries(roleLabels)
+  .filter(([value]) => value !== 'super_admin')
+  .map(([value, label]) => ({ value, label }));
+
 const statusMap: Record<string, { label: string; variant: 'success' | 'warning' | 'default' | 'danger' }> = {
   ACTIVE: { label: '활성', variant: 'success' },
   PENDING: { label: '대기', variant: 'warning' },
@@ -228,7 +233,7 @@ export default function EmployeesPage() {
               onChange={(e) => setRoleFilter(e.target.value)}
               options={[
                 { value: '', label: '전체 역할' },
-                ...Object.entries(roleLabels).map(([value, label]) => ({ value, label })),
+                ...roleOptions,
               ]}
               className="w-40"
             />
@@ -417,7 +422,7 @@ export default function EmployeesPage() {
               <Select
                 value={newEmployee.role}
                 onChange={(e) => setNewEmployee({ ...newEmployee, role: e.target.value })}
-                options={Object.entries(roleLabels).map(([value, label]) => ({ value, label }))}
+                options={roleOptions}
                 className="mt-1"
               />
             </div>
