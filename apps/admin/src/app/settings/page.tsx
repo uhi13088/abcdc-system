@@ -20,7 +20,7 @@ import {
 } from '@/components/ui';
 import {
   Save, Building2, Bell, Shield, CreditCard, User, Link2,
-  RefreshCw, Check, X, ExternalLink, Database, Zap, Upload, ImageIcon, AlertTriangle, Info
+  RefreshCw, Check, X, ExternalLink, Database, Zap, Info
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -48,26 +48,6 @@ export default function SettingsPage() {
     salaryAlerts: true,
   });
 
-  // Labor law settings
-  const [laborSettings, setLaborSettings] = useState({
-    minimumWage: 10030, // 2025년 최저임금
-    standardDailyHours: 8,
-    standardWeeklyHours: 40,
-    overtimeRate: 1.5,
-    nightRate: 0.5,
-    holidayRate: 1.5,
-  });
-
-  // Check if minimum wage needs update (every January)
-  const [showWageReminder, setShowWageReminder] = useState(false);
-
-  useEffect(() => {
-    // Show reminder in January
-    const now = new Date();
-    if (now.getMonth() === 0) { // January
-      setShowWageReminder(true);
-    }
-  }, []);
 
   // Integration settings
   const [integrations, setIntegrations] = useState({
@@ -723,111 +703,107 @@ export default function SettingsPage() {
           <TabsContent value="labor">
             <Card>
               <CardHeader>
-                <CardTitle>근로기준 설정</CardTitle>
+                <CardTitle>근로기준 현황</CardTitle>
                 <CardDescription>
-                  급여 계산에 사용되는 근로기준법 관련 설정입니다.
+                  플랫폼에서 관리하는 근로기준법 설정입니다. 급여 계산에 자동 적용됩니다.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {showWageReminder && (
-                  <Alert variant="warning" className="flex items-start gap-3">
-                    <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-medium text-yellow-800">최저임금 확인 필요</p>
-                      <p className="text-sm text-yellow-700 mt-1">
-                        새해가 시작되었습니다. 최저임금이 변경되었는지 확인해주세요.
-                        <a
-                          href="https://www.minimumwage.go.kr"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="ml-1 underline font-medium"
-                        >
-                          최저임금위원회 바로가기 →
-                        </a>
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-2"
-                        onClick={() => setShowWageReminder(false)}
-                      >
-                        확인 완료
-                      </Button>
+              <CardContent className="space-y-6">
+                {/* 전년도 대비 변경사항 */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    2025년 변경사항
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between py-2 border-b border-blue-100">
+                      <span className="text-blue-800">최저시급</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 line-through">₩9,860</span>
+                        <span className="text-blue-600">→</span>
+                        <span className="font-semibold text-blue-900">₩10,030</span>
+                        <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">+1.7%</span>
+                      </div>
                     </div>
-                  </Alert>
-                )}
-                <Alert variant="info">
-                  <Info className="h-4 w-4 mr-2 inline" />
-                  이 설정은 2025년 근로기준법을 기준으로 합니다. 최저임금: ₩10,030/시간
-                </Alert>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>최저시급 (원)</Label>
-                    <Input
-                      type="number"
-                      value={laborSettings.minimumWage}
-                      onChange={(e) =>
-                        setLaborSettings({
-                          ...laborSettings,
-                          minimumWage: parseInt(e.target.value) || 0,
-                        })
-                      }
-                      className="mt-1"
-                      disabled
-                    />
+                    <div className="flex items-center justify-between py-2 border-b border-blue-100">
+                      <span className="text-blue-800">건강보험료율</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 line-through">3.495%</span>
+                        <span className="text-blue-600">→</span>
+                        <span className="font-semibold text-blue-900">3.545%</span>
+                        <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">+0.05%p</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <span className="text-blue-800">장기요양보험료율</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 line-through">12.27%</span>
+                        <span className="text-blue-600">→</span>
+                        <span className="font-semibold text-blue-900">12.81%</span>
+                        <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">+0.54%p</span>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <Label>1일 소정근로시간</Label>
-                    <Input
-                      type="number"
-                      value={laborSettings.standardDailyHours}
-                      className="mt-1"
-                      disabled
-                    />
+                  <p className="text-xs text-blue-600 mt-3">
+                    * 시행일: 2025년 1월 1일 | 플랫폼에서 자동 관리됩니다
+                  </p>
+                </div>
+
+                {/* 현재 적용 중인 설정 */}
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-4">현재 적용 중인 설정</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">최저시급</p>
+                      <p className="text-xl font-bold text-gray-900">₩10,030</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">1일 소정근로시간</p>
+                      <p className="text-xl font-bold text-gray-900">8시간</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">주 소정근로시간</p>
+                      <p className="text-xl font-bold text-gray-900">40시간</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">연장근로 할증</p>
+                      <p className="text-xl font-bold text-gray-900">150%</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">야간근로 할증</p>
+                      <p className="text-xl font-bold text-gray-900">50%</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">휴일근로 할증</p>
+                      <p className="text-xl font-bold text-gray-900">150%</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>주당 소정근로시간</Label>
-                    <Input
-                      type="number"
-                      value={laborSettings.standardWeeklyHours}
-                      className="mt-1"
-                      disabled
-                    />
+                {/* 4대보험 요율 */}
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-4">4대보험 요율 (근로자 부담분)</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">국민연금</p>
+                      <p className="text-xl font-bold text-gray-900">4.5%</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">건강보험</p>
+                      <p className="text-xl font-bold text-gray-900">3.545%</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">장기요양보험</p>
+                      <p className="text-xl font-bold text-gray-900">12.81%</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs text-gray-500 mb-1">고용보험</p>
+                      <p className="text-xl font-bold text-gray-900">0.9%</p>
+                    </div>
                   </div>
-                  <div>
-                    <Label>연장근로 할증률</Label>
-                    <Input
-                      type="text"
-                      value={`${laborSettings.overtimeRate * 100}%`}
-                      className="mt-1"
-                      disabled
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>야간근로 할증률</Label>
-                    <Input
-                      type="text"
-                      value={`${laborSettings.nightRate * 100}%`}
-                      className="mt-1"
-                      disabled
-                    />
-                  </div>
-                  <div>
-                    <Label>휴일근로 할증률</Label>
-                    <Input
-                      type="text"
-                      value={`${laborSettings.holidayRate * 100}%`}
-                      className="mt-1"
-                      disabled
-                    />
-                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    * 장기요양보험은 건강보험료의 12.81%입니다
+                  </p>
                 </div>
               </CardContent>
             </Card>
