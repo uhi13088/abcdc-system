@@ -1,8 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+
+// Daum Postcode API 타입 정의
+declare global {
+  interface Window {
+    daum: {
+      Postcode: new (config: {
+        oncomplete: (data: DaumPostcodeData) => void;
+        onclose?: () => void;
+      }) => { open: () => void };
+    };
+  }
+}
+
+interface DaumPostcodeData {
+  address: string;
+  addressType: string;
+  bname: string;
+  buildingName: string;
+  zonecode: string;
+  roadAddress: string;
+  jibunAddress: string;
+  autoRoadAddress: string;
+  autoJibunAddress: string;
+}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -14,12 +38,15 @@ export default function RegisterPage() {
     phone: '',
     ssn1: '',
     ssn2: '',
+    zonecode: '',
     address: '',
     addressDetail: '',
     // 회사 정보 (선택)
     companyName: '',
     businessNumber: '',
+    companyZonecode: '',
     companyAddress: '',
+    companyAddressDetail: '',
     companyPhone: '',
   });
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +54,58 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [scriptLoaded, setScriptLoaded] = useState(false);
+
+  // Daum Postcode 스크립트 로드
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = '//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+    script.async = true;
+    script.onload = () => setScriptLoaded(true);
+    document.head.appendChild(script);
+
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
+
+  // 주소 검색 (개인)
+  const handleAddressSearch = () => {
+    if (!scriptLoaded || !window.daum) {
+      alert('주소 검색 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
+    new window.daum.Postcode({
+      oncomplete: (data: DaumPostcodeData) => {
+        const address = data.roadAddress || data.jibunAddress;
+        setFormData(prev => ({
+          ...prev,
+          zonecode: data.zonecode,
+          address: address,
+        }));
+      },
+    }).open();
+  };
+
+  // 주소 검색 (회사)
+  const handleCompanyAddressSearch = () => {
+    if (!scriptLoaded || !window.daum) {
+      alert('주소 검색 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
+    new window.daum.Postcode({
+      oncomplete: (data: DaumPostcodeData) => {
+        const address = data.roadAddress || data.jibunAddress;
+        setFormData(prev => ({
+          ...prev,
+          companyZonecode: data.zonecode,
+          companyAddress: address,
+        }));
+      },
+    }).open();
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -124,6 +203,16 @@ export default function RegisterPage() {
     }
 
     try {
+      const fullAddress = formData.addressDetail
+        ? `(${formData.zonecode}) ${formData.address} ${formData.addressDetail}`
+        : `(${formData.zonecode}) ${formData.address}`;
+
+      const fullCompanyAddress = formData.companyAddress
+        ? formData.companyAddressDetail
+          ? `(${formData.companyZonecode}) ${formData.companyAddress} ${formData.companyAddressDetail}`
+          : `(${formData.companyZonecode}) ${formData.companyAddress}`
+        : null;
+
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
@@ -135,12 +224,11 @@ export default function RegisterPage() {
           name: formData.name,
           phone: formData.phone,
           ssn: `${formData.ssn1}-${formData.ssn2}`,
-          address: formData.address,
-          addressDetail: formData.addressDetail,
+          address: fullAddress,
           // 회사 정보 (선택)
           companyName: formData.companyName || null,
           businessNumber: formData.businessNumber || null,
-          companyAddress: formData.companyAddress || null,
+          companyAddress: fullCompanyAddress,
           companyPhone: formData.companyPhone || null,
         }),
       });
@@ -299,21 +387,36 @@ export default function RegisterPage() {
 
             {/* 주소 */}
             <div>
-              <label htmlFor="address" className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700">
                 주소 <span className="text-red-500">*</span>
               </label>
+              <div className="mt-1 flex space-x-2">
+                <input
+                  name="zonecode"
+                  type="text"
+                  value={formData.zonecode}
+                  readOnly
+                  className="block w-24 px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-gray-500 sm:text-sm"
+                  placeholder="우편번호"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddressSearch}
+                  className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/5 text-sm font-medium"
+                >
+                  주소 검색
+                </button>
+              </div>
               <input
-                id="address"
                 name="address"
                 type="text"
-                required
                 value={formData.address}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                placeholder="서울시 강남구 테헤란로 123"
+                readOnly
+                required
+                className="mt-2 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-gray-700 sm:text-sm"
+                placeholder="주소 검색을 클릭하세요"
               />
               <input
-                id="addressDetail"
                 name="addressDetail"
                 type="text"
                 value={formData.addressDetail}
@@ -365,17 +468,41 @@ export default function RegisterPage() {
 
             {/* 회사 주소 */}
             <div>
-              <label htmlFor="companyAddress" className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700">
                 회사 주소
               </label>
+              <div className="mt-1 flex space-x-2">
+                <input
+                  name="companyZonecode"
+                  type="text"
+                  value={formData.companyZonecode}
+                  readOnly
+                  className="block w-24 px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-gray-500 sm:text-sm"
+                  placeholder="우편번호"
+                />
+                <button
+                  type="button"
+                  onClick={handleCompanyAddressSearch}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm font-medium"
+                >
+                  주소 검색
+                </button>
+              </div>
               <input
-                id="companyAddress"
                 name="companyAddress"
                 type="text"
                 value={formData.companyAddress}
+                readOnly
+                className="mt-2 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-gray-700 sm:text-sm"
+                placeholder="주소 검색을 클릭하세요"
+              />
+              <input
+                name="companyAddressDetail"
+                type="text"
+                value={formData.companyAddressDetail}
                 onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                placeholder="서울시 강남구 역삼동 123-45"
+                className="mt-2 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                placeholder="상세주소 (동/호수)"
               />
             </div>
 
