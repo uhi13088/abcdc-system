@@ -102,21 +102,30 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch user's company info from users table (company info was saved during registration)
+      // Get user's company_id from users table
       const { data: userData } = await supabase
         .from('users')
-        .select('company_name, business_number, company_address, company_phone')
+        .select('company_id, role')
         .eq('auth_id', user.id)
         .single();
 
-      if (userData) {
-        setCompanySettings({
-          name: userData.company_name || '',
-          businessNumber: userData.business_number || '',
-          ceoName: '', // Not in users table
-          address: userData.company_address || '',
-          phone: userData.company_phone || '',
-        });
+      // If user has a company, fetch company info
+      if (userData?.company_id) {
+        const { data: companyData } = await supabase
+          .from('companies')
+          .select('name, business_number, ceo_name, address, phone')
+          .eq('id', userData.company_id)
+          .single();
+
+        if (companyData) {
+          setCompanySettings({
+            name: companyData.name || '',
+            businessNumber: companyData.business_number || '',
+            ceoName: companyData.ceo_name || '',
+            address: companyData.address || '',
+            phone: companyData.phone || '',
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -134,19 +143,54 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('로그인이 필요합니다.');
 
-      // Update user's company info in users table
-      const { error } = await supabase
+      // Get user's current company_id
+      const { data: userData } = await supabase
         .from('users')
-        .update({
-          company_name: companySettings.name,
-          business_number: companySettings.businessNumber,
-          company_address: companySettings.address,
-          company_phone: companySettings.phone,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('auth_id', user.id);
+        .select('id, company_id')
+        .eq('auth_id', user.id)
+        .single();
 
-      if (error) throw error;
+      if (!userData) throw new Error('사용자 정보를 찾을 수 없습니다.');
+
+      const companyData = {
+        name: companySettings.name,
+        business_number: companySettings.businessNumber || null,
+        ceo_name: companySettings.ceoName || null,
+        address: companySettings.address || null,
+        phone: companySettings.phone || null,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (userData.company_id) {
+        // Update existing company
+        const { error } = await supabase
+          .from('companies')
+          .update(companyData)
+          .eq('id', userData.company_id);
+
+        if (error) throw error;
+      } else {
+        // Create new company and link to user
+        const { data: newCompany, error: createError } = await supabase
+          .from('companies')
+          .insert({
+            ...companyData,
+            status: 'ACTIVE',
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+
+        // Link company to user
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ company_id: newCompany.id })
+          .eq('id', userData.id);
+
+        if (updateError) throw updateError;
+      }
+
       setMessage({ type: 'success', text: '회사 정보가 저장되었습니다.' });
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || '저장에 실패했습니다.' });
