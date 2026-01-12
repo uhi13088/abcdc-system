@@ -5,11 +5,6 @@ export const metadata: Metadata = {
   title: 'ABC Platform Admin',
   description: 'ABC Staff System - Platform Administration',
   manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'ABC Platform',
-  },
 };
 
 export const viewport: Viewport = {
