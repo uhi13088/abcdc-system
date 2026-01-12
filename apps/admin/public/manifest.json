@@ -1,7 +1,7 @@
 {
-  "name": "ABC Staff - 관리자 대시보드",
+  "name": "ABC Staff Admin",
   "short_name": "ABC Staff",
-  "description": "직원 관리, 출퇴근, 급여, 스케줄 통합 관리 시스템",
+  "description": "Employee management dashboard",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

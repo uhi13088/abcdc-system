@@ -38,10 +38,28 @@ export const PhoneSchema = z.string().regex(
   '올바른 전화번호 형식이 아닙니다 (예: 010-1234-5678)'
 );
 
+// Optional phone - allows empty string, undefined, or valid phone format
+export const OptionalPhoneSchema = z.union([
+  z.literal(''),
+  z.string().regex(
+    /^0[0-9]{1,2}-?[0-9]{3,4}-?[0-9]{4}$/,
+    '올바른 전화번호 형식이 아닙니다 (예: 010-1234-5678 또는 02-1234-5678)'
+  ),
+]).optional().transform(val => val === '' ? undefined : val);
+
 export const BusinessNumberSchema = z.string().regex(
   /^[0-9]{3}-[0-9]{2}-[0-9]{5}$/,
   '올바른 사업자등록번호 형식이 아닙니다 (예: 123-45-67890)'
 );
+
+// Optional business number - allows empty string or valid format
+export const OptionalBusinessNumberSchema = z.union([
+  z.literal(''),
+  z.string().regex(
+    /^[0-9]{3}-[0-9]{2}-[0-9]{5}$/,
+    '올바른 사업자등록번호 형식이 아닙니다 (예: 123-45-67890)'
+  ),
+]).optional().transform(val => val === '' ? undefined : val);
 
 export const SSNSchema = z.string().regex(
   /^[0-9]{6}-[0-9]{7}$/,
@@ -59,10 +77,10 @@ export const TimeSchema = z.string().regex(
 
 export const CreateCompanySchema = z.object({
   name: requiredString('회사명').max(255, '회사명은 255자 이하로 입력해주세요'),
-  businessNumber: BusinessNumberSchema.optional(),
+  businessNumber: OptionalBusinessNumberSchema,
   ceoName: z.string().max(100, '대표자명은 100자 이하로 입력해주세요').optional(),
   address: z.string().optional(),
-  phone: PhoneSchema.optional(),
+  phone: OptionalPhoneSchema,
 });
 
 export const UpdateCompanySchema = CreateCompanySchema.partial();
@@ -81,7 +99,7 @@ export const CreateStoreSchema = z.object({
   brandId: requiredUUID('브랜드'),
   name: requiredString('매장명').max(255, '매장명은 255자 이하로 입력해주세요'),
   address: z.string().optional(),
-  phone: PhoneSchema.optional(),
+  phone: OptionalPhoneSchema,
   latitude: z.number().min(-90, '위도는 -90 이상이어야 합니다').max(90, '위도는 90 이하여야 합니다').optional(),
   longitude: z.number().min(-180, '경도는 -180 이상이어야 합니다').max(180, '경도는 180 이하여야 합니다').optional(),
   allowedRadius: z.number().min(10, '출근 허용 반경은 최소 10m 이상이어야 합니다').max(1000, '출근 허용 반경은 최대 1000m까지 설정 가능합니다').default(100),
@@ -107,7 +125,7 @@ export const CreateUserSchema = z.object({
   brandId: UUIDSchema.optional(),
   storeId: UUIDSchema.optional(),
   teamId: UUIDSchema.optional(),
-  phone: PhoneSchema.optional(),
+  phone: OptionalPhoneSchema,
   address: z.string().optional(),
   birthDate: z.coerce.date({ errorMap: () => ({ message: '올바른 날짜 형식이 아닙니다' }) }).optional(),
   position: z.string().max(100, '직책은 100자 이하로 입력해주세요').optional(),
