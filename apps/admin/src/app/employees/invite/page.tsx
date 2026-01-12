@@ -252,7 +252,7 @@ export default function InviteEmployeePage() {
                 <Input
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="홍길동"
+                  placeholder="이름 입력"
                   className="mt-1"
                   required
                 />

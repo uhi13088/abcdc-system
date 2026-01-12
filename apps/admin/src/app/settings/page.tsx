@@ -527,14 +527,14 @@ export default function SettingsPage() {
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                      { name: '직원', table: 'employees' },
-                      { name: '출퇴근', table: 'attendance' },
+                      { name: '직원', table: 'users' },
+                      { name: '출퇴근', table: 'attendances' },
                       { name: '스케줄', table: 'schedules' },
                       { name: '급여', table: 'salaries' },
-                      { name: '승인요청', table: 'approvals' },
+                      { name: '승인요청', table: 'approval_requests' },
                       { name: '공지사항', table: 'notices' },
-                      { name: '메시지', table: 'messages' },
-                      { name: 'HACCP', table: 'haccp_records' },
+                      { name: '계약', table: 'contracts' },
+                      { name: 'HACCP', table: 'haccp_checklists' },
                     ].map((item) => (
                       <div key={item.table} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
                         <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />

@@ -404,7 +404,7 @@ export default function EmployeesPage() {
               <Input
                 value={newEmployee.name}
                 onChange={(e) => setNewEmployee({ ...newEmployee, name: e.target.value })}
-                placeholder="홍길동"
+                placeholder="이름 입력"
                 className="mt-1"
               />
             </div>
