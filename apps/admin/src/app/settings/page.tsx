@@ -155,23 +155,28 @@ export default function SettingsPage() {
     setMessage({ type: '', text: '' });
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('notification_settings')
-        .upsert({
-          email_notifications: notificationSettings.emailNotifications,
-          push_notifications: notificationSettings.pushNotifications,
-          sms_notifications: notificationSettings.smsNotifications,
-          attendance_alerts: notificationSettings.attendanceAlerts,
-          approval_alerts: notificationSettings.approvalAlerts,
-          salary_alerts: notificationSettings.salaryAlerts,
-          updated_at: new Date().toISOString(),
-        });
+      const response = await fetch('/api/settings/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emailNotifications: notificationSettings.emailNotifications,
+          pushNotifications: notificationSettings.pushNotifications,
+          smsNotifications: notificationSettings.smsNotifications,
+          attendanceAlerts: notificationSettings.attendanceAlerts,
+          approvalAlerts: notificationSettings.approvalAlerts,
+          salaryAlerts: notificationSettings.salaryAlerts,
+        }),
+      });
 
-      if (error) throw error;
-      setMessage({ type: 'success', text: '알림 설정이 저장되었습니다.' });
-    } catch (error) {
-      setMessage({ type: 'error', text: '저장에 실패했습니다.' });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || '저장에 실패했습니다.');
+      }
+
+      setMessage({ type: 'success', text: result.message || '알림 설정이 저장되었습니다.' });
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || '저장에 실패했습니다.' });
     } finally {
       setLoading(false);
     }
@@ -217,38 +222,45 @@ export default function SettingsPage() {
     setMessage({ type: '', text: '' });
 
     try {
-      const supabase = createClient();
-      let data: any = { provider, updated_at: new Date().toISOString() };
+      let settings: Record<string, unknown> = {};
 
       if (provider === 'toss_pos') {
-        data = {
-          ...data,
-          enabled: integrations.tossPos.enabled,
+        settings = {
           api_key: integrations.tossPos.apiKey,
           store_id: integrations.tossPos.storeId,
         };
       } else if (provider === 'kakao_work') {
-        data = {
-          ...data,
-          enabled: integrations.kakaoWork.enabled,
+        settings = {
           api_key: integrations.kakaoWork.apiKey,
         };
       } else if (provider === 'slack') {
-        data = {
-          ...data,
-          enabled: integrations.slack.enabled,
+        settings = {
           webhook_url: integrations.slack.webhookUrl,
         };
       }
 
-      const { error } = await supabase
-        .from('integrations')
-        .upsert(data, { onConflict: 'provider' });
+      const response = await fetch('/api/settings/integrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider,
+          enabled: provider === 'toss_pos' ? integrations.tossPos.enabled
+            : provider === 'kakao_work' ? integrations.kakaoWork.enabled
+            : provider === 'slack' ? integrations.slack.enabled
+            : false,
+          settings,
+        }),
+      });
 
-      if (error) throw error;
-      setMessage({ type: 'success', text: '연동 설정이 저장되었습니다.' });
-    } catch (error) {
-      setMessage({ type: 'error', text: '저장에 실패했습니다.' });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || '저장에 실패했습니다.');
+      }
+
+      setMessage({ type: 'success', text: result.message || '연동 설정이 저장되었습니다.' });
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || '저장에 실패했습니다.' });
     } finally {
       setLoading(false);
     }
