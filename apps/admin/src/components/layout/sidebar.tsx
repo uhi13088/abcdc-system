@@ -43,6 +43,8 @@ const navigation: NavItem[] = [
     icon: Users,
     children: [
       { name: '직원 목록', href: '/employees' },
+      { name: '직원 초대', href: '/employees/invite' },
+      { name: '초대 목록', href: '/employees/invitations' },
       { name: '직원 평가', href: '/employees/evaluations' },
       { name: '교육 관리', href: '/employees/training' },
     ],

@@ -343,40 +343,58 @@ export default function InviteEmployeePage() {
               <button
                 type="button"
                 onClick={() => toggleSendMethod('kakao')}
-                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border transition-colors ${
+                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-colors relative ${
                   formData.sendMethods.includes('kakao')
                     ? 'border-yellow-500 bg-yellow-50 text-yellow-700'
-                    : 'border-gray-200 hover:border-gray-300'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-500'
                 }`}
               >
+                {formData.sendMethods.includes('kakao') && (
+                  <div className="absolute top-2 right-2">
+                    <Check className="h-4 w-4 text-yellow-600" />
+                  </div>
+                )}
                 <MessageCircle className="h-5 w-5" />
                 <span>카카오톡</span>
+                <span className="text-xs opacity-60">(준비중)</span>
               </button>
               <button
                 type="button"
                 onClick={() => toggleSendMethod('sms')}
-                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border transition-colors ${
+                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-colors relative ${
                   formData.sendMethods.includes('sms')
                     ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 hover:border-gray-300'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-500'
                 }`}
               >
+                {formData.sendMethods.includes('sms') && (
+                  <div className="absolute top-2 right-2">
+                    <Check className="h-4 w-4 text-blue-600" />
+                  </div>
+                )}
                 <MessageSquare className="h-5 w-5" />
                 <span>SMS</span>
+                <span className="text-xs opacity-60">(준비중)</span>
               </button>
               <button
                 type="button"
                 onClick={() => toggleSendMethod('link')}
-                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border transition-colors ${
+                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-colors relative ${
                   formData.sendMethods.includes('link')
                     ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-gray-200 hover:border-gray-300'
+                    : 'border-gray-200 hover:border-gray-300 text-gray-500'
                 }`}
               >
+                {formData.sendMethods.includes('link') && (
+                  <div className="absolute top-2 right-2">
+                    <Check className="h-4 w-4 text-green-600" />
+                  </div>
+                )}
                 <Link2 className="h-5 w-5" />
                 <span>링크 복사</span>
               </button>
             </div>
+            <p className="text-xs text-gray-500">* 카카오톡/SMS는 외부 연동 후 사용 가능합니다. 현재는 링크 복사만 동작합니다.</p>
           </div>
 
           {/* 제출 버튼 */}

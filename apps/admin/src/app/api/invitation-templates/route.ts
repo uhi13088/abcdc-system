@@ -2,6 +2,13 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+// Per-day schedule schema
+const DayScheduleSchema = z.object({
+  startTime: z.string(),
+  endTime: z.string(),
+  breakMinutes: z.number().min(0).default(60),
+});
+
 // 템플릿 생성 스키마
 const CreateTemplateSchema = z.object({
   name: z.string().min(1, '템플릿명을 입력해주세요').max(100),
@@ -14,6 +21,8 @@ const CreateTemplateSchema = z.object({
   workStartTime: z.string().optional(),
   workEndTime: z.string().optional(),
   breakMinutes: z.number().min(0).default(60),
+  // Per-day schedule (optional) - if set, overrides single time values
+  workSchedule: z.record(z.string(), DayScheduleSchema).nullable().optional(),
   requiredDocuments: z.array(z.string()).default([]),
   customFields: z.array(z.object({
     name: z.string(),
@@ -121,6 +130,7 @@ export async function POST(request: NextRequest) {
         work_start_time: validation.data.workStartTime || '09:00',
         work_end_time: validation.data.workEndTime || '18:00',
         break_minutes: validation.data.breakMinutes,
+        work_schedule: validation.data.workSchedule || null,
         required_documents: validation.data.requiredDocuments,
         custom_fields: validation.data.customFields,
       })
