@@ -1,5 +1,5 @@
 import { Header } from '@/components/layout/header';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import {
   Users,
   Clock,
@@ -8,7 +8,12 @@ import {
   TrendingUp,
   TrendingDown,
   AlertCircle,
+  Store,
+  Crown,
 } from 'lucide-react';
+
+// Designated super_admin email
+const SUPER_ADMIN_EMAIL = 'uhi1308@naver.com';
 
 async function getStats() {
   try {
@@ -20,12 +25,24 @@ async function getStats() {
 
     const { data: userData } = await supabase
       .from('users')
-      .select('company_id, role')
+      .select('company_id, role, email')
       .eq('auth_id', user.id)
       .single();
 
     // If no company_id, user just registered and needs setup
     if (!userData) return { needsSetup: true };
+
+    // Auto-fix super_admin role for designated email
+    if (userData.email === SUPER_ADMIN_EMAIL && userData.role !== 'super_admin') {
+      const adminClient = createAdminClient();
+      await adminClient
+        .from('users')
+        .update({ role: 'super_admin', company_id: null })
+        .eq('auth_id', user.id);
+      // Update local data for this request
+      userData.role = 'super_admin';
+      userData.company_id = null;
+    }
 
     const companyId = userData.company_id;
 
@@ -34,12 +51,34 @@ async function getStats() {
       return { needsSetup: true, role: userData.role };
     }
 
-    // Get employee count
+    // Get employee count (exclude company_admin and super_admin)
     const { count: employeeCount } = await supabase
       .from('users')
       .select('*', { count: 'exact', head: true })
       .eq('company_id', companyId)
-      .eq('status', 'ACTIVE');
+      .eq('status', 'ACTIVE')
+      .not('role', 'in', '("company_admin","super_admin")');
+
+    // Get company's subscription plan
+    const { data: company } = await supabase
+      .from('companies')
+      .select('name, subscription_plan_id')
+      .eq('id', companyId)
+      .single();
+
+    // Subscription plan limits (default to starter)
+    const planLimits: Record<string, { name: string; maxEmployees: number; maxStores: number }> = {
+      starter: { name: 'Starter', maxEmployees: 10, maxStores: 2 },
+      business: { name: 'Business', maxEmployees: 50, maxStores: 10 },
+      enterprise: { name: 'Enterprise', maxEmployees: 999, maxStores: 999 },
+    };
+    const currentPlan = planLimits.starter; // Default to starter
+
+    // Get store count
+    const { count: storeCount } = await supabase
+      .from('stores')
+      .select('*', { count: 'exact', head: true })
+      .eq('company_id', companyId);
 
     // Get today's attendance
     const today = new Date().toISOString().split('T')[0];
@@ -94,6 +133,10 @@ async function getStats() {
       recentAttendances: recentAttendances || [],
       pendingRequests: pendingRequests || [],
       needsSetup: false,
+      subscription: {
+        plan: currentPlan,
+        storeCount: storeCount || 0,
+      },
     };
   } catch (error) {
     console.error('Dashboard stats error:', error);
@@ -216,6 +259,89 @@ export default async function DashboardPage() {
             </div>
           ))}
         </div>
+
+        {/* Subscription Usage */}
+        {stats?.subscription && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <Crown className="w-5 h-5 text-yellow-500 mr-2" />
+                <h2 className="text-lg font-semibold text-gray-900">요금제 사용량</h2>
+              </div>
+              <span className="px-3 py-1 text-xs font-medium text-yellow-700 bg-yellow-100 rounded-full">
+                {stats.subscription.plan.name}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Employee Usage */}
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center text-sm text-gray-600">
+                    <Users className="w-4 h-4 mr-1" />
+                    직원 수
+                  </div>
+                  <span className="text-sm font-medium">
+                    {stats.employeeCount} / {stats.subscription.plan.maxEmployees}명
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full ${
+                      (stats.employeeCount / stats.subscription.plan.maxEmployees) >= 0.9
+                        ? 'bg-red-500'
+                        : (stats.employeeCount / stats.subscription.plan.maxEmployees) >= 0.7
+                          ? 'bg-yellow-500'
+                          : 'bg-blue-500'
+                    }`}
+                    style={{ width: `${Math.min((stats.employeeCount / stats.subscription.plan.maxEmployees) * 100, 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {stats.subscription.plan.maxEmployees - stats.employeeCount}명 남음
+                </p>
+              </div>
+              {/* Store Usage */}
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center text-sm text-gray-600">
+                    <Store className="w-4 h-4 mr-1" />
+                    매장 수
+                  </div>
+                  <span className="text-sm font-medium">
+                    {stats.subscription.storeCount} / {stats.subscription.plan.maxStores}개
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full ${
+                      (stats.subscription.storeCount / stats.subscription.plan.maxStores) >= 0.9
+                        ? 'bg-red-500'
+                        : (stats.subscription.storeCount / stats.subscription.plan.maxStores) >= 0.7
+                          ? 'bg-yellow-500'
+                          : 'bg-green-500'
+                    }`}
+                    style={{ width: `${Math.min((stats.subscription.storeCount / stats.subscription.plan.maxStores) * 100, 100)}%` }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {stats.subscription.plan.maxStores - stats.subscription.storeCount}개 남음
+                </p>
+              </div>
+            </div>
+            {((stats.employeeCount / stats.subscription.plan.maxEmployees) >= 0.9 ||
+              (stats.subscription.storeCount / stats.subscription.plan.maxStores) >= 0.9) && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center justify-between">
+                <div className="flex items-center text-sm text-yellow-700">
+                  <AlertCircle className="w-4 h-4 mr-2" />
+                  한도에 도달하기 전에 요금제를 업그레이드하세요.
+                </div>
+                <a href="/settings?tab=subscription" className="text-sm font-medium text-yellow-700 hover:text-yellow-800">
+                  업그레이드 →
+                </a>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
