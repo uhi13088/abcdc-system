@@ -5,11 +5,6 @@ export const metadata: Metadata = {
   title: 'ABC Staff',
   description: 'ABC Staff 직원용 모바일 앱',
   manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'ABC Staff',
-  },
 };
 
 export const viewport: Viewport = {

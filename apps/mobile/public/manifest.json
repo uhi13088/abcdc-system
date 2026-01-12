@@ -1,17 +1,1 @@
-{
-  "name": "ABC Staff - 직원앱",
-  "short_name": "ABC Staff",
-  "description": "ABC Staff 직원용 모바일 앱",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2563EB",
-  "orientation": "portrait-primary",
-  "icons": [
-    {
-      "src": "/favicon.ico",
-      "sizes": "64x64",
-      "type": "image/x-icon"
-    }
-  ]
-}
+{"name":"ABC Staff","short_name":"ABC Staff","description":"Employee mobile app","start_url":"/","display":"standalone","background_color":"#ffffff","theme_color":"#2563EB","icons":[{"src":"/favicon.ico","sizes":"64x64","type":"image/x-icon"}]}

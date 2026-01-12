@@ -7,11 +7,6 @@ export const metadata: Metadata = {
   title: 'ABC Staff - 관리자 대시보드',
   description: '직원 관리, 출퇴근, 급여, 스케줄 통합 관리 시스템',
   manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'ABC Staff',
-  },
   formatDetection: {
     telephone: false,
   },
