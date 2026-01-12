@@ -118,8 +118,14 @@ export async function POST(request: NextRequest) {
 
       if (updateError) {
         console.error('User update error:', updateError);
-        // 회사는 생성됐으니 일단 성공 처리
+        // Rollback - delete the created company
+        await adminClient.from('companies').delete().eq('id', newCompany.id);
+        return NextResponse.json({
+          error: `회사 연결에 실패했습니다: ${updateError.message}`
+        }, { status: 500 });
       }
+
+      console.log('[POST /api/company] Company created and linked:', newCompany.id);
 
       return NextResponse.json({
         data: newCompany,
