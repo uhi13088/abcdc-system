@@ -80,15 +80,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     let companyId = userData?.company_id;
 
-    // Auto-create company if user doesn't have one
-    if (!companyId && userData?.role !== 'super_admin') {
-      // Get user info for company name
-      const { data: userInfo } = await supabase
-        .from('users')
-        .select('id, name, email')
-        .eq('auth_id', user.id)
-        .single();
+    // Get user info for company creation if needed
+    const { data: userInfo } = await supabase
+      .from('users')
+      .select('id, name, email')
+      .eq('auth_id', user.id)
+      .single();
 
+    // Auto-create company if user doesn't have one (BEFORE validation)
+    if (!companyId && userData?.role !== 'super_admin') {
       // Use admin client to bypass RLS for company creation
       const adminClient = createAdminClient();
 
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       companyId: userData?.role === 'super_admin' ? body.companyId : companyId,
     };
 
-    // Validate input
+    // Validate input (now companyId is guaranteed to exist)
     const validation = CreateBrandSchema.safeParse(brandData);
     if (!validation.success) {
       return NextResponse.json(
