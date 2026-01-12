@@ -409,7 +409,7 @@ export default function SettingsPage() {
           {/* Integrations / API Settings */}
           <TabsContent value="integrations">
             <div className="space-y-6">
-              {/* POS Integration */}
+              {/* POS Integration - OAuth 방식 */}
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -419,16 +419,16 @@ export default function SettingsPage() {
                         토스 POS 연동
                       </CardTitle>
                       <CardDescription>
-                        매출 데이터를 자동으로 동기화합니다.
+                        토스 POS를 연결하면 매출이 자동으로 집계됩니다.
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
                       {integrations.tossPos.connected ? (
-                        <span className="flex items-center gap-1 text-sm text-green-600">
+                        <span className="flex items-center gap-1 text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
                           <Check className="h-4 w-4" /> 연결됨
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1 text-sm text-gray-500">
+                        <span className="flex items-center gap-1 text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
                           <X className="h-4 w-4" /> 미연결
                         </span>
                       )}
@@ -436,53 +436,19 @@ export default function SettingsPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="toss-enabled"
-                      checked={integrations.tossPos.enabled}
-                      onChange={(e) =>
-                        setIntegrations(prev => ({
-                          ...prev,
-                          tossPos: { ...prev.tossPos, enabled: e.target.checked }
-                        }))
-                      }
-                      className="h-4 w-4"
-                    />
-                    <Label htmlFor="toss-enabled">연동 활성화</Label>
-                  </div>
-
-                  {integrations.tossPos.enabled && (
-                    <>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>API Key</Label>
-                          <Input
-                            type="password"
-                            value={integrations.tossPos.apiKey}
-                            onChange={(e) =>
-                              setIntegrations(prev => ({
-                                ...prev,
-                                tossPos: { ...prev.tossPos, apiKey: e.target.value }
-                              }))
-                            }
-                            placeholder="sk_live_..."
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label>Store ID</Label>
-                          <Input
-                            value={integrations.tossPos.storeId}
-                            onChange={(e) =>
-                              setIntegrations(prev => ({
-                                ...prev,
-                                tossPos: { ...prev.tossPos, storeId: e.target.value }
-                              }))
-                            }
-                            placeholder="store_..."
-                            className="mt-1"
-                          />
+                  {integrations.tossPos.connected ? (
+                    // 연결된 상태
+                    <div className="space-y-4">
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="h-10 w-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">T</span>
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-green-900">토스 POS 연결됨</p>
+                            <p className="text-sm text-green-700">매출 데이터가 자동으로 동기화됩니다.</p>
+                            <p className="text-xs text-green-600 mt-1">마지막 동기화: 방금 전</p>
+                          </div>
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -494,24 +460,63 @@ export default function SettingsPage() {
                           {testingConnection === 'toss-pos' ? (
                             <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                           ) : (
-                            <Zap className="h-4 w-4 mr-2" />
+                            <RefreshCw className="h-4 w-4 mr-2" />
                           )}
-                          연결 테스트
+                          지금 동기화
                         </Button>
-                        <Button onClick={() => handleSaveIntegration('toss_pos')} disabled={loading}>
-                          <Save className="h-4 w-4 mr-2" />
-                          저장
-                        </Button>
-                        <a
-                          href="https://developers.tosspayments.com"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-sm text-blue-600 hover:underline ml-auto"
+                        <Button
+                          variant="outline"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => {
+                            if (confirm('토스 POS 연결을 해제하시겠습니까?')) {
+                              setIntegrations(prev => ({
+                                ...prev,
+                                tossPos: { ...prev.tossPos, connected: false, enabled: false }
+                              }));
+                            }
+                          }}
                         >
-                          API 문서 <ExternalLink className="h-3 w-3 ml-1" />
-                        </a>
+                          연결 해제
+                        </Button>
                       </div>
-                    </>
+                    </div>
+                  ) : (
+                    // 연결 안 된 상태
+                    <div className="space-y-4">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="h-10 w-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">T</span>
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-blue-900">토스 POS를 사용하시나요?</p>
+                            <p className="text-sm text-blue-700 mt-1">
+                              버튼 하나로 간편하게 연결하세요. 매출이 자동으로 집계됩니다.
+                            </p>
+                            <ul className="text-xs text-blue-600 mt-2 space-y-1">
+                              <li>✓ 일별/시간대별 매출 자동 수집</li>
+                              <li>✓ 카드/현금 매출 구분</li>
+                              <li>✓ 손익계산서 자동 생성</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-6 text-lg"
+                        onClick={() => {
+                          // OAuth 플로우 시작
+                          window.location.href = '/api/integrations/toss-pos/authorize';
+                        }}
+                      >
+                        <div className="h-6 w-6 bg-white rounded mr-3 flex items-center justify-center">
+                          <span className="text-blue-500 font-bold text-sm">T</span>
+                        </div>
+                        토스로 연결하기
+                      </Button>
+                      <p className="text-xs text-gray-500 text-center">
+                        토스 계정으로 로그인하면 자동으로 연결됩니다. API Key 입력 필요 없음!
+                      </p>
+                    </div>
                   )}
                 </CardContent>
               </Card>

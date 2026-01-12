@@ -43,13 +43,18 @@ export default function AttendancePage() {
       const start = format(startOfMonth(currentDate), 'yyyy-MM-dd');
       const end = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
-      const response = await fetch(`/api/attendances?start_date=${start}&end_date=${end}`);
+      const response = await fetch(`/api/attendances?startDate=${start}&endDate=${end}&limit=1000`);
       if (response.ok) {
-        const data = await response.json();
-        setAttendances(data);
+        const result = await response.json();
+        // API returns { data: [...], pagination: {...} }
+        const attendanceData = Array.isArray(result) ? result : (result.data || []);
+        setAttendances(attendanceData);
+      } else {
+        setAttendances([]);
       }
     } catch (error) {
       console.error('Failed to fetch attendances:', error);
+      setAttendances([]);
     } finally {
       setLoading(false);
     }
