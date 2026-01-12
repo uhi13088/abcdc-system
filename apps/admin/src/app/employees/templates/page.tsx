@@ -135,7 +135,7 @@ export default function InvitationTemplatesPage() {
 
   const openEditDialog = (template: Template) => {
     setEditingTemplate(template);
-    const hasPerDaySchedule = template.work_schedule && Object.keys(template.work_schedule).length > 0;
+    const hasPerDaySchedule = !!(template.work_schedule && Object.keys(template.work_schedule).length > 0);
     setFormData({
       name: template.name,
       description: template.description || '',
