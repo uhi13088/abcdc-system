@@ -74,6 +74,18 @@ export default function InviteEmployeePage() {
           const templatesData = await templatesRes.json();
           setTemplates(templatesData.data || []);
         }
+
+        // sessionStorage에서 폼 데이터 복원
+        const savedFormData = sessionStorage.getItem('invite_form_data');
+        if (savedFormData) {
+          try {
+            const parsed = JSON.parse(savedFormData);
+            setFormData(parsed);
+            sessionStorage.removeItem('invite_form_data');
+          } catch (e) {
+            console.error('Failed to restore form data:', e);
+          }
+        }
       } catch (err) {
         console.error('Failed to fetch data:', err);
       } finally {
@@ -285,18 +297,24 @@ export default function InviteEmployeePage() {
 
           {/* 템플릿 선택 */}
           <div className="space-y-4 mb-8">
-            <h3 className="font-semibold text-gray-900 border-b pb-2">템플릿 선택</h3>
+            <div className="flex items-center justify-between border-b pb-2">
+              <h3 className="font-semibold text-gray-900">템플릿 선택</h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // 현재 폼 데이터를 sessionStorage에 저장
+                  sessionStorage.setItem('invite_form_data', JSON.stringify(formData));
+                  router.push('/employees/templates');
+                }}
+              >
+                템플릿 관리
+              </Button>
+            </div>
             {templates.length === 0 ? (
               <div className="bg-gray-50 rounded-lg p-4 text-center">
-                <p className="text-gray-500 text-sm mb-2">등록된 템플릿이 없습니다.</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push('/employees/templates')}
-                >
-                  템플릿 만들기
-                </Button>
+                <p className="text-gray-500 text-sm">등록된 템플릿이 없습니다. 템플릿을 먼저 만들어주세요.</p>
               </div>
             ) : (
               <div className="space-y-2">
