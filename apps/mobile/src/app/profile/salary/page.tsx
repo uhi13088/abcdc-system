@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Download, DollarSign, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ArrowLeft, Download, TrendingUp, TrendingDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 interface SalaryDetail {
   id: string;
@@ -12,6 +13,7 @@ interface SalaryDetail {
   overtime_pay: number;
   night_pay: number;
   holiday_pay: number;
+  weekly_holiday_pay: number;
   meal_allowance: number;
   transport_allowance: number;
   total_gross_pay: number;
@@ -26,7 +28,7 @@ interface SalaryDetail {
   work_days: number;
   total_hours: number;
   status: string;
-  paid_at?: string;
+  pay_date?: string;
 }
 
 export default function SalaryPage() {
@@ -35,78 +37,38 @@ export default function SalaryPage() {
   const [selectedSalary, setSelectedSalary] = useState<SalaryDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchSalaries();
-  }, []);
+  const supabase = createClient();
 
-  const fetchSalaries = async () => {
+  const fetchSalaries = useCallback(async () => {
     try {
-      // TODO: Replace with real API call
-      // const response = await fetch('/api/my/salaries');
-      // const data = await response.json();
-      // setSalaries(data);
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        router.push('/auth/login');
+        return;
+      }
 
-      // Mock data for now
-      const mockSalaries: SalaryDetail[] = [
-        {
-          id: '1',
-          year: 2024,
-          month: 1,
-          base_salary: 2200000,
-          overtime_pay: 180000,
-          night_pay: 0,
-          holiday_pay: 120000,
-          meal_allowance: 100000,
-          transport_allowance: 100000,
-          total_gross_pay: 2700000,
-          national_pension: 121500,
-          health_insurance: 95715,
-          long_term_care: 12261,
-          employment_insurance: 24300,
-          income_tax: 42000,
-          local_income_tax: 4200,
-          total_deductions: 299976,
-          net_pay: 2400024,
-          work_days: 22,
-          total_hours: 176,
-          status: 'PAID',
-          paid_at: '2024-01-25T00:00:00Z',
-        },
-        {
-          id: '2',
-          year: 2023,
-          month: 12,
-          base_salary: 2200000,
-          overtime_pay: 150000,
-          night_pay: 50000,
-          holiday_pay: 0,
-          meal_allowance: 100000,
-          transport_allowance: 100000,
-          total_gross_pay: 2600000,
-          national_pension: 117000,
-          health_insurance: 92170,
-          long_term_care: 11809,
-          employment_insurance: 23400,
-          income_tax: 38000,
-          local_income_tax: 3800,
-          total_deductions: 286179,
-          net_pay: 2313821,
-          work_days: 20,
-          total_hours: 168,
-          status: 'PAID',
-          paid_at: '2023-12-25T00:00:00Z',
-        },
-      ];
-      setSalaries(mockSalaries);
-      if (mockSalaries.length > 0) {
-        setSelectedSalary(mockSalaries[0]);
+      // Fetch all salary records for this user, ordered by year/month descending
+      const { data: salaryData } = await supabase
+        .from('salaries')
+        .select('*')
+        .eq('user_id', authUser.id)
+        .order('year', { ascending: false })
+        .order('month', { ascending: false });
+
+      if (salaryData && salaryData.length > 0) {
+        setSalaries(salaryData);
+        setSelectedSalary(salaryData[0]);
       }
     } catch (error) {
       console.error('Failed to fetch salaries:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase, router]);
+
+  useEffect(() => {
+    fetchSalaries();
+  }, [fetchSalaries]);
 
   const formatCurrency = (amount: number) => {
     return amount.toLocaleString('ko-KR') + '원';
@@ -131,6 +93,10 @@ export default function SalaryPage() {
       {loading ? (
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      ) : salaries.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+          <p>급여 정보가 없습니다.</p>
         </div>
       ) : (
         <div className="p-4 space-y-4">
@@ -162,12 +128,12 @@ export default function SalaryPage() {
                       ? 'bg-white/20'
                       : 'bg-yellow-400/20 text-yellow-200'
                   }`}>
-                    {selectedSalary.status === 'PAID' ? '지급완료' : '대기중'}
+                    {selectedSalary.status === 'PAID' ? '지급완료' : selectedSalary.status === 'CONFIRMED' ? '확정됨' : '계산중'}
                   </span>
                 </div>
                 <p className="text-3xl font-bold mb-1">{formatCurrency(selectedSalary.net_pay)}</p>
                 <p className="text-sm text-primary-100">
-                  {selectedSalary.paid_at && `${new Date(selectedSalary.paid_at).getMonth() + 1}월 ${new Date(selectedSalary.paid_at).getDate()}일 지급`}
+                  {selectedSalary.pay_date && `${new Date(selectedSalary.pay_date).getMonth() + 1}월 ${new Date(selectedSalary.pay_date).getDate()}일 지급`}
                 </p>
               </div>
 
@@ -218,6 +184,12 @@ export default function SalaryPage() {
                       <span className="text-gray-900">{formatCurrency(selectedSalary.holiday_pay)}</span>
                     </div>
                   )}
+                  {selectedSalary.weekly_holiday_pay > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">주휴수당</span>
+                      <span className="text-gray-900">{formatCurrency(selectedSalary.weekly_holiday_pay)}</span>
+                    </div>
+                  )}
                   {selectedSalary.meal_allowance > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-500">식대</span>
@@ -243,30 +215,42 @@ export default function SalaryPage() {
                   <span className="text-red-600 font-bold">-{formatCurrency(selectedSalary.total_deductions)}</span>
                 </div>
                 <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">국민연금</span>
-                    <span className="text-gray-900">{formatCurrency(selectedSalary.national_pension)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">건강보험</span>
-                    <span className="text-gray-900">{formatCurrency(selectedSalary.health_insurance)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">장기요양보험</span>
-                    <span className="text-gray-900">{formatCurrency(selectedSalary.long_term_care)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">고용보험</span>
-                    <span className="text-gray-900">{formatCurrency(selectedSalary.employment_insurance)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">소득세</span>
-                    <span className="text-gray-900">{formatCurrency(selectedSalary.income_tax)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">지방소득세</span>
-                    <span className="text-gray-900">{formatCurrency(selectedSalary.local_income_tax)}</span>
-                  </div>
+                  {selectedSalary.national_pension > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">국민연금</span>
+                      <span className="text-gray-900">{formatCurrency(selectedSalary.national_pension)}</span>
+                    </div>
+                  )}
+                  {selectedSalary.health_insurance > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">건강보험</span>
+                      <span className="text-gray-900">{formatCurrency(selectedSalary.health_insurance)}</span>
+                    </div>
+                  )}
+                  {selectedSalary.long_term_care > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">장기요양보험</span>
+                      <span className="text-gray-900">{formatCurrency(selectedSalary.long_term_care)}</span>
+                    </div>
+                  )}
+                  {selectedSalary.employment_insurance > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">고용보험</span>
+                      <span className="text-gray-900">{formatCurrency(selectedSalary.employment_insurance)}</span>
+                    </div>
+                  )}
+                  {selectedSalary.income_tax > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">소득세</span>
+                      <span className="text-gray-900">{formatCurrency(selectedSalary.income_tax)}</span>
+                    </div>
+                  )}
+                  {selectedSalary.local_income_tax > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">지방소득세</span>
+                      <span className="text-gray-900">{formatCurrency(selectedSalary.local_income_tax)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 

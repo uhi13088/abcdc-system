@@ -1,78 +1,75 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/bottom-nav';
+import { createClient } from '@/lib/supabase/client';
 
 interface SalaryData {
   id: string;
   year: number;
   month: number;
-  status: 'CALCULATED' | 'CONFIRMED' | 'PAID';
-  baseSalary: number;
-  overtimePay: number;
-  nightPay: number;
-  holidayPay: number;
-  weeklyHolidayPay: number;
-  mealAllowance: number;
-  totalGrossPay: number;
-  nationalPension: number;
-  healthInsurance: number;
-  longTermCare: number;
-  employmentInsurance: number;
-  incomeTax: number;
-  localIncomeTax: number;
-  totalDeductions: number;
-  netPay: number;
-  workDays: number;
-  totalHours: number;
-  payDate?: string;
+  status: string;
+  base_salary: number;
+  overtime_pay: number;
+  night_pay: number;
+  holiday_pay: number;
+  weekly_holiday_pay: number;
+  meal_allowance: number;
+  total_gross_pay: number;
+  national_pension: number;
+  health_insurance: number;
+  long_term_care: number;
+  employment_insurance: number;
+  income_tax: number;
+  local_income_tax: number;
+  total_deductions: number;
+  net_pay: number;
+  work_days: number;
+  total_hours: number;
+  pay_date?: string;
 }
 
 export default function SalaryPage() {
+  const router = useRouter();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [salary, setSalary] = useState<SalaryData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchSalary();
-  }, [selectedYear, selectedMonth]);
+  const supabase = createClient();
 
-  const fetchSalary = async () => {
+  const fetchSalary = useCallback(async () => {
     try {
       setLoading(true);
-      // Demo data
-      setSalary({
-        id: '1',
-        year: selectedYear,
-        month: selectedMonth,
-        status: selectedMonth < new Date().getMonth() + 1 ? 'PAID' : 'CALCULATED',
-        baseSalary: 2100000,
-        overtimePay: 156000,
-        nightPay: 45000,
-        holidayPay: 0,
-        weeklyHolidayPay: 420000,
-        mealAllowance: 100000,
-        totalGrossPay: 2821000,
-        nationalPension: 126945,
-        healthInsurance: 99984,
-        longTermCare: 12810,
-        employmentInsurance: 25389,
-        incomeTax: 75800,
-        localIncomeTax: 7580,
-        totalDeductions: 348508,
-        netPay: 2472492,
-        workDays: 22,
-        totalHours: 176,
-        payDate: `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-10`,
-      });
+
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        router.push('/auth/login');
+        return;
+      }
+
+      const { data: salaryData } = await supabase
+        .from('salaries')
+        .select('*')
+        .eq('user_id', authUser.id)
+        .eq('year', selectedYear)
+        .eq('month', selectedMonth)
+        .single();
+
+      setSalary(salaryData);
     } catch (error) {
       console.error('Failed to fetch salary:', error);
+      setSalary(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase, router, selectedYear, selectedMonth]);
+
+  useEffect(() => {
+    fetchSalary();
+  }, [fetchSalary]);
 
   const prevMonth = () => {
     if (selectedMonth === 1) {
@@ -163,11 +160,11 @@ export default function SalaryPage() {
               {getStatusBadge(salary.status)}
             </div>
             <p className="text-3xl font-bold text-primary mb-2">
-              {salary.netPay.toLocaleString()}원
+              {salary.net_pay.toLocaleString()}원
             </p>
             <div className="flex gap-4 text-sm text-gray-500">
-              <span>근무일 {salary.workDays}일</span>
-              <span>총 {salary.totalHours}시간</span>
+              <span>근무일 {salary.work_days}일</span>
+              <span>총 {salary.total_hours}시간</span>
             </div>
           </div>
 
@@ -175,16 +172,14 @@ export default function SalaryPage() {
           <div className="bg-white rounded-2xl shadow-sm p-5">
             <h2 className="font-semibold text-gray-900 mb-3">지급 내역</h2>
             <div className="divide-y">
-              <DetailRow label="기본급" value={salary.baseSalary} />
-              <DetailRow label="연장근로수당" value={salary.overtimePay} />
-              <DetailRow label="야간근로수당" value={salary.nightPay} />
-              {salary.holidayPay > 0 && (
-                <DetailRow label="휴일근로수당" value={salary.holidayPay} />
-              )}
-              <DetailRow label="주휴수당" value={salary.weeklyHolidayPay} />
-              <DetailRow label="식대" value={salary.mealAllowance} />
+              <DetailRow label="기본급" value={salary.base_salary} />
+              <DetailRow label="연장근로수당" value={salary.overtime_pay} />
+              <DetailRow label="야간근로수당" value={salary.night_pay} />
+              {salary.holiday_pay > 0 && <DetailRow label="휴일근로수당" value={salary.holiday_pay} />}
+              <DetailRow label="주휴수당" value={salary.weekly_holiday_pay} />
+              <DetailRow label="식대" value={salary.meal_allowance} />
               <div className="pt-2 mt-2 border-t">
-                <DetailRow label="총 지급액" value={salary.totalGrossPay} bold />
+                <DetailRow label="총 지급액" value={salary.total_gross_pay} bold />
               </div>
             </div>
           </div>
@@ -193,14 +188,14 @@ export default function SalaryPage() {
           <div className="bg-white rounded-2xl shadow-sm p-5">
             <h2 className="font-semibold text-gray-900 mb-3">공제 내역</h2>
             <div className="divide-y">
-              <DetailRow label="국민연금" value={salary.nationalPension} negative />
-              <DetailRow label="건강보험" value={salary.healthInsurance} negative />
-              <DetailRow label="장기요양보험" value={salary.longTermCare} negative />
-              <DetailRow label="고용보험" value={salary.employmentInsurance} negative />
-              <DetailRow label="소득세" value={salary.incomeTax} negative />
-              <DetailRow label="지방소득세" value={salary.localIncomeTax} negative />
+              <DetailRow label="국민연금" value={salary.national_pension} negative />
+              <DetailRow label="건강보험" value={salary.health_insurance} negative />
+              <DetailRow label="장기요양보험" value={salary.long_term_care} negative />
+              <DetailRow label="고용보험" value={salary.employment_insurance} negative />
+              <DetailRow label="소득세" value={salary.income_tax} negative />
+              <DetailRow label="지방소득세" value={salary.local_income_tax} negative />
               <div className="pt-2 mt-2 border-t">
-                <DetailRow label="총 공제액" value={salary.totalDeductions} negative bold />
+                <DetailRow label="총 공제액" value={salary.total_deductions} negative bold />
               </div>
             </div>
           </div>
@@ -213,7 +208,7 @@ export default function SalaryPage() {
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-          <p>급여 정보가 없습니다.</p>
+          <p>해당 월의 급여 정보가 없습니다.</p>
         </div>
       )}
 

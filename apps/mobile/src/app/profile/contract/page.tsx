@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ArrowLeft, FileText, Download, CheckCircle, Calendar, Building2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ArrowLeft, FileText, Download, CheckCircle, Calendar, Clock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 interface Contract {
   id: string;
@@ -14,7 +15,10 @@ interface Contract {
   department: string;
   status: string;
   signed_at?: string;
-  store: { name: string };
+  hourly_wage?: number;
+  monthly_salary?: number;
+  work_hours_per_week?: number;
+  stores: { name: string } | null;
 }
 
 export default function ContractPage() {
@@ -22,36 +26,58 @@ export default function ContractPage() {
   const [contract, setContract] = useState<Contract | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchContract();
-  }, []);
+  const supabase = createClient();
 
-  const fetchContract = async () => {
+  const fetchContract = useCallback(async () => {
     try {
-      // TODO: Replace with real API call
-      // const response = await fetch('/api/my/contract');
-      // const data = await response.json();
-      // setContract(data);
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        router.push('/auth/login');
+        return;
+      }
 
-      // Mock data for now
-      setContract({
-        id: '1',
-        contract_number: 'CNT-202401-00001',
-        contract_type: '정규직',
-        start_date: '2023-06-01',
-        end_date: undefined,
-        position: '매장 직원',
-        department: '홀',
-        status: 'SIGNED',
-        signed_at: '2023-05-28T10:00:00Z',
-        store: { name: '강남점' },
-      });
+      // Fetch the most recent active contract for this user
+      const { data: contractData } = await supabase
+        .from('contracts')
+        .select(`
+          id,
+          contract_number,
+          contract_type,
+          start_date,
+          end_date,
+          position,
+          department,
+          status,
+          signed_at,
+          hourly_wage,
+          monthly_salary,
+          work_hours_per_week,
+          stores(name)
+        `)
+        .eq('user_id', authUser.id)
+        .in('status', ['ACTIVE', 'SIGNED'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (contractData) {
+        // Supabase returns relations as arrays, extract first element
+        const storeData = Array.isArray(contractData.stores) ? contractData.stores[0] : contractData.stores;
+        setContract({
+          ...contractData,
+          stores: storeData || null,
+        } as Contract);
+      }
     } catch (error) {
       console.error('Failed to fetch contract:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase, router]);
+
+  useEffect(() => {
+    fetchContract();
+  }, [fetchContract]);
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('ko-KR', {
@@ -59,6 +85,42 @@ export default function ContractPage() {
       month: 'long',
       day: 'numeric',
     });
+  };
+
+  const formatCurrency = (amount: number) => {
+    return amount.toLocaleString('ko-KR') + '원';
+  };
+
+  const getContractTypeLabel = (type: string) => {
+    const types: Record<string, string> = {
+      FULL_TIME: '정규직',
+      PART_TIME: '시간제',
+      CONTRACT: '계약직',
+      INTERN: '인턴',
+    };
+    return types[type] || type;
+  };
+
+  const getStatusBadge = (status: string) => {
+    if (status === 'SIGNED' || status === 'ACTIVE') {
+      return (
+        <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
+          유효
+        </span>
+      );
+    }
+    if (status === 'PENDING') {
+      return (
+        <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-sm font-medium rounded-full">
+          서명 대기
+        </span>
+      );
+    }
+    return (
+      <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm font-medium rounded-full">
+        {status}
+      </span>
+    );
   };
 
   return (
@@ -93,34 +155,40 @@ export default function ContractPage() {
                   </p>
                 </div>
               </div>
-              <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
-                유효
-              </span>
+              {getStatusBadge(contract.status)}
             </div>
           </div>
 
           {/* Contract Info */}
           <div className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-              <span className="text-sm text-gray-500">계약 번호</span>
-              <span className="font-medium text-gray-900">{contract.contract_number}</span>
-            </div>
+            {contract.contract_number && (
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                <span className="text-sm text-gray-500">계약 번호</span>
+                <span className="font-medium text-gray-900">{contract.contract_number}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
               <span className="text-sm text-gray-500">계약 유형</span>
-              <span className="font-medium text-gray-900">{contract.contract_type}</span>
+              <span className="font-medium text-gray-900">{getContractTypeLabel(contract.contract_type)}</span>
             </div>
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-              <span className="text-sm text-gray-500">근무지</span>
-              <span className="font-medium text-gray-900">{contract.store.name}</span>
-            </div>
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-              <span className="text-sm text-gray-500">직책</span>
-              <span className="font-medium text-gray-900">{contract.position}</span>
-            </div>
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-              <span className="text-sm text-gray-500">부서</span>
-              <span className="font-medium text-gray-900">{contract.department}</span>
-            </div>
+            {contract.stores?.name && (
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                <span className="text-sm text-gray-500">근무지</span>
+                <span className="font-medium text-gray-900">{contract.stores.name}</span>
+              </div>
+            )}
+            {contract.position && (
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                <span className="text-sm text-gray-500">직책</span>
+                <span className="font-medium text-gray-900">{contract.position}</span>
+              </div>
+            )}
+            {contract.department && (
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                <span className="text-sm text-gray-500">부서</span>
+                <span className="font-medium text-gray-900">{contract.department}</span>
+              </div>
+            )}
           </div>
 
           {/* Contract Period */}
@@ -143,6 +211,36 @@ export default function ContractPage() {
               </div>
             </div>
           </div>
+
+          {/* Wage Info */}
+          {(contract.hourly_wage || contract.monthly_salary || contract.work_hours_per_week) && (
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <h3 className="font-bold text-gray-900 mb-3 flex items-center">
+                <Clock className="w-5 h-5 mr-2 text-primary" />
+                급여 정보
+              </h3>
+              <div className="space-y-3">
+                {contract.hourly_wage && contract.hourly_wage > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">시급</span>
+                    <span className="font-medium text-gray-900">{formatCurrency(contract.hourly_wage)}</span>
+                  </div>
+                )}
+                {contract.monthly_salary && contract.monthly_salary > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">월급</span>
+                    <span className="font-medium text-gray-900">{formatCurrency(contract.monthly_salary)}</span>
+                  </div>
+                )}
+                {contract.work_hours_per_week && contract.work_hours_per_week > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">주당 근무시간</span>
+                    <span className="font-medium text-gray-900">{contract.work_hours_per_week}시간</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Download Button */}
           <button className="w-full bg-primary text-white rounded-xl py-4 font-medium flex items-center justify-center">

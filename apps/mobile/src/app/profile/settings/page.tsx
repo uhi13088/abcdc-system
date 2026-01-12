@@ -1,94 +1,166 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Bell, Clock, Calendar, DollarSign, MessageSquare, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
-interface NotificationSetting {
-  id: string;
-  label: string;
-  description: string;
-  icon: React.ElementType;
-  enabled: boolean;
+interface NotificationSettings {
+  push_enabled: boolean;
+  attendance_enabled: boolean;
+  schedule_enabled: boolean;
+  salary_enabled: boolean;
+  notice_enabled: boolean;
+  message_enabled: boolean;
+  emergency_enabled: boolean;
+  quiet_hours_enabled: boolean;
+  quiet_start: string;
+  quiet_end: string;
 }
+
+const defaultSettings: NotificationSettings = {
+  push_enabled: true,
+  attendance_enabled: true,
+  schedule_enabled: true,
+  salary_enabled: true,
+  notice_enabled: true,
+  message_enabled: true,
+  emergency_enabled: false,
+  quiet_hours_enabled: false,
+  quiet_start: '22:00',
+  quiet_end: '08:00',
+};
 
 export default function SettingsPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState<NotificationSettings>(defaultSettings);
 
-  const [settings, setSettings] = useState<NotificationSetting[]>([
-    {
-      id: 'attendance',
-      label: '출퇴근 알림',
-      description: '출근/퇴근 시간 알림',
-      icon: Clock,
-      enabled: true,
-    },
-    {
-      id: 'schedule',
-      label: '스케줄 알림',
-      description: '근무 일정 변경 및 알림',
-      icon: Calendar,
-      enabled: true,
-    },
-    {
-      id: 'salary',
-      label: '급여 알림',
-      description: '급여 지급 및 명세서 알림',
-      icon: DollarSign,
-      enabled: true,
-    },
-    {
-      id: 'notice',
-      label: '공지사항 알림',
-      description: '새 공지사항 알림',
-      icon: Bell,
-      enabled: true,
-    },
-    {
-      id: 'message',
-      label: '메시지 알림',
-      description: '새 메시지 수신 알림',
-      icon: MessageSquare,
-      enabled: true,
-    },
-    {
-      id: 'emergency',
-      label: '긴급 근무 알림',
-      description: '긴급 대타 모집 알림',
-      icon: AlertTriangle,
-      enabled: false,
-    },
-  ]);
+  const supabase = createClient();
 
-  const [pushEnabled, setPushEnabled] = useState(true);
-  const [quietHoursEnabled, setQuietHoursEnabled] = useState(false);
-  const [quietStart, setQuietStart] = useState('22:00');
-  const [quietEnd, setQuietEnd] = useState('08:00');
+  const fetchSettings = useCallback(async () => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        router.push('/auth/login');
+        return;
+      }
 
-  const toggleSetting = (id: string) => {
-    setSettings(settings.map(s =>
-      s.id === id ? { ...s, enabled: !s.enabled } : s
-    ));
-  };
+      // Try to fetch user settings from user_settings table
+      const { data: userSettings } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', authUser.id)
+        .single();
+
+      if (userSettings) {
+        setSettings({
+          push_enabled: userSettings.push_enabled ?? defaultSettings.push_enabled,
+          attendance_enabled: userSettings.attendance_enabled ?? defaultSettings.attendance_enabled,
+          schedule_enabled: userSettings.schedule_enabled ?? defaultSettings.schedule_enabled,
+          salary_enabled: userSettings.salary_enabled ?? defaultSettings.salary_enabled,
+          notice_enabled: userSettings.notice_enabled ?? defaultSettings.notice_enabled,
+          message_enabled: userSettings.message_enabled ?? defaultSettings.message_enabled,
+          emergency_enabled: userSettings.emergency_enabled ?? defaultSettings.emergency_enabled,
+          quiet_hours_enabled: userSettings.quiet_hours_enabled ?? defaultSettings.quiet_hours_enabled,
+          quiet_start: userSettings.quiet_start ?? defaultSettings.quiet_start,
+          quiet_end: userSettings.quiet_end ?? defaultSettings.quiet_end,
+        });
+      }
+    } catch (error) {
+      // If table doesn't exist or other error, use default settings
+      console.error('Error fetching settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase, router]);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      // TODO: Replace with real API call
-      // await fetch('/api/my/settings', {
-      //   method: 'PUT',
-      //   body: JSON.stringify({ settings, pushEnabled, quietHoursEnabled, quietStart, quietEnd }),
-      // });
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
 
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Upsert user settings
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: authUser.id,
+          ...settings,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (error) {
+        console.error('Error saving settings:', error);
+        // Still navigate back even if save fails (graceful degradation)
+      }
+
       router.back();
     } catch (error) {
       console.error('Failed to save settings:', error);
+      router.back();
     } finally {
       setSaving(false);
     }
   };
+
+  const settingItems = [
+    {
+      id: 'attendance',
+      key: 'attendance_enabled' as keyof NotificationSettings,
+      label: '출퇴근 알림',
+      description: '출근/퇴근 시간 알림',
+      icon: Clock,
+    },
+    {
+      id: 'schedule',
+      key: 'schedule_enabled' as keyof NotificationSettings,
+      label: '스케줄 알림',
+      description: '근무 일정 변경 및 알림',
+      icon: Calendar,
+    },
+    {
+      id: 'salary',
+      key: 'salary_enabled' as keyof NotificationSettings,
+      label: '급여 알림',
+      description: '급여 지급 및 명세서 알림',
+      icon: DollarSign,
+    },
+    {
+      id: 'notice',
+      key: 'notice_enabled' as keyof NotificationSettings,
+      label: '공지사항 알림',
+      description: '새 공지사항 알림',
+      icon: Bell,
+    },
+    {
+      id: 'message',
+      key: 'message_enabled' as keyof NotificationSettings,
+      label: '메시지 알림',
+      description: '새 메시지 수신 알림',
+      icon: MessageSquare,
+    },
+    {
+      id: 'emergency',
+      key: 'emergency_enabled' as keyof NotificationSettings,
+      label: '긴급 근무 알림',
+      description: '긴급 대타 모집 알림',
+      icon: AlertTriangle,
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -125,48 +197,48 @@ export default function SettingsPage() {
               </div>
             </div>
             <button
-              onClick={() => setPushEnabled(!pushEnabled)}
+              onClick={() => setSettings({ ...settings, push_enabled: !settings.push_enabled })}
               className={`w-12 h-7 rounded-full transition-colors ${
-                pushEnabled ? 'bg-primary' : 'bg-gray-300'
+                settings.push_enabled ? 'bg-primary' : 'bg-gray-300'
               }`}
             >
               <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
-                pushEnabled ? 'translate-x-6' : 'translate-x-1'
+                settings.push_enabled ? 'translate-x-6' : 'translate-x-1'
               }`} />
             </button>
           </div>
         </div>
 
         {/* Individual Settings */}
-        {pushEnabled && (
+        {settings.push_enabled && (
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
             <div className="p-4 border-b border-gray-100">
               <h3 className="font-medium text-gray-900">알림 유형</h3>
             </div>
-            {settings.map((setting, index) => (
+            {settingItems.map((item, index) => (
               <div
-                key={setting.id}
+                key={item.id}
                 className={`flex items-center justify-between p-4 ${
-                  index !== settings.length - 1 ? 'border-b border-gray-100' : ''
+                  index !== settingItems.length - 1 ? 'border-b border-gray-100' : ''
                 }`}
               >
                 <div className="flex items-center">
                   <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                    <setting.icon className="w-5 h-5 text-gray-600" />
+                    <item.icon className="w-5 h-5 text-gray-600" />
                   </div>
                   <div className="ml-3">
-                    <p className="font-medium text-gray-900">{setting.label}</p>
-                    <p className="text-xs text-gray-500">{setting.description}</p>
+                    <p className="font-medium text-gray-900">{item.label}</p>
+                    <p className="text-xs text-gray-500">{item.description}</p>
                   </div>
                 </div>
                 <button
-                  onClick={() => toggleSetting(setting.id)}
+                  onClick={() => setSettings({ ...settings, [item.key]: !settings[item.key] })}
                   className={`w-12 h-7 rounded-full transition-colors ${
-                    setting.enabled ? 'bg-primary' : 'bg-gray-300'
+                    settings[item.key] ? 'bg-primary' : 'bg-gray-300'
                   }`}
                 >
                   <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
-                    setting.enabled ? 'translate-x-6' : 'translate-x-1'
+                    settings[item.key] ? 'translate-x-6' : 'translate-x-1'
                   }`} />
                 </button>
               </div>
@@ -175,7 +247,7 @@ export default function SettingsPage() {
         )}
 
         {/* Quiet Hours */}
-        {pushEnabled && (
+        {settings.push_enabled && (
           <div className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -183,25 +255,25 @@ export default function SettingsPage() {
                 <p className="text-sm text-gray-500">설정 시간에는 알림을 받지 않습니다</p>
               </div>
               <button
-                onClick={() => setQuietHoursEnabled(!quietHoursEnabled)}
+                onClick={() => setSettings({ ...settings, quiet_hours_enabled: !settings.quiet_hours_enabled })}
                 className={`w-12 h-7 rounded-full transition-colors ${
-                  quietHoursEnabled ? 'bg-primary' : 'bg-gray-300'
+                  settings.quiet_hours_enabled ? 'bg-primary' : 'bg-gray-300'
                 }`}
               >
                 <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
-                  quietHoursEnabled ? 'translate-x-6' : 'translate-x-1'
+                  settings.quiet_hours_enabled ? 'translate-x-6' : 'translate-x-1'
                 }`} />
               </button>
             </div>
 
-            {quietHoursEnabled && (
+            {settings.quiet_hours_enabled && (
               <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">시작 시간</label>
                   <input
                     type="time"
-                    value={quietStart}
-                    onChange={(e) => setQuietStart(e.target.value)}
+                    value={settings.quiet_start}
+                    onChange={(e) => setSettings({ ...settings, quiet_start: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg text-sm"
                   />
                 </div>
@@ -209,8 +281,8 @@ export default function SettingsPage() {
                   <label className="block text-xs text-gray-500 mb-1">종료 시간</label>
                   <input
                     type="time"
-                    value={quietEnd}
-                    onChange={(e) => setQuietEnd(e.target.value)}
+                    value={settings.quiet_end}
+                    onChange={(e) => setSettings({ ...settings, quiet_end: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg text-sm"
                   />
                 </div>

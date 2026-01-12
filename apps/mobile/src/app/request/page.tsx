@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Calendar, Clock, FileText, Send, CheckCircle } from 'lucide-react';
 import { BottomNav } from '@/components/bottom-nav';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 type RequestType = 'LEAVE' | 'OVERTIME' | 'SCHEDULE_CHANGE';
 
@@ -25,6 +26,8 @@ export default function RequestPage() {
   const router = useRouter();
   const [requestType, setRequestType] = useState<RequestType>('LEAVE');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [remainingAnnualLeave, setRemainingAnnualLeave] = useState(0);
 
   // Leave request state
   const [leaveType, setLeaveType] = useState('ANNUAL');
@@ -42,15 +45,100 @@ export default function RequestPage() {
   const [requestedDate, setRequestedDate] = useState('');
   const [changeReason, setChangeReason] = useState('');
 
-  const remainingAnnualLeave = 12; // Mock data
+  const supabase = createClient();
 
-  const handleSubmit = () => {
-    // TODO: Implement actual API call
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      router.push('/home');
-    }, 2000);
+  useEffect(() => {
+    const fetchLeaveBalance = async () => {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) {
+          router.push('/auth/login');
+          return;
+        }
+
+        // Fetch user's remaining annual leave
+        const { data: userData } = await supabase
+          .from('users')
+          .select('annual_leave_balance')
+          .eq('id', authUser.id)
+          .single();
+
+        if (userData?.annual_leave_balance !== undefined) {
+          setRemainingAnnualLeave(userData.annual_leave_balance);
+        }
+      } catch (error) {
+        console.error('Error fetching leave balance:', error);
+      }
+    };
+
+    fetchLeaveBalance();
+  }, [supabase, router]);
+
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      // Get user's store_id
+      const { data: userData } = await supabase
+        .from('users')
+        .select('store_id')
+        .eq('id', authUser.id)
+        .single();
+
+      const requestData: {
+        user_id: string;
+        store_id: string | null;
+        type: string;
+        status: string;
+        start_date?: string;
+        end_date?: string;
+        leave_type?: string;
+        reason?: string;
+        overtime_date?: string;
+        overtime_hours?: string;
+        original_date?: string;
+        requested_date?: string;
+      } = {
+        user_id: authUser.id,
+        store_id: userData?.store_id || null,
+        type: requestType,
+        status: 'PENDING',
+      };
+
+      if (requestType === 'LEAVE') {
+        requestData.start_date = startDate;
+        requestData.end_date = endDate;
+        requestData.leave_type = leaveType;
+        requestData.reason = reason;
+      } else if (requestType === 'OVERTIME') {
+        requestData.overtime_date = overtimeDate;
+        requestData.overtime_hours = overtimeHours;
+        requestData.reason = overtimeReason;
+      } else if (requestType === 'SCHEDULE_CHANGE') {
+        requestData.original_date = originalDate;
+        requestData.requested_date = requestedDate;
+        requestData.reason = changeReason;
+      }
+
+      const { error } = await supabase.from('requests').insert(requestData);
+
+      if (error) throw error;
+
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        router.push('/home');
+      }, 2000);
+    } catch (error) {
+      console.error('Error submitting request:', error);
+      alert('신청 중 오류가 발생했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const isFormValid = () => {
@@ -103,9 +191,7 @@ export default function RequestPage() {
           <button
             onClick={() => setRequestType('LEAVE')}
             className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-              requestType === 'LEAVE'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500'
+              requestType === 'LEAVE' ? 'border-primary text-primary' : 'border-transparent text-gray-500'
             }`}
           >
             휴가 신청
@@ -113,9 +199,7 @@ export default function RequestPage() {
           <button
             onClick={() => setRequestType('OVERTIME')}
             className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-              requestType === 'OVERTIME'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500'
+              requestType === 'OVERTIME' ? 'border-primary text-primary' : 'border-transparent text-gray-500'
             }`}
           >
             초과근무
@@ -123,9 +207,7 @@ export default function RequestPage() {
           <button
             onClick={() => setRequestType('SCHEDULE_CHANGE')}
             className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-              requestType === 'SCHEDULE_CHANGE'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500'
+              requestType === 'SCHEDULE_CHANGE' ? 'border-primary text-primary' : 'border-transparent text-gray-500'
             }`}
           >
             근무조정
@@ -157,9 +239,7 @@ export default function RequestPage() {
                     key={type.id}
                     onClick={() => setLeaveType(type.id)}
                     className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                      leaveType === type.id
-                        ? 'bg-primary text-white'
-                        : 'bg-gray-100 text-gray-600'
+                      leaveType === type.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'
                     }`}
                   >
                     {type.name}
@@ -267,8 +347,8 @@ export default function RequestPage() {
             {/* Overtime Info */}
             <div className="bg-amber-50 rounded-2xl p-4">
               <p className="text-sm text-amber-700">
-                <strong>참고:</strong> 초과근무는 사전 승인 후 진행되어야 합니다.
-                연장근로수당은 통상시급의 150%로 지급됩니다.
+                <strong>참고:</strong> 초과근무는 사전 승인 후 진행되어야 합니다. 연장근로수당은 통상시급의 150%로
+                지급됩니다.
               </p>
             </div>
           </>
@@ -321,8 +401,8 @@ export default function RequestPage() {
             {/* Schedule Change Info */}
             <div className="bg-blue-50 rounded-2xl p-4">
               <p className="text-sm text-blue-700">
-                <strong>참고:</strong> 근무조정 신청은 최소 3일 전에 해주세요.
-                동료와 스케줄 교환이 필요한 경우 먼저 협의 후 신청해주세요.
+                <strong>참고:</strong> 근무조정 신청은 최소 3일 전에 해주세요. 동료와 스케줄 교환이 필요한 경우 먼저
+                협의 후 신청해주세요.
               </p>
             </div>
           </>
@@ -331,15 +411,13 @@ export default function RequestPage() {
         {/* Submit Button */}
         <button
           onClick={handleSubmit}
-          disabled={!isFormValid()}
+          disabled={!isFormValid() || submitting}
           className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center transition-colors ${
-            isFormValid()
-              ? 'bg-primary text-white'
-              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            isFormValid() && !submitting ? 'bg-primary text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
           }`}
         >
           <Send className="w-5 h-5 mr-2" />
-          신청하기
+          {submitting ? '처리 중...' : '신청하기'}
         </button>
       </div>
 
