@@ -5,33 +5,41 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   try {
     const supabase = createClient();
+    const adminClient = createAdminClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    // Use adminClient to bypass RLS for user lookup
+    const { data: userData, error: userError } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
       .single();
 
+    if (userError) {
+      console.error('[GET /api/settings/integrations] User lookup error:', userError);
+    }
+
     if (!userData?.company_id) {
       return NextResponse.json({ data: [] });
     }
 
-    const { data: integrations, error } = await supabase
+    const { data: integrations, error } = await adminClient
       .from('integrations')
       .select('*')
       .eq('company_id', userData.company_id);
 
     if (error) {
+      console.error('[GET /api/settings/integrations] Query error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ data: integrations || [] });
   } catch (error) {
+    console.error('[GET /api/settings/integrations] Catch error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -47,11 +55,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    // Use adminClient to bypass RLS for user lookup
+    const { data: userData, error: userError } = await adminClient
       .from('users')
       .select('company_id, role')
       .eq('auth_id', user.id)
       .single();
+
+    if (userError) {
+      console.error('[POST /api/settings/integrations] User lookup error:', userError);
+    }
 
     if (!userData) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -91,7 +104,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Integration settings save error:', error);
+      console.error('[POST /api/settings/integrations] Save error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -100,7 +113,7 @@ export async function POST(request: NextRequest) {
       message: '연동 설정이 저장되었습니다.'
     });
   } catch (error) {
-    console.error('Integration settings API error:', error);
+    console.error('[POST /api/settings/integrations] Catch error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

@@ -6,6 +6,7 @@ import { CreateStoreSchema } from '@abc/shared';
 export async function GET(request: NextRequest) {
   try {
     const supabase = createClient();
+    const adminClient = createAdminClient();
     const searchParams = request.nextUrl.searchParams;
     const companyId = searchParams.get('companyId');
     const brandId = searchParams.get('brandId');
@@ -15,15 +16,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's company
-    const { data: userData } = await supabase
+    // Use adminClient to bypass RLS for user lookup
+    const { data: userData, error: userError } = await adminClient
       .from('users')
       .select('role, company_id, brand_id, store_id')
       .eq('auth_id', user.id)
       .single();
 
+    if (userError) {
+      console.error('[GET /api/stores] User lookup error:', userError);
+    }
+
     if (!userData) {
-      // User not found in users table, return empty array
+      console.log('[GET /api/stores] No user data found for auth_id:', user.id);
       return NextResponse.json([]);
     }
 
@@ -32,7 +37,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json([]);
     }
 
-    let query = supabase
+    let query = adminClient
       .from('stores')
       .select('*, brands(name), companies(name)')
       .order('created_at', { ascending: false });
@@ -53,20 +58,21 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Stores API error:', error);
-      // Return empty array instead of error for missing tables etc.
+      console.error('[GET /api/stores] Query error:', error);
       return NextResponse.json([]);
     }
 
     return NextResponse.json(data || []);
   } catch (error) {
-    console.error('Stores API catch error:', error);
+    console.error('[GET /api/stores] Catch error:', error);
     return NextResponse.json([]);
   }
 }
 
 // POST /api/stores - 매장 생성
 export async function POST(request: NextRequest) {
+  const adminClient = createAdminClient();
+
   try {
     const supabase = createClient();
 
@@ -75,22 +81,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check user permissions
-    const { data: userData } = await supabase
+    // Use adminClient to bypass RLS for user lookup
+    const { data: userData, error: userLookupError } = await adminClient
       .from('users')
-      .select('role, company_id')
+      .select('id, role, company_id')
       .eq('auth_id', user.id)
       .single();
 
-    if (!['super_admin', 'company_admin', 'manager'].includes(userData?.role || '')) {
+    if (userLookupError) {
+      console.error('[POST /api/stores] User lookup error:', userLookupError);
+      return NextResponse.json({
+        error: `사용자 정보를 찾을 수 없습니다: ${userLookupError.message}`
+      }, { status: 500 });
+    }
+
+    if (!userData) {
+      return NextResponse.json({ error: '사용자 정보를 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    // Check user permissions
+    if (!['super_admin', 'company_admin', 'manager'].includes(userData.role || '')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
 
+    // Auto-fill companyId from user's company for non-super_admin
+    let storeData = { ...body };
+    if (userData.role !== 'super_admin' && !storeData.companyId) {
+      storeData.companyId = userData.company_id;
+    }
+
     // Validate input
-    const validation = CreateStoreSchema.safeParse(body);
+    const validation = CreateStoreSchema.safeParse(storeData);
     if (!validation.success) {
+      console.error('[POST /api/stores] Validation failed:', validation.error.errors);
       return NextResponse.json(
         { error: validation.error.errors[0].message },
         { status: 400 }
@@ -98,13 +123,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify brand belongs to the company
-    const { data: brand } = await supabase
+    const { data: brand, error: brandError } = await adminClient
       .from('brands')
       .select('company_id')
       .eq('id', validation.data.brandId)
       .single();
 
-    if (!brand) {
+    if (brandError || !brand) {
+      console.error('[POST /api/stores] Brand lookup error:', brandError);
       return NextResponse.json(
         { error: '브랜드가 존재하지 않습니다.' },
         { status: 404 }
@@ -119,8 +145,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Non-platform admins can only create stores in their company
-    if (userData?.role !== 'super_admin') {
-      if (validation.data.companyId !== userData?.company_id) {
+    if (userData.role !== 'super_admin') {
+      if (validation.data.companyId !== userData.company_id) {
         return NextResponse.json(
           { error: '자신의 회사에만 매장을 생성할 수 있습니다.' },
           { status: 403 }
@@ -128,8 +154,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Use admin client to bypass RLS
-    const adminClient = createAdminClient();
+    // Create store using adminClient
     const { data, error } = await adminClient
       .from('stores')
       .insert({
@@ -149,6 +174,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
+      console.error('[POST /api/stores] Store creation error:', error);
       if (error.code === '23505') {
         return NextResponse.json(
           { error: '동일한 이름의 매장이 해당 브랜드에 이미 존재합니다.' },
@@ -158,8 +184,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    console.log('[POST /api/stores] Store created successfully:', data.id);
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
+    console.error('[POST /api/stores] Catch error:', error);
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

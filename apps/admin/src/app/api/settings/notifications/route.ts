@@ -5,29 +5,36 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   try {
     const supabase = createClient();
+    const adminClient = createAdminClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    // Use adminClient to bypass RLS for user lookup
+    const { data: userData, error: userError } = await adminClient
       .from('users')
       .select('id')
       .eq('auth_id', user.id)
       .single();
 
+    if (userError) {
+      console.error('[GET /api/settings/notifications] User lookup error:', userError);
+    }
+
     if (!userData) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const { data: settings, error } = await supabase
+    const { data: settings, error } = await adminClient
       .from('notification_settings')
       .select('*')
       .eq('user_id', userData.id)
       .single();
 
     if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('[GET /api/settings/notifications] Query error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -43,6 +50,7 @@ export async function GET(request: NextRequest) {
       }
     });
   } catch (error) {
+    console.error('[GET /api/settings/notifications] Catch error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -58,11 +66,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    // Use adminClient to bypass RLS for user lookup
+    const { data: userData, error: userError } = await adminClient
       .from('users')
-      .select('id')
+      .select('id, company_id')
       .eq('auth_id', user.id)
       .single();
+
+    if (userError) {
+      console.error('[POST /api/settings/notifications] User lookup error:', userError);
+    }
 
     if (!userData) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -80,6 +93,7 @@ export async function POST(request: NextRequest) {
 
     const settingsData = {
       user_id: userData.id,
+      company_id: userData.company_id,
       email_notifications: emailNotifications ?? true,
       push_notifications: pushNotifications ?? true,
       sms_notifications: smsNotifications ?? false,
@@ -96,7 +110,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Notification settings save error:', error);
+      console.error('[POST /api/settings/notifications] Save error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -105,7 +119,7 @@ export async function POST(request: NextRequest) {
       message: '알림 설정이 저장되었습니다.'
     });
   } catch (error) {
-    console.error('Notification settings API error:', error);
+    console.error('[POST /api/settings/notifications] Catch error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
