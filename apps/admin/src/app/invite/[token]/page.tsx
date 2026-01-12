@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button, Input, Select, Label, Alert } from '@/components/ui';
-import { Check, Building2, MapPin, Clock, DollarSign } from 'lucide-react';
+import { Check, Building2, MapPin, Clock, DollarSign, Smartphone, Download } from 'lucide-react';
 
 interface InvitationData {
   id: string;
@@ -192,12 +192,52 @@ export default function InviteAcceptPage() {
             <Check className="h-8 w-8 text-green-600" />
           </div>
           <h1 className="text-xl font-bold text-gray-900 mb-2">가입이 완료되었습니다!</h1>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 mb-4">
             {invitation?.stores?.name}의 직원으로 등록되었습니다.
             <br />
             관리자가 계약서를 보내드릴 예정입니다.
           </p>
-          <Button onClick={() => router.push('/auth/login')}>로그인하기</Button>
+
+          {/* 앱 설치 안내 */}
+          <div className="bg-blue-50 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-center gap-2 text-blue-700 mb-3">
+              <Smartphone className="h-5 w-5" />
+              <span className="font-semibold">앱 설치 안내</span>
+            </div>
+            <p className="text-sm text-blue-600 mb-4">
+              출퇴근 기록, 급여 확인, 스케줄 관리를 위해
+              <br />
+              <strong>ABC Staff 앱</strong>을 설치해주세요!
+            </p>
+            <div className="flex flex-col gap-2">
+              <a
+                href="https://apps.apple.com/app/abc-staff"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 bg-black text-white rounded-lg py-3 px-4 hover:bg-gray-800 transition-colors"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                </svg>
+                <span>App Store에서 다운로드</span>
+              </a>
+              <a
+                href="https://play.google.com/store/apps/details?id=com.abc.staff"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 bg-green-600 text-white rounded-lg py-3 px-4 hover:bg-green-700 transition-colors"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"/>
+                </svg>
+                <span>Google Play에서 다운로드</span>
+              </a>
+            </div>
+          </div>
+
+          <Button onClick={() => router.push('/auth/login')} variant="outline" className="w-full">
+            웹에서 로그인하기
+          </Button>
         </div>
       </div>
     );
