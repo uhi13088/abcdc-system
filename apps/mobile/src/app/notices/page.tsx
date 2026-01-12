@@ -14,9 +14,7 @@ interface Notice {
   created_at: string;
 }
 
-interface ReadNotice {
-  notice_id: string;
-}
+const READ_NOTICES_KEY = 'abcdc_read_notices';
 
 export default function NoticesPage() {
   const router = useRouter();
@@ -28,6 +26,19 @@ export default function NoticesPage() {
   const supabase = createClient();
 
   useEffect(() => {
+    // Load read notices from localStorage
+    const loadReadNotices = () => {
+      try {
+        const stored = localStorage.getItem(READ_NOTICES_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setReadNotices(new Set(parsed));
+        }
+      } catch (error) {
+        console.error('Error loading read notices from localStorage:', error);
+      }
+    };
+
     const fetchNotices = async () => {
       try {
         const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -47,15 +58,8 @@ export default function NoticesPage() {
           setNotices(noticesData);
         }
 
-        // Fetch read notices for current user
-        const { data: readData } = await supabase
-          .from('notice_reads')
-          .select('notice_id')
-          .eq('user_id', authUser.id);
-
-        if (readData) {
-          setReadNotices(new Set(readData.map((r: ReadNotice) => r.notice_id)));
-        }
+        // Load read status from localStorage
+        loadReadNotices();
       } catch (error) {
         console.error('Error fetching notices:', error);
       } finally {
@@ -66,22 +70,18 @@ export default function NoticesPage() {
     fetchNotices();
   }, [supabase, router]);
 
-  const handleSelectNotice = async (notice: Notice) => {
+  const handleSelectNotice = (notice: Notice) => {
     setSelectedNotice(notice);
 
-    // Mark as read
+    // Mark as read in localStorage
     if (!readNotices.has(notice.id)) {
-      try {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        if (authUser) {
-          await supabase
-            .from('notice_reads')
-            .upsert({ user_id: authUser.id, notice_id: notice.id });
+      const newReadNotices = new Set(Array.from(readNotices).concat(notice.id));
+      setReadNotices(newReadNotices);
 
-          setReadNotices((prev) => new Set(Array.from(prev).concat(notice.id)));
-        }
+      try {
+        localStorage.setItem(READ_NOTICES_KEY, JSON.stringify(Array.from(newReadNotices)));
       } catch (error) {
-        console.error('Error marking notice as read:', error);
+        console.error('Error saving read notices to localStorage:', error);
       }
     }
   };

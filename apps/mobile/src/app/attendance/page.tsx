@@ -8,10 +8,11 @@ import { createClient } from '@/lib/supabase/client';
 
 interface AttendanceRecord {
   id: string;
-  date: string;
-  check_in: string | null;
-  check_out: string | null;
+  work_date: string;
+  actual_check_in: string | null;
+  actual_check_out: string | null;
   status: string;
+  work_hours: number | null;
 }
 
 interface MonthlySummary {
@@ -47,25 +48,32 @@ export default function AttendancePage() {
       const endDate = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
 
       const { data: attendanceData } = await supabase
-        .from('attendance')
-        .select('id, date, check_in, check_out, status')
-        .eq('user_id', authUser.id)
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('date', { ascending: false });
+        .from('attendances')
+        .select('id, work_date, actual_check_in, actual_check_out, status, work_hours')
+        .eq('staff_id', authUser.id)
+        .gte('work_date', startDate)
+        .lte('work_date', endDate)
+        .order('work_date', { ascending: false });
 
       if (attendanceData) {
         setRecords(attendanceData);
 
         // Calculate summary
-        let totalMinutes = 0;
+        let totalHours = 0;
         let lateCount = 0;
+        let workDays = 0;
 
         attendanceData.forEach((record) => {
-          if (record.check_in && record.check_out) {
-            const checkIn = new Date(`2000-01-01T${record.check_in}`);
-            const checkOut = new Date(`2000-01-01T${record.check_out}`);
-            totalMinutes += (checkOut.getTime() - checkIn.getTime()) / (1000 * 60);
+          if (record.actual_check_in) {
+            workDays++;
+          }
+          // Use pre-calculated work_hours if available
+          if (record.work_hours) {
+            totalHours += Number(record.work_hours);
+          } else if (record.actual_check_in && record.actual_check_out) {
+            const checkIn = new Date(record.actual_check_in);
+            const checkOut = new Date(record.actual_check_out);
+            totalHours += (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
           }
           if (record.status === 'LATE' || record.status === 'EARLY_LEAVE') {
             lateCount++;
@@ -73,8 +81,8 @@ export default function AttendancePage() {
         });
 
         setSummary({
-          workDays: attendanceData.length,
-          totalHours: Math.round(totalMinutes / 60),
+          workDays,
+          totalHours: Math.round(totalHours),
           lateCount,
         });
       }
@@ -108,15 +116,20 @@ export default function AttendancePage() {
     return `${month}/${day} (${days[date.getDay()]})`;
   };
 
-  const formatTime = (timeStr: string | null) => {
-    if (!timeStr) return '-';
-    return timeStr.slice(0, 5);
+  const formatTime = (timestamp: string | null) => {
+    if (!timestamp) return '-';
+    return new Date(timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const calculateHours = (checkIn: string | null, checkOut: string | null) => {
+  const calculateHours = (checkIn: string | null, checkOut: string | null, workHours: number | null) => {
+    if (workHours) {
+      const hours = Math.floor(workHours);
+      const minutes = Math.round((workHours - hours) * 60);
+      return minutes > 0 ? `${hours}시간 ${minutes}분` : `${hours}시간`;
+    }
     if (!checkIn || !checkOut) return '-';
-    const start = new Date(`2000-01-01T${checkIn}`);
-    const end = new Date(`2000-01-01T${checkOut}`);
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
     const diffMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
     const hours = Math.floor(diffMinutes / 60);
     const minutes = Math.round(diffMinutes % 60);
@@ -125,16 +138,18 @@ export default function AttendancePage() {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      PRESENT: 'bg-green-100 text-green-700',
+      NORMAL: 'bg-green-100 text-green-700',
       LATE: 'bg-yellow-100 text-yellow-700',
       EARLY_LEAVE: 'bg-orange-100 text-orange-700',
       ABSENT: 'bg-red-100 text-red-700',
+      VACATION: 'bg-blue-100 text-blue-700',
     };
     const labels: Record<string, string> = {
-      PRESENT: '정상',
+      NORMAL: '정상',
       LATE: '지각',
       EARLY_LEAVE: '조퇴',
       ABSENT: '결근',
+      VACATION: '휴가',
     };
     return (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${styles[status] || 'bg-gray-100 text-gray-700'}`}>
@@ -208,21 +223,23 @@ export default function AttendancePage() {
             {records.map((record) => (
               <div key={record.id} className="bg-white rounded-xl p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-gray-900">{formatDate(record.date)}</span>
+                  <span className="font-medium text-gray-900">{formatDate(record.work_date)}</span>
                   {getStatusBadge(record.status)}
                 </div>
                 <div className="grid grid-cols-3 text-sm text-gray-500">
                   <div>
                     <p className="text-xs text-gray-400">출근</p>
-                    <p className="font-medium text-gray-900">{formatTime(record.check_in)}</p>
+                    <p className="font-medium text-gray-900">{formatTime(record.actual_check_in)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-400">퇴근</p>
-                    <p className="font-medium text-gray-900">{formatTime(record.check_out)}</p>
+                    <p className="font-medium text-gray-900">{formatTime(record.actual_check_out)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-400">근무</p>
-                    <p className="font-medium text-gray-900">{calculateHours(record.check_in, record.check_out)}</p>
+                    <p className="font-medium text-gray-900">
+                      {calculateHours(record.actual_check_in, record.actual_check_out, record.work_hours)}
+                    </p>
                   </div>
                 </div>
               </div>

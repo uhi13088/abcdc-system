@@ -11,6 +11,9 @@ import { createClient } from '@/lib/supabase/client';
 interface UserProfile {
   id: string;
   name: string;
+  company_id: string | null;
+  brand_id: string | null;
+  store_id: string | null;
   stores: { id: string; name: string } | null;
 }
 
@@ -27,9 +30,10 @@ interface Notice {
 
 interface AttendanceRecord {
   id: string;
-  check_in: string | null;
-  check_out: string | null;
-  date: string;
+  actual_check_in: string | null;
+  actual_check_out: string | null;
+  work_date: string;
+  status: string | null;
 }
 
 interface WeeklyStats {
@@ -68,7 +72,7 @@ export default function HomePage() {
       // Fetch user profile with store info
       const { data: userData } = await supabase
         .from('users')
-        .select('id, name, stores(id, name)')
+        .select('id, name, company_id, brand_id, store_id, stores(id, name)')
         .eq('id', authUser.id)
         .single();
 
@@ -78,45 +82,57 @@ export default function HomePage() {
         setUser({
           id: userData.id,
           name: userData.name,
+          company_id: userData.company_id,
+          brand_id: userData.brand_id,
+          store_id: userData.store_id,
           stores: storeData || null,
         });
       }
 
       const today = new Date().toISOString().split('T')[0];
 
-      // Fetch today's schedule
+      // Fetch today's schedule - using correct column names
       const { data: scheduleData } = await supabase
         .from('schedules')
         .select('start_time, end_time')
-        .eq('user_id', authUser.id)
-        .eq('date', today)
+        .eq('staff_id', authUser.id)
+        .eq('work_date', today)
         .single();
 
       if (scheduleData) {
+        // start_time and end_time are timestamps
+        const startTime = scheduleData.start_time ? new Date(scheduleData.start_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-';
+        const endTime = scheduleData.end_time ? new Date(scheduleData.end_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-';
         setTodaySchedule({
-          start: scheduleData.start_time?.slice(0, 5) || '-',
-          end: scheduleData.end_time?.slice(0, 5) || '-',
+          start: startTime,
+          end: endTime,
         });
       }
 
-      // Fetch today's attendance
+      // Fetch today's attendance - using correct table and column names
       const { data: attendanceData } = await supabase
-        .from('attendance')
-        .select('id, check_in, check_out, date')
-        .eq('user_id', authUser.id)
-        .eq('date', today)
+        .from('attendances')
+        .select('id, actual_check_in, actual_check_out, work_date, status')
+        .eq('staff_id', authUser.id)
+        .eq('work_date', today)
         .single();
 
       if (attendanceData) {
         setTodayAttendance(attendanceData);
       }
 
-      // Fetch recent notices
-      const { data: noticesData } = await supabase
+      // Fetch recent notices - filter by company_id if available
+      let noticesQuery = supabase
         .from('notices')
         .select('id, title, created_at')
         .order('created_at', { ascending: false })
         .limit(3);
+
+      if (userData?.company_id) {
+        noticesQuery = noticesQuery.eq('company_id', userData.company_id);
+      }
+
+      const { data: noticesData } = await noticesQuery;
 
       if (noticesData) {
         setRecentNotices(noticesData);
@@ -128,20 +144,24 @@ export default function HomePage() {
       const weekStartStr = weekStart.toISOString().split('T')[0];
 
       const { data: weekAttendance } = await supabase
-        .from('attendance')
-        .select('check_in, check_out, status')
-        .eq('user_id', authUser.id)
-        .gte('date', weekStartStr);
+        .from('attendances')
+        .select('actual_check_in, actual_check_out, status, work_hours')
+        .eq('staff_id', authUser.id)
+        .gte('work_date', weekStartStr);
 
       if (weekAttendance) {
-        let totalMinutes = 0;
+        let totalHours = 0;
         let lateCount = 0;
 
         weekAttendance.forEach((record) => {
-          if (record.check_in && record.check_out) {
-            const checkIn = new Date(`2000-01-01T${record.check_in}`);
-            const checkOut = new Date(`2000-01-01T${record.check_out}`);
-            totalMinutes += (checkOut.getTime() - checkIn.getTime()) / (1000 * 60);
+          // Use pre-calculated work_hours if available
+          if (record.work_hours) {
+            totalHours += Number(record.work_hours);
+          } else if (record.actual_check_in && record.actual_check_out) {
+            // Fallback: calculate from timestamps
+            const checkIn = new Date(record.actual_check_in);
+            const checkOut = new Date(record.actual_check_out);
+            totalHours += (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
           }
           if (record.status === 'LATE' || record.status === 'EARLY_LEAVE') {
             lateCount++;
@@ -149,8 +169,8 @@ export default function HomePage() {
         });
 
         setWeeklyStats({
-          totalHours: Math.round(totalMinutes / 60),
-          workDays: weekAttendance.length,
+          totalHours: Math.round(totalHours),
+          workDays: weekAttendance.filter(r => r.actual_check_in).length,
           lateCount,
         });
       }
@@ -166,7 +186,7 @@ export default function HomePage() {
   }, [fetchData]);
 
   const handleCheckInOut = async () => {
-    if (checkingIn) return;
+    if (checkingIn || !user) return;
     setCheckingIn(true);
 
     try {
@@ -174,18 +194,21 @@ export default function HomePage() {
       if (!authUser) return;
 
       const today = new Date().toISOString().split('T')[0];
-      const now = new Date().toTimeString().slice(0, 8);
+      const now = new Date().toISOString();
 
-      if (!todayAttendance || !todayAttendance.check_in) {
-        // Check in
+      if (!todayAttendance || !todayAttendance.actual_check_in) {
+        // Check in - create attendance record
         const { data, error } = await supabase
-          .from('attendance')
+          .from('attendances')
           .upsert({
-            user_id: authUser.id,
-            store_id: user?.stores?.id,
-            date: today,
-            check_in: now,
-            status: 'PRESENT',
+            staff_id: authUser.id,
+            company_id: user.company_id,
+            brand_id: user.brand_id,
+            store_id: user.store_id,
+            work_date: today,
+            actual_check_in: now,
+            status: 'NORMAL',
+            check_in_method: 'MANUAL',
           })
           .select()
           .single();
@@ -193,11 +216,13 @@ export default function HomePage() {
         if (!error && data) {
           setTodayAttendance(data);
         }
-      } else if (!todayAttendance.check_out) {
-        // Check out
+      } else if (!todayAttendance.actual_check_out) {
+        // Check out - update attendance record
         const { data, error } = await supabase
-          .from('attendance')
-          .update({ check_out: now })
+          .from('attendances')
+          .update({
+            actual_check_out: now,
+          })
           .eq('id', todayAttendance.id)
           .select()
           .single();
@@ -213,12 +238,17 @@ export default function HomePage() {
     }
   };
 
-  const isCheckedIn = Boolean(todayAttendance?.check_in && !todayAttendance?.check_out);
-  const isWorkComplete = Boolean(todayAttendance?.check_in && todayAttendance?.check_out);
+  const isCheckedIn = Boolean(todayAttendance?.actual_check_in && !todayAttendance?.actual_check_out);
+  const isWorkComplete = Boolean(todayAttendance?.actual_check_in && todayAttendance?.actual_check_out);
 
   const formatNoticeDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  const formatCheckTime = (timestamp: string | null) => {
+    if (!timestamp) return '';
+    return new Date(timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
   };
 
   if (loading) {
@@ -271,10 +301,10 @@ export default function HomePage() {
           >
             {checkingIn ? '처리 중...' : isWorkComplete ? '근무 완료' : isCheckedIn ? '퇴근하기' : '출근하기'}
           </button>
-          {todayAttendance?.check_in && (
+          {todayAttendance?.actual_check_in && (
             <p className="text-center text-sm text-gray-500 mt-2">
-              출근 시간: {todayAttendance.check_in.slice(0, 5)}
-              {todayAttendance.check_out && ` | 퇴근 시간: ${todayAttendance.check_out.slice(0, 5)}`}
+              출근 시간: {formatCheckTime(todayAttendance.actual_check_in)}
+              {todayAttendance.actual_check_out && ` | 퇴근 시간: ${formatCheckTime(todayAttendance.actual_check_out)}`}
             </p>
           )}
 

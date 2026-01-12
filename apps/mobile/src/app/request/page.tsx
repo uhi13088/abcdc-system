@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Calendar, Clock, FileText, Send, CheckCircle } from 'lucide-react';
 import { BottomNav } from '@/components/bottom-nav';
 import { useRouter } from 'next/navigation';
@@ -12,6 +12,15 @@ interface LeaveType {
   id: string;
   name: string;
   description: string;
+}
+
+interface UserInfo {
+  id: string;
+  name: string;
+  role: string;
+  company_id: string | null;
+  brand_id: string | null;
+  store_id: string | null;
 }
 
 const leaveTypes: LeaveType[] = [
@@ -28,6 +37,7 @@ export default function RequestPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [remainingAnnualLeave, setRemainingAnnualLeave] = useState(0);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
 
   // Leave request state
   const [leaveType, setLeaveType] = useState('ANNUAL');
@@ -47,84 +57,127 @@ export default function RequestPage() {
 
   const supabase = createClient();
 
-  useEffect(() => {
-    const fetchLeaveBalance = async () => {
-      try {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        if (!authUser) {
-          router.push('/auth/login');
-          return;
-        }
-
-        // Fetch user's remaining annual leave
-        const { data: userData } = await supabase
-          .from('users')
-          .select('annual_leave_balance')
-          .eq('id', authUser.id)
-          .single();
-
-        if (userData?.annual_leave_balance !== undefined) {
-          setRemainingAnnualLeave(userData.annual_leave_balance);
-        }
-      } catch (error) {
-        console.error('Error fetching leave balance:', error);
+  const fetchUserInfo = useCallback(async () => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        router.push('/auth/login');
+        return;
       }
-    };
 
-    fetchLeaveBalance();
+      // Fetch user info including contract for leave days
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id, name, role, company_id, brand_id, store_id')
+        .eq('id', authUser.id)
+        .single();
+
+      if (userData) {
+        setUserInfo(userData);
+      }
+
+      // Fetch user's remaining annual leave from active contract
+      const { data: contractData } = await supabase
+        .from('contracts')
+        .select('annual_leave_days')
+        .eq('staff_id', authUser.id)
+        .in('status', ['SIGNED', 'ACTIVE'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (contractData?.annual_leave_days) {
+        // Calculate used leave days from approved leave requests
+        const currentYear = new Date().getFullYear();
+        const { data: usedLeave } = await supabase
+          .from('approval_requests')
+          .select('details')
+          .eq('requester_id', authUser.id)
+          .eq('type', 'LEAVE')
+          .eq('final_status', 'APPROVED');
+
+        let usedDays = 0;
+        if (usedLeave) {
+          usedLeave.forEach((req) => {
+            const details = req.details as { leave_type?: string; start_date?: string; end_date?: string };
+            if (details.leave_type === 'ANNUAL' && details.start_date) {
+              const start = new Date(details.start_date);
+              if (start.getFullYear() === currentYear) {
+                const end = details.end_date ? new Date(details.end_date) : start;
+                const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                usedDays += days;
+              }
+            }
+          });
+        }
+
+        setRemainingAnnualLeave(contractData.annual_leave_days - usedDays);
+      }
+    } catch (error) {
+      console.error('Error fetching user info:', error);
+    }
   }, [supabase, router]);
 
+  useEffect(() => {
+    fetchUserInfo();
+  }, [fetchUserInfo]);
+
   const handleSubmit = async () => {
-    if (submitting) return;
+    if (submitting || !userInfo) return;
     setSubmitting(true);
 
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
 
-      // Get user's store_id
-      const { data: userData } = await supabase
-        .from('users')
-        .select('store_id')
-        .eq('id', authUser.id)
-        .single();
-
-      const requestData: {
-        user_id: string;
-        store_id: string | null;
-        type: string;
-        status: string;
-        start_date?: string;
-        end_date?: string;
-        leave_type?: string;
-        reason?: string;
-        overtime_date?: string;
-        overtime_hours?: string;
-        original_date?: string;
-        requested_date?: string;
-      } = {
-        user_id: authUser.id,
-        store_id: userData?.store_id || null,
-        type: requestType,
-        status: 'PENDING',
-      };
+      // Build details object based on request type
+      let details: Record<string, unknown> = {};
 
       if (requestType === 'LEAVE') {
-        requestData.start_date = startDate;
-        requestData.end_date = endDate;
-        requestData.leave_type = leaveType;
-        requestData.reason = reason;
+        details = {
+          leave_type: leaveType,
+          leave_type_name: leaveTypes.find(t => t.id === leaveType)?.name || leaveType,
+          start_date: startDate,
+          end_date: endDate,
+          reason: reason,
+        };
       } else if (requestType === 'OVERTIME') {
-        requestData.overtime_date = overtimeDate;
-        requestData.overtime_hours = overtimeHours;
-        requestData.reason = overtimeReason;
+        details = {
+          overtime_date: overtimeDate,
+          overtime_hours: parseInt(overtimeHours),
+          reason: overtimeReason,
+        };
       } else if (requestType === 'SCHEDULE_CHANGE') {
-        requestData.original_date = originalDate;
-        requestData.requested_date = requestedDate;
-        requestData.reason = changeReason;
+        details = {
+          original_date: originalDate,
+          requested_date: requestedDate,
+          reason: changeReason,
+        };
       }
 
-      const { error } = await supabase.from('requests').insert(requestData);
+      // Create approval request with approval line (auto-approve for now, can be enhanced)
+      const approvalLine = [{
+        order: 1,
+        approverId: null, // Will be set by admin
+        approverRole: 'store_manager',
+        status: 'PENDING',
+      }];
+
+      const { error } = await supabase
+        .from('approval_requests')
+        .insert({
+          type: requestType,
+          requester_id: authUser.id,
+          requester_name: userInfo.name,
+          requester_role: userInfo.role,
+          company_id: userInfo.company_id,
+          brand_id: userInfo.brand_id,
+          store_id: userInfo.store_id,
+          approval_line: approvalLine,
+          current_step: 1,
+          final_status: 'PENDING',
+          details: details,
+        });
 
       if (error) throw error;
 

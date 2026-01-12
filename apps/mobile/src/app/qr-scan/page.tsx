@@ -17,15 +17,18 @@ interface CheckinResult {
   isCheckOut?: boolean;
 }
 
-interface UserStore {
+interface UserInfo {
   id: string;
-  name: string;
+  company_id: string | null;
+  brand_id: string | null;
+  store_id: string | null;
+  stores: { id: string; name: string } | null;
 }
 
 interface AttendanceRecord {
   id: string;
-  check_in: string | null;
-  check_out: string | null;
+  actual_check_in: string | null;
+  actual_check_out: string | null;
 }
 
 export default function QRScanPage() {
@@ -37,7 +40,7 @@ export default function QRScanPage() {
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [userStore, setUserStore] = useState<UserStore | null>(null);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
 
   const supabase = createClient();
@@ -53,25 +56,29 @@ export default function QRScanPage() {
       // Fetch user's store info
       const { data: userData } = await supabase
         .from('users')
-        .select('stores(id, name)')
+        .select('id, company_id, brand_id, store_id, stores(id, name)')
         .eq('id', authUser.id)
         .single();
 
-      if (userData?.stores) {
+      if (userData) {
         // Supabase returns relations as arrays, extract first element
         const storeData = Array.isArray(userData.stores) ? userData.stores[0] : userData.stores;
-        if (storeData) {
-          setUserStore(storeData as UserStore);
-        }
+        setUserInfo({
+          id: userData.id,
+          company_id: userData.company_id,
+          brand_id: userData.brand_id,
+          store_id: userData.store_id,
+          stores: storeData || null,
+        });
       }
 
       // Fetch today's attendance
       const today = new Date().toISOString().split('T')[0];
       const { data: attendanceData } = await supabase
-        .from('attendance')
-        .select('id, check_in, check_out')
-        .eq('user_id', authUser.id)
-        .eq('date', today)
+        .from('attendances')
+        .select('id, actual_check_in, actual_check_out')
+        .eq('staff_id', authUser.id)
+        .eq('work_date', today)
         .single();
 
       if (attendanceData) {
@@ -137,7 +144,7 @@ export default function QRScanPage() {
   };
 
   const handleCheckInOut = async () => {
-    if (status !== 'scanning') return;
+    if (status !== 'scanning' || !userInfo) return;
 
     setStatus('processing');
 
@@ -153,20 +160,20 @@ export default function QRScanPage() {
       }
 
       const today = new Date().toISOString().split('T')[0];
-      const now = new Date().toTimeString().slice(0, 8);
+      const now = new Date().toISOString();
       const timeDisplay = new Date().toLocaleTimeString('ko-KR', {
         hour: '2-digit',
         minute: '2-digit',
       });
 
       // Determine if this is check-in or check-out
-      const isCheckOut = todayAttendance?.check_in && !todayAttendance?.check_out;
+      const isCheckOut = todayAttendance?.actual_check_in && !todayAttendance?.actual_check_out;
 
       if (isCheckOut && todayAttendance) {
         // Check out
         const { error } = await supabase
-          .from('attendance')
-          .update({ check_out: now })
+          .from('attendances')
+          .update({ actual_check_out: now })
           .eq('id', todayAttendance.id);
 
         if (error) {
@@ -178,20 +185,24 @@ export default function QRScanPage() {
           message: '퇴근이 완료되었습니다.',
           checkInTime: timeDisplay,
           isLate: false,
-          storeName: userStore?.name || '매장',
+          storeName: userInfo.stores?.name || '매장',
           isCheckOut: true,
         });
-      } else if (!todayAttendance?.check_in) {
+      } else if (!todayAttendance?.actual_check_in) {
         // Check in
-        // Check if late (example: scheduled start time comparison would go here)
         const { error } = await supabase
-          .from('attendance')
+          .from('attendances')
           .upsert({
-            user_id: authUser.id,
-            store_id: userStore?.id,
-            date: today,
-            check_in: now,
-            status: 'PRESENT',
+            staff_id: authUser.id,
+            company_id: userInfo.company_id,
+            brand_id: userInfo.brand_id,
+            store_id: userInfo.store_id,
+            work_date: today,
+            actual_check_in: now,
+            status: 'NORMAL',
+            check_in_method: 'QR',
+            check_in_lat: location?.lat,
+            check_in_lng: location?.lng,
           });
 
         if (error) {
@@ -203,7 +214,7 @@ export default function QRScanPage() {
           message: '출근이 완료되었습니다.',
           checkInTime: timeDisplay,
           isLate: false,
-          storeName: userStore?.name || '매장',
+          storeName: userInfo.stores?.name || '매장',
           isCheckOut: false,
         });
       } else {
@@ -310,16 +321,16 @@ export default function QRScanPage() {
   };
 
   const getButtonText = () => {
-    if (todayAttendance?.check_in && todayAttendance?.check_out) {
+    if (todayAttendance?.actual_check_in && todayAttendance?.actual_check_out) {
       return '근무 완료';
     }
-    if (todayAttendance?.check_in) {
+    if (todayAttendance?.actual_check_in) {
       return '퇴근하기';
     }
     return '출근하기';
   };
 
-  const isWorkComplete = Boolean(todayAttendance?.check_in && todayAttendance?.check_out);
+  const isWorkComplete = Boolean(todayAttendance?.actual_check_in && todayAttendance?.actual_check_out);
 
   return (
     <div className="fixed inset-0 bg-black">
@@ -366,7 +377,7 @@ export default function QRScanPage() {
         {status === 'scanning' && (
           <div className="absolute bottom-32 left-0 right-0 text-center">
             <p className="text-white text-lg mb-2">
-              {userStore?.name ? `${userStore.name} QR 코드를 스캔하세요` : '매장 QR 코드를 스캔하세요'}
+              {userInfo?.stores?.name ? `${userInfo.stores.name} QR 코드를 스캔하세요` : '매장 QR 코드를 스캔하세요'}
             </p>
             {location && (
               <div className="flex items-center justify-center gap-1 text-white/70 text-sm">
@@ -386,7 +397,7 @@ export default function QRScanPage() {
               className={`px-8 py-4 font-semibold rounded-full shadow-lg ${
                 isWorkComplete
                   ? 'bg-gray-400 text-white'
-                  : todayAttendance?.check_in
+                  : todayAttendance?.actual_check_in
                   ? 'bg-red-500 text-white'
                   : 'bg-primary text-white'
               }`}

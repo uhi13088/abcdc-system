@@ -54,7 +54,7 @@ export default function ContractPage() {
           work_hours_per_week,
           stores(name)
         `)
-        .eq('user_id', authUser.id)
+        .eq('staff_id', authUser.id)
         .in('status', ['ACTIVE', 'SIGNED'])
         .order('created_at', { ascending: false })
         .limit(1)

@@ -53,7 +53,7 @@ export default function SalaryPage() {
       const { data: salaryData } = await supabase
         .from('salaries')
         .select('*')
-        .eq('user_id', authUser.id)
+        .eq('staff_id', authUser.id)
         .eq('year', selectedYear)
         .eq('month', selectedMonth)
         .single();

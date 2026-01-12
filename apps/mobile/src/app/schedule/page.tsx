@@ -8,10 +8,11 @@ import { createClient } from '@/lib/supabase/client';
 
 interface ScheduleItem {
   id: string;
-  date: string;
-  start_time: string | null;
-  end_time: string | null;
-  shift_type: string | null;
+  work_date: string;
+  start_time: string | null;  // timestamp
+  end_time: string | null;    // timestamp
+  status: string | null;
+  break_minutes: number | null;
 }
 
 interface WeekSchedule {
@@ -57,10 +58,10 @@ export default function SchedulePage() {
 
       const { data: schedulesData } = await supabase
         .from('schedules')
-        .select('id, date, start_time, end_time, shift_type')
-        .eq('user_id', authUser.id)
-        .gte('date', startStr)
-        .lte('date', endStr);
+        .select('id, work_date, start_time, end_time, status, break_minutes')
+        .eq('staff_id', authUser.id)
+        .gte('work_date', startStr)
+        .lte('work_date', endStr);
 
       // Build week schedule array
       const today = new Date();
@@ -76,12 +77,13 @@ export default function SchedulePage() {
         date.setDate(date.getDate() + i);
         const dateStr = date.toISOString().split('T')[0];
 
-        const schedule = schedulesData?.find((s) => s.date === dateStr) || null;
+        const schedule = schedulesData?.find((s) => s.work_date === dateStr) || null;
 
         if (schedule?.start_time && schedule?.end_time) {
-          const start = new Date(`2000-01-01T${schedule.start_time}`);
-          const end = new Date(`2000-01-01T${schedule.end_time}`);
-          totalMinutes += (end.getTime() - start.getTime()) / (1000 * 60);
+          const start = new Date(schedule.start_time);
+          const end = new Date(schedule.end_time);
+          const breakMins = schedule.break_minutes || 0;
+          totalMinutes += (end.getTime() - start.getTime()) / (1000 * 60) - breakMins;
           workDays++;
         }
 
@@ -124,42 +126,48 @@ export default function SchedulePage() {
     return `${year}년 ${month}월 ${weekOfMonth}주차`;
   };
 
-  const getShiftColor = (shiftType: string | null) => {
-    if (!shiftType) return 'bg-gray-100 text-gray-400';
-    switch (shiftType) {
-      case 'MORNING':
+  const getScheduleStatusColor = (status: string | null) => {
+    if (!status) return 'bg-gray-100 text-gray-400';
+    switch (status) {
+      case 'SCHEDULED':
         return 'bg-blue-100 text-blue-700';
-      case 'AFTERNOON':
-        return 'bg-orange-100 text-orange-700';
-      case 'NIGHT':
-        return 'bg-purple-100 text-purple-700';
+      case 'CONFIRMED':
+        return 'bg-green-100 text-green-700';
+      case 'COMPLETED':
+        return 'bg-gray-100 text-gray-700';
+      case 'CANCELLED':
+        return 'bg-red-100 text-red-700';
       default:
         return 'bg-gray-100 text-gray-700';
     }
   };
 
-  const getShiftLabel = (shiftType: string | null) => {
-    if (!shiftType) return '휴무';
+  const getStatusLabel = (schedule: ScheduleItem | null) => {
+    if (!schedule) return '휴무';
+    if (!schedule.start_time) return '휴무';
     const labels: Record<string, string> = {
-      MORNING: '오전',
-      AFTERNOON: '오후',
-      NIGHT: '야간',
-      FULL: '종일',
+      SCHEDULED: '예정',
+      CONFIRMED: '확정',
+      COMPLETED: '완료',
+      CANCELLED: '취소',
     };
-    return labels[shiftType] || shiftType;
+    return labels[schedule.status || ''] || '근무';
   };
 
   const formatTimeRange = (schedule: ScheduleItem | null) => {
     if (!schedule?.start_time || !schedule?.end_time) return '휴무';
-    return `${schedule.start_time.slice(0, 5)} - ${schedule.end_time.slice(0, 5)}`;
+    const startTime = new Date(schedule.start_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    const endTime = new Date(schedule.end_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    return `${startTime} - ${endTime}`;
   };
 
   const calculateDayHours = (schedule: ScheduleItem | null) => {
     if (!schedule?.start_time || !schedule?.end_time) return null;
-    const start = new Date(`2000-01-01T${schedule.start_time}`);
-    const end = new Date(`2000-01-01T${schedule.end_time}`);
-    const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-    return `${hours}시간`;
+    const start = new Date(schedule.start_time);
+    const end = new Date(schedule.end_time);
+    const breakMins = schedule.break_minutes || 0;
+    const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60) - (breakMins / 60);
+    return `${Math.round(hours * 10) / 10}시간`;
   };
 
   if (loading) {
@@ -222,8 +230,8 @@ export default function SchedulePage() {
                   <span className="font-bold">{item.date.getDate()}</span>
                 </div>
                 <div className="ml-4">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getShiftColor(item.schedule?.shift_type || null)}`}>
-                    {getShiftLabel(item.schedule?.shift_type || null)}
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getScheduleStatusColor(item.schedule?.status || null)}`}>
+                    {getStatusLabel(item.schedule)}
                   </span>
                 </div>
               </div>
@@ -241,19 +249,19 @@ export default function SchedulePage() {
       {/* Legend */}
       <div className="p-4 mt-4">
         <div className="bg-white rounded-xl p-4">
-          <p className="text-sm font-medium text-gray-700 mb-3">근무 유형</p>
+          <p className="text-sm font-medium text-gray-700 mb-3">상태 안내</p>
           <div className="flex items-center space-x-4 text-xs">
             <span className="flex items-center">
               <span className="w-3 h-3 bg-blue-100 rounded-full mr-1"></span>
-              오전
+              예정
             </span>
             <span className="flex items-center">
-              <span className="w-3 h-3 bg-orange-100 rounded-full mr-1"></span>
-              오후
+              <span className="w-3 h-3 bg-green-100 rounded-full mr-1"></span>
+              확정
             </span>
             <span className="flex items-center">
-              <span className="w-3 h-3 bg-purple-100 rounded-full mr-1"></span>
-              야간
+              <span className="w-3 h-3 bg-gray-200 rounded-full mr-1"></span>
+              완료
             </span>
             <span className="flex items-center">
               <span className="w-3 h-3 bg-gray-100 rounded-full mr-1"></span>

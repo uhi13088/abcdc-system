@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Bell, Clock, Calendar, DollarSign, MessageSquare, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -31,6 +31,8 @@ const defaultSettings: NotificationSettings = {
   quiet_end: '08:00',
 };
 
+const SETTINGS_KEY = 'abcdc_notification_settings';
+
 export default function SettingsPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -39,67 +41,40 @@ export default function SettingsPage() {
 
   const supabase = createClient();
 
-  const fetchSettings = useCallback(async () => {
-    try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        router.push('/auth/login');
-        return;
-      }
-
-      // Try to fetch user settings from user_settings table
-      const { data: userSettings } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', authUser.id)
-        .single();
-
-      if (userSettings) {
-        setSettings({
-          push_enabled: userSettings.push_enabled ?? defaultSettings.push_enabled,
-          attendance_enabled: userSettings.attendance_enabled ?? defaultSettings.attendance_enabled,
-          schedule_enabled: userSettings.schedule_enabled ?? defaultSettings.schedule_enabled,
-          salary_enabled: userSettings.salary_enabled ?? defaultSettings.salary_enabled,
-          notice_enabled: userSettings.notice_enabled ?? defaultSettings.notice_enabled,
-          message_enabled: userSettings.message_enabled ?? defaultSettings.message_enabled,
-          emergency_enabled: userSettings.emergency_enabled ?? defaultSettings.emergency_enabled,
-          quiet_hours_enabled: userSettings.quiet_hours_enabled ?? defaultSettings.quiet_hours_enabled,
-          quiet_start: userSettings.quiet_start ?? defaultSettings.quiet_start,
-          quiet_end: userSettings.quiet_end ?? defaultSettings.quiet_end,
-        });
-      }
-    } catch (error) {
-      // If table doesn't exist or other error, use default settings
-      console.error('Error fetching settings:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [supabase, router]);
-
   useEffect(() => {
-    fetchSettings();
-  }, [fetchSettings]);
+    const checkAuthAndLoadSettings = async () => {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) {
+          router.push('/auth/login');
+          return;
+        }
+
+        // Load settings from localStorage
+        const stored = localStorage.getItem(SETTINGS_KEY);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            setSettings({ ...defaultSettings, ...parsed });
+          } catch (error) {
+            console.error('Error parsing stored settings:', error);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking auth:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuthAndLoadSettings();
+  }, [supabase, router]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
-
-      // Upsert user settings
-      const { error } = await supabase
-        .from('user_settings')
-        .upsert({
-          user_id: authUser.id,
-          ...settings,
-          updated_at: new Date().toISOString(),
-        });
-
-      if (error) {
-        console.error('Error saving settings:', error);
-        // Still navigate back even if save fails (graceful degradation)
-      }
-
+      // Save settings to localStorage
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
       router.back();
     } catch (error) {
       console.error('Failed to save settings:', error);
