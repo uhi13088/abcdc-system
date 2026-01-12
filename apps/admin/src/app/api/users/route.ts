@@ -62,6 +62,12 @@ export async function GET(request: NextRequest) {
       query = query.eq('auth_id', user.id);
     }
 
+    // Exclude company_admin and super_admin from employee list (they are admins, not employees)
+    // Only include them if specifically filtering by role
+    if (!role) {
+      query = query.not('role', 'in', '("company_admin","super_admin")');
+    }
+
     // Additional filters
     if (role) query = query.eq('role', role);
     if (status) query = query.eq('status', status);
