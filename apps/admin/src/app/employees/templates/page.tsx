@@ -16,6 +16,12 @@ import {
 } from '@/components/ui';
 import { Plus, Edit, Trash2, FileText, Clock, DollarSign } from 'lucide-react';
 
+interface DaySchedule {
+  startTime: string;
+  endTime: string;
+  breakMinutes: number;
+}
+
 interface Template {
   id: string;
   name: string;
@@ -28,6 +34,7 @@ interface Template {
   work_start_time: string;
   work_end_time: string;
   break_minutes: number;
+  work_schedule: Record<string, DaySchedule> | null;
   required_documents: string[];
   custom_fields: { name: string; type: string; required: boolean }[];
   is_active: boolean;
@@ -77,6 +84,8 @@ export default function InvitationTemplatesPage() {
     workStartTime: '09:00',
     workEndTime: '18:00',
     breakMinutes: 60,
+    perDayMode: false,
+    workSchedule: {} as Record<string, DaySchedule>,
     requiredDocuments: [] as string[],
   });
 
@@ -111,6 +120,8 @@ export default function InvitationTemplatesPage() {
       workStartTime: '09:00',
       workEndTime: '18:00',
       breakMinutes: 60,
+      perDayMode: false,
+      workSchedule: {},
       requiredDocuments: [],
     });
     setEditingTemplate(null);
@@ -124,6 +135,7 @@ export default function InvitationTemplatesPage() {
 
   const openEditDialog = (template: Template) => {
     setEditingTemplate(template);
+    const hasPerDaySchedule = template.work_schedule && Object.keys(template.work_schedule).length > 0;
     setFormData({
       name: template.name,
       description: template.description || '',
@@ -135,6 +147,8 @@ export default function InvitationTemplatesPage() {
       workStartTime: template.work_start_time,
       workEndTime: template.work_end_time,
       breakMinutes: template.break_minutes,
+      perDayMode: hasPerDaySchedule,
+      workSchedule: template.work_schedule || {},
       requiredDocuments: template.required_documents,
     });
     setShowDialog(true);
@@ -150,10 +164,26 @@ export default function InvitationTemplatesPage() {
         : '/api/invitation-templates';
       const method = editingTemplate ? 'PATCH' : 'POST';
 
+      // Prepare data to send
+      const dataToSend = {
+        name: formData.name,
+        description: formData.description,
+        role: formData.role,
+        position: formData.position,
+        salaryType: formData.salaryType,
+        salaryAmount: formData.salaryAmount,
+        workDays: formData.workDays,
+        workStartTime: formData.workStartTime,
+        workEndTime: formData.workEndTime,
+        breakMinutes: formData.breakMinutes,
+        workSchedule: formData.perDayMode ? formData.workSchedule : null,
+        requiredDocuments: formData.requiredDocuments,
+      };
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(dataToSend),
       });
 
       if (response.ok) {
@@ -191,12 +221,63 @@ export default function InvitationTemplatesPage() {
   };
 
   const toggleWorkDay = (day: number) => {
+    setFormData((prev) => {
+      const isRemoving = prev.workDays.includes(day);
+      const newWorkDays = isRemoving
+        ? prev.workDays.filter((d) => d !== day)
+        : [...prev.workDays, day].sort();
+
+      // Update workSchedule accordingly
+      const newWorkSchedule = { ...prev.workSchedule };
+      if (isRemoving) {
+        delete newWorkSchedule[String(day)];
+      } else if (prev.perDayMode) {
+        // Initialize with default times when adding a day in per-day mode
+        newWorkSchedule[String(day)] = {
+          startTime: prev.workStartTime,
+          endTime: prev.workEndTime,
+          breakMinutes: prev.breakMinutes,
+        };
+      }
+
+      return {
+        ...prev,
+        workDays: newWorkDays,
+        workSchedule: newWorkSchedule,
+      };
+    });
+  };
+
+  const updateDaySchedule = (day: number, field: keyof DaySchedule, value: string | number) => {
     setFormData((prev) => ({
       ...prev,
-      workDays: prev.workDays.includes(day)
-        ? prev.workDays.filter((d) => d !== day)
-        : [...prev.workDays, day].sort(),
+      workSchedule: {
+        ...prev.workSchedule,
+        [String(day)]: {
+          ...prev.workSchedule[String(day)],
+          [field]: value,
+        },
+      },
     }));
+  };
+
+  const togglePerDayMode = (enabled: boolean) => {
+    setFormData((prev) => {
+      if (enabled) {
+        // Initialize workSchedule for all selected days
+        const newSchedule: Record<string, DaySchedule> = {};
+        prev.workDays.forEach((day) => {
+          newSchedule[String(day)] = {
+            startTime: prev.workStartTime,
+            endTime: prev.workEndTime,
+            breakMinutes: prev.breakMinutes,
+          };
+        });
+        return { ...prev, perDayMode: true, workSchedule: newSchedule };
+      } else {
+        return { ...prev, perDayMode: false, workSchedule: {} };
+      }
+    });
   };
 
   const toggleDocument = (doc: string) => {
@@ -210,6 +291,24 @@ export default function InvitationTemplatesPage() {
 
   const formatWorkDays = (days: number[]) => {
     return days.map((d) => dayLabels[d]).join(', ');
+  };
+
+  const formatScheduleDisplay = (template: Template) => {
+    if (template.work_schedule && Object.keys(template.work_schedule).length > 0) {
+      // Per-day schedule - show summary
+      const uniqueTimes = new Set<string>();
+      Object.values(template.work_schedule).forEach((schedule) => {
+        uniqueTimes.add(`${schedule.startTime}~${schedule.endTime}`);
+      });
+      if (uniqueTimes.size === 1) {
+        // All days have same time
+        return `${formatWorkDays(template.work_days)} ${Array.from(uniqueTimes)[0]}`;
+      } else {
+        // Different times - show "요일별 다름"
+        return `${formatWorkDays(template.work_days)} (요일별 다름)`;
+      }
+    }
+    return `${formatWorkDays(template.work_days)} ${template.work_start_time}~${template.work_end_time}`;
   };
 
   const formatSalary = (type: string, amount: number) => {
@@ -279,7 +378,7 @@ export default function InvitationTemplatesPage() {
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-4 w-4" />
-                        {formatWorkDays(template.work_days)} {template.work_start_time}~{template.work_end_time}
+                        {formatScheduleDisplay(template)}
                       </span>
                     </div>
                     {template.required_documents.length > 0 && (
@@ -410,35 +509,112 @@ export default function InvitationTemplatesPage() {
                   ))}
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label>시작 시간</Label>
-                  <Input
-                    type="time"
-                    value={formData.workStartTime}
-                    onChange={(e) => setFormData({ ...formData, workStartTime: e.target.value })}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label>종료 시간</Label>
-                  <Input
-                    type="time"
-                    value={formData.workEndTime}
-                    onChange={(e) => setFormData({ ...formData, workEndTime: e.target.value })}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label>휴게 시간 (분)</Label>
-                  <Input
-                    type="number"
-                    value={formData.breakMinutes}
-                    onChange={(e) => setFormData({ ...formData, breakMinutes: parseInt(e.target.value) || 0 })}
-                    className="mt-1"
-                  />
-                </div>
+
+              {/* 시간 설정 모드 토글 */}
+              <div className="flex gap-2 mt-4">
+                <button
+                  type="button"
+                  onClick={() => togglePerDayMode(false)}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    !formData.perDayMode
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  모든 요일 같은 시간
+                </button>
+                <button
+                  type="button"
+                  onClick={() => togglePerDayMode(true)}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    formData.perDayMode
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  요일별 다른 시간
+                </button>
               </div>
+
+              {!formData.perDayMode ? (
+                /* 같은 시간 모드 */
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label>시작 시간</Label>
+                    <Input
+                      type="time"
+                      value={formData.workStartTime}
+                      onChange={(e) => setFormData({ ...formData, workStartTime: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>종료 시간</Label>
+                    <Input
+                      type="time"
+                      value={formData.workEndTime}
+                      onChange={(e) => setFormData({ ...formData, workEndTime: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>휴게 시간 (분)</Label>
+                    <Input
+                      type="number"
+                      value={formData.breakMinutes}
+                      onChange={(e) => setFormData({ ...formData, breakMinutes: parseInt(e.target.value) || 0 })}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* 요일별 다른 시간 모드 */
+                <div className="space-y-3 bg-gray-50 rounded-lg p-4">
+                  {formData.workDays.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-2">
+                      먼저 근무 요일을 선택해주세요.
+                    </p>
+                  ) : (
+                    formData.workDays.map((day) => (
+                      <div key={day} className="grid grid-cols-4 gap-3 items-center">
+                        <div className="font-medium text-sm text-gray-700">
+                          {dayLabels[day]}요일
+                        </div>
+                        <div>
+                          <Input
+                            type="time"
+                            value={formData.workSchedule[String(day)]?.startTime || formData.workStartTime}
+                            onChange={(e) => updateDaySchedule(day, 'startTime', e.target.value)}
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Input
+                            type="time"
+                            value={formData.workSchedule[String(day)]?.endTime || formData.workEndTime}
+                            onChange={(e) => updateDaySchedule(day, 'endTime', e.target.value)}
+                            className="text-sm"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            value={formData.workSchedule[String(day)]?.breakMinutes ?? formData.breakMinutes}
+                            onChange={(e) => updateDaySchedule(day, 'breakMinutes', parseInt(e.target.value) || 0)}
+                            className="text-sm w-16"
+                          />
+                          <span className="text-xs text-gray-500">분</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  {formData.workDays.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      * 각 요일의 시작/종료 시간과 휴게 시간을 개별 설정할 수 있습니다.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 요청 서류 */}

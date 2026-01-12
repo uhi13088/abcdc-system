@@ -2,6 +2,13 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+// Per-day schedule schema
+const DayScheduleSchema = z.object({
+  startTime: z.string(),
+  endTime: z.string(),
+  breakMinutes: z.number().min(0).default(60),
+});
+
 // 템플릿 수정 스키마
 const UpdateTemplateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -14,6 +21,7 @@ const UpdateTemplateSchema = z.object({
   workStartTime: z.string().optional(),
   workEndTime: z.string().optional(),
   breakMinutes: z.number().min(0).optional(),
+  workSchedule: z.record(z.string(), DayScheduleSchema).nullable().optional(),
   requiredDocuments: z.array(z.string()).optional(),
   customFields: z.array(z.object({
     name: z.string(),
@@ -115,6 +123,7 @@ export async function PATCH(
     if (validation.data.workStartTime !== undefined) updateData.work_start_time = validation.data.workStartTime;
     if (validation.data.workEndTime !== undefined) updateData.work_end_time = validation.data.workEndTime;
     if (validation.data.breakMinutes !== undefined) updateData.break_minutes = validation.data.breakMinutes;
+    if (validation.data.workSchedule !== undefined) updateData.work_schedule = validation.data.workSchedule;
     if (validation.data.requiredDocuments !== undefined) updateData.required_documents = validation.data.requiredDocuments;
     if (validation.data.customFields !== undefined) updateData.custom_fields = validation.data.customFields;
     if (validation.data.isActive !== undefined) updateData.is_active = validation.data.isActive;
