@@ -15,14 +15,27 @@ const DEMO_KEY = 'placeholder-key';
  */
 export function createAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEMO_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || DEMO_KEY;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  return createSupabaseClient<Database>(supabaseUrl, supabaseServiceKey, {
+  // Service Role Key가 없으면 경고 로그
+  if (!supabaseServiceKey) {
+    console.warn('[WARN] SUPABASE_SERVICE_ROLE_KEY is not set. Admin operations will fail.');
+    console.warn('[WARN] Please set SUPABASE_SERVICE_ROLE_KEY in Vercel environment variables.');
+  }
+
+  return createSupabaseClient<Database>(supabaseUrl, supabaseServiceKey || DEMO_KEY, {
     auth: {
       autoRefreshToken: false,
       persistSession: false
     }
   });
+}
+
+/**
+ * Check if admin client is properly configured
+ */
+export function isAdminClientConfigured(): boolean {
+  return !!process.env.SUPABASE_SERVICE_ROLE_KEY;
 }
 
 export function createClient() {

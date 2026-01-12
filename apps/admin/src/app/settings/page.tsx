@@ -120,61 +120,29 @@ export default function SettingsPage() {
     setMessage({ type: '', text: '' });
 
     try {
-      const supabase = createClient();
-
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('로그인이 필요합니다.');
-
-      // Get user's current company_id
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, company_id')
-        .eq('auth_id', user.id)
-        .single();
-
-      if (!userData) throw new Error('사용자 정보를 찾을 수 없습니다.');
-
-      const companyData = {
-        name: companySettings.name,
-        business_number: companySettings.businessNumber || null,
-        ceo_name: companySettings.ceoName || null,
-        address: companySettings.address || null,
-        phone: companySettings.phone || null,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (userData.company_id) {
-        // Update existing company
-        const { error } = await supabase
-          .from('companies')
-          .update(companyData)
-          .eq('id', userData.company_id);
-
-        if (error) throw error;
-      } else {
-        // Create new company and link to user
-        const { data: newCompany, error: createError } = await supabase
-          .from('companies')
-          .insert({
-            ...companyData,
-            status: 'ACTIVE',
-          })
-          .select()
-          .single();
-
-        if (createError) throw createError;
-
-        // Link company to user
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({ company_id: newCompany.id })
-          .eq('id', userData.id);
-
-        if (updateError) throw updateError;
+      if (!companySettings.name) {
+        throw new Error('회사명은 필수입니다.');
       }
 
-      setMessage({ type: 'success', text: '회사 정보가 저장되었습니다.' });
+      const response = await fetch('/api/company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: companySettings.name,
+          businessNumber: companySettings.businessNumber,
+          ceoName: companySettings.ceoName,
+          address: companySettings.address,
+          phone: companySettings.phone,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || '저장에 실패했습니다.');
+      }
+
+      setMessage({ type: 'success', text: result.message || '회사 정보가 저장되었습니다.' });
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || '저장에 실패했습니다.' });
     } finally {
