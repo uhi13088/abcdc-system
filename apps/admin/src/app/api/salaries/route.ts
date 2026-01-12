@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/salaries - 급여 목록 조회
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     const { data: userData } = await supabase
       .from('users')
-      .select('role, company_id')
+      .select('id, role, company_id, name')
       .eq('auth_id', user.id)
       .single();
 
@@ -116,8 +116,53 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    let companyId = userData?.company_id;
+
+    // Auto-create company if user doesn't have one
+    if (!companyId && userData?.role !== 'super_admin') {
+      const adminClient = createAdminClient();
+
+      const { data: newCompany, error: companyError } = await adminClient
+        .from('companies')
+        .insert({
+          name: userData?.name ? `${userData.name}의 회사` : '내 회사',
+          status: 'ACTIVE',
+        })
+        .select()
+        .single();
+
+      if (companyError) {
+        return NextResponse.json({
+          error: `회사 생성에 실패했습니다: ${companyError.message}`
+        }, { status: 500 });
+      }
+
+      // Link company to user
+      await adminClient
+        .from('users')
+        .update({ company_id: newCompany.id })
+        .eq('id', userData?.id);
+
+      companyId = newCompany.id;
+    }
+
+    // If still no company, return error
+    if (!companyId && userData?.role !== 'super_admin') {
+      return NextResponse.json(
+        { error: '회사 정보가 필요합니다. 먼저 브랜드/매장을 생성해주세요.' },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
     const { year, month, staffId } = body;
+
+    if (!year || !month) {
+      return NextResponse.json(
+        { error: '연도와 월을 입력해주세요.' },
+        { status: 400 }
+      );
+    }
 
     // Get attendance data for the month
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
@@ -126,7 +171,7 @@ export async function POST(request: NextRequest) {
     let attendanceQuery = supabase
       .from('attendances')
       .select('*')
-      .eq('company_id', userData?.company_id)
+      .eq('company_id', companyId)
       .gte('work_date', startDate)
       .lte('work_date', endDate);
 
@@ -138,7 +183,7 @@ export async function POST(request: NextRequest) {
 
     if (!attendances || attendances.length === 0) {
       return NextResponse.json(
-        { error: '해당 월의 출퇴근 기록이 없습니다.' },
+        { error: '해당 월의 출퇴근 기록이 없습니다. 먼저 출퇴근 기록을 등록해주세요.' },
         { status: 400 }
       );
     }
@@ -191,7 +236,7 @@ export async function POST(request: NextRequest) {
 
       const salaryData = {
         staff_id: staffId,
-        company_id: userData?.company_id,
+        company_id: companyId,
         year,
         month,
         base_salary: totals.basePay,
