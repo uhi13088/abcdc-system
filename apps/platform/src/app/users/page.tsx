@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, UserPlus, MoreVertical, Shield, Building2 } from 'lucide-react';
-import { formatDate } from '@/lib/utils';
+import { createClient } from '@/lib/supabase/client';
 
 interface User {
   id: string;
@@ -10,8 +10,8 @@ interface User {
   email: string;
   role: string;
   company_name: string;
-  status: 'active' | 'inactive';
-  last_login: string;
+  status: 'ACTIVE' | 'INACTIVE' | 'PENDING' | 'SUSPENDED';
+  last_login: string | null;
   created_at: string;
 }
 
@@ -21,17 +21,55 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
 
+  const supabase = createClient();
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const { data: usersData, error } = await supabase
+        .from('users')
+        .select(`
+          id,
+          name,
+          email,
+          role,
+          status,
+          last_login_at,
+          created_at,
+          companies(name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching users:', error);
+        return;
+      }
+
+      if (usersData) {
+        const formattedUsers: User[] = usersData.map((user) => {
+          const companyData = Array.isArray(user.companies) ? user.companies[0] : user.companies;
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            company_name: companyData?.name || '-',
+            status: user.status as User['status'],
+            last_login: user.last_login_at,
+            created_at: user.created_at,
+          };
+        });
+        setUsers(formattedUsers);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase]);
+
   useEffect(() => {
-    setUsers([
-      { id: '1', name: '관리자', email: 'admin@abc.com', role: 'super_admin', company_name: 'ABC Platform', status: 'active', last_login: '2024-01-10 09:30', created_at: '2023-01-01' },
-      { id: '2', name: '김사장', email: 'kim@chicken.com', role: 'company_admin', company_name: '맛있는 치킨', status: 'active', last_login: '2024-01-10 08:15', created_at: '2024-01-15' },
-      { id: '3', name: '이매니저', email: 'lee@chicken.com', role: 'manager', company_name: '맛있는 치킨', status: 'active', last_login: '2024-01-09 18:30', created_at: '2024-01-20' },
-      { id: '4', name: '박대표', email: 'park@cafemoca.com', role: 'company_admin', company_name: '카페모카 프랜차이즈', status: 'active', last_login: '2024-01-10 10:00', created_at: '2023-11-10' },
-      { id: '5', name: '최점장', email: 'choi@cafemoca.com', role: 'store_manager', company_name: '카페모카 프랜차이즈', status: 'active', last_login: '2024-01-10 07:00', created_at: '2023-12-01' },
-      { id: '6', name: '정직원', email: 'jung@chicken.com', role: 'staff', company_name: '맛있는 치킨', status: 'inactive', last_login: '2024-01-05 15:00', created_at: '2024-02-01' },
-    ]);
-    setLoading(false);
-  }, []);
+    fetchUsers();
+  }, [fetchUsers]);
 
   const getRoleBadge = (role: string) => {
     const styles: Record<string, string> = {
@@ -55,6 +93,38 @@ export default function UsersPage() {
         {labels[role] || role}
       </span>
     );
+  };
+
+  const getStatusLabel = (status: User['status']) => {
+    const labels: Record<User['status'], string> = {
+      ACTIVE: '활성',
+      INACTIVE: '비활성',
+      PENDING: '대기',
+      SUSPENDED: '정지',
+    };
+    return labels[status] || status;
+  };
+
+  const getStatusStyle = (status: User['status']) => {
+    const styles: Record<User['status'], string> = {
+      ACTIVE: 'bg-green-100 text-green-800',
+      INACTIVE: 'bg-gray-100 text-gray-800',
+      PENDING: 'bg-yellow-100 text-yellow-800',
+      SUSPENDED: 'bg-red-100 text-red-800',
+    };
+    return styles[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const formatDateTime = (dateStr: string | null) => {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleString('ko-KR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const filteredUsers = users.filter((user) => {
@@ -125,43 +195,49 @@ export default function UsersPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {filteredUsers.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                      <Shield className="w-5 h-5 text-primary" />
+            {filteredUsers.length > 0 ? (
+              filteredUsers.map((user) => (
+                <tr key={user.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                        <Shield className="w-5 h-5 text-primary" />
+                      </div>
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                        <div className="text-sm text-gray-500">{user.email}</div>
+                      </div>
                     </div>
-                    <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">{getRoleBadge(user.role)}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="flex items-center text-sm text-gray-500">
-                    <Building2 className="w-4 h-4 mr-1" />
-                    {user.company_name}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {user.status === 'active' ? '활성' : '비활성'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {user.last_login}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right">
-                  <button className="text-gray-400 hover:text-gray-600">
-                    <MoreVertical className="w-5 h-5" />
-                  </button>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">{getRoleBadge(user.role)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="flex items-center text-sm text-gray-500">
+                      <Building2 className="w-4 h-4 mr-1" />
+                      {user.company_name}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusStyle(user.status)}`}>
+                      {getStatusLabel(user.status)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatDateTime(user.last_login)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <button className="text-gray-400 hover:text-gray-600">
+                      <MoreVertical className="w-5 h-5" />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                  등록된 사용자가 없습니다
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>

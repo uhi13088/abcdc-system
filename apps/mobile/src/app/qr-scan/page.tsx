@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, Camera, MapPin, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 type ScanStatus = 'idle' | 'scanning' | 'processing' | 'success' | 'error';
 
@@ -13,6 +14,21 @@ interface CheckinResult {
   checkInTime?: string;
   isLate?: boolean;
   storeName?: string;
+  isCheckOut?: boolean;
+}
+
+interface UserInfo {
+  id: string;
+  company_id: string | null;
+  brand_id: string | null;
+  store_id: string | null;
+  stores: { id: string; name: string } | null;
+}
+
+interface AttendanceRecord {
+  id: string;
+  actual_check_in: string | null;
+  actual_check_out: string | null;
 }
 
 export default function QRScanPage() {
@@ -24,6 +40,58 @@ export default function QRScanPage() {
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
+
+  const supabase = createClient();
+
+  const fetchUserData = useCallback(async () => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        router.push('/auth/login');
+        return;
+      }
+
+      // Fetch user's store info
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id, company_id, brand_id, store_id, stores(id, name)')
+        .eq('id', authUser.id)
+        .single();
+
+      if (userData) {
+        // Supabase returns relations as arrays, extract first element
+        const storeData = Array.isArray(userData.stores) ? userData.stores[0] : userData.stores;
+        setUserInfo({
+          id: userData.id,
+          company_id: userData.company_id,
+          brand_id: userData.brand_id,
+          store_id: userData.store_id,
+          stores: storeData || null,
+        });
+      }
+
+      // Fetch today's attendance
+      const today = new Date().toISOString().split('T')[0];
+      const { data: attendanceData } = await supabase
+        .from('attendances')
+        .select('id, actual_check_in, actual_check_out')
+        .eq('staff_id', authUser.id)
+        .eq('work_date', today)
+        .single();
+
+      if (attendanceData) {
+        setTodayAttendance(attendanceData);
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  }, [supabase, router]);
+
+  useEffect(() => {
+    fetchUserData();
+  }, [fetchUserData]);
 
   useEffect(() => {
     // Get location
@@ -75,40 +143,113 @@ export default function QRScanPage() {
     }
   };
 
-  // Simulate QR scan for demo purposes
-  const handleScanDemo = async () => {
-    if (status !== 'scanning') return;
+  const handleCheckInOut = async () => {
+    if (status !== 'scanning' || !userInfo) return;
 
     setStatus('processing');
 
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        setResult({
+          success: false,
+          message: '로그인이 필요합니다.',
+        });
+        setStatus('error');
+        return;
+      }
 
-    // Demo result
-    const demoResult: CheckinResult = {
-      success: true,
-      message: '출근이 완료되었습니다.',
-      checkInTime: new Date().toLocaleTimeString('ko-KR', {
+      const today = new Date().toISOString().split('T')[0];
+      const now = new Date().toISOString();
+      const timeDisplay = new Date().toLocaleTimeString('ko-KR', {
         hour: '2-digit',
         minute: '2-digit',
-      }),
-      isLate: false,
-      storeName: '강남점',
-    };
+      });
 
-    setResult(demoResult);
-    setStatus(demoResult.success ? 'success' : 'error');
+      // Determine if this is check-in or check-out
+      const isCheckOut = todayAttendance?.actual_check_in && !todayAttendance?.actual_check_out;
 
-    // Vibration feedback if supported
-    if (navigator.vibrate) {
-      navigator.vibrate(demoResult.success ? [100] : [100, 50, 100]);
-    }
+      if (isCheckOut && todayAttendance) {
+        // Check out
+        const { error } = await supabase
+          .from('attendances')
+          .update({ actual_check_out: now })
+          .eq('id', todayAttendance.id);
 
-    // Auto redirect after success
-    if (demoResult.success) {
+        if (error) {
+          throw error;
+        }
+
+        setResult({
+          success: true,
+          message: '퇴근이 완료되었습니다.',
+          checkInTime: timeDisplay,
+          isLate: false,
+          storeName: userInfo.stores?.name || '매장',
+          isCheckOut: true,
+        });
+      } else if (!todayAttendance?.actual_check_in) {
+        // Check in
+        const { error } = await supabase
+          .from('attendances')
+          .upsert({
+            staff_id: authUser.id,
+            company_id: userInfo.company_id,
+            brand_id: userInfo.brand_id,
+            store_id: userInfo.store_id,
+            work_date: today,
+            actual_check_in: now,
+            status: 'NORMAL',
+            check_in_method: 'QR',
+            check_in_lat: location?.lat,
+            check_in_lng: location?.lng,
+          });
+
+        if (error) {
+          throw error;
+        }
+
+        setResult({
+          success: true,
+          message: '출근이 완료되었습니다.',
+          checkInTime: timeDisplay,
+          isLate: false,
+          storeName: userInfo.stores?.name || '매장',
+          isCheckOut: false,
+        });
+      } else {
+        // Already checked in and out
+        setResult({
+          success: false,
+          message: '오늘 이미 출퇴근 처리가 완료되었습니다.',
+        });
+        setStatus('error');
+        return;
+      }
+
+      setStatus('success');
+
+      // Vibration feedback if supported
+      if (navigator.vibrate) {
+        navigator.vibrate([100]);
+      }
+
+      // Auto redirect after success
       setTimeout(() => {
         router.push('/home');
       }, 2000);
+    } catch (error) {
+      console.error('Check in/out error:', error);
+      setResult({
+        success: false,
+        message: '처리 중 오류가 발생했습니다. 다시 시도해 주세요.',
+      });
+      setStatus('error');
+
+      // Vibration feedback for error
+      if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+      }
     }
   };
 
@@ -133,7 +274,7 @@ export default function QRScanPage() {
       return (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 z-20">
           <Loader2 className="w-16 h-16 text-white animate-spin mb-4" />
-          <p className="text-white text-lg font-medium">출근 처리 중...</p>
+          <p className="text-white text-lg font-medium">처리 중...</p>
         </div>
       );
     }
@@ -142,7 +283,9 @@ export default function QRScanPage() {
       return (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-green-600 z-20 p-6">
           <CheckCircle className="w-20 h-20 text-white mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">출근 완료!</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">
+            {result.isCheckOut ? '퇴근 완료!' : '출근 완료!'}
+          </h2>
           <p className="text-white/90 text-center mb-4">{result.message}</p>
           <div className="bg-white/20 rounded-xl p-4 text-white">
             <p className="text-sm opacity-80">{result.storeName}</p>
@@ -159,7 +302,7 @@ export default function QRScanPage() {
       return (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-600 z-20 p-6">
           <XCircle className="w-20 h-20 text-white mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">출근 실패</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">처리 실패</h2>
           <p className="text-white/90 text-center mb-6">{result.message}</p>
           <button
             onClick={() => {
@@ -176,6 +319,18 @@ export default function QRScanPage() {
 
     return null;
   };
+
+  const getButtonText = () => {
+    if (todayAttendance?.actual_check_in && todayAttendance?.actual_check_out) {
+      return '근무 완료';
+    }
+    if (todayAttendance?.actual_check_in) {
+      return '퇴근하기';
+    }
+    return '출근하기';
+  };
+
+  const isWorkComplete = Boolean(todayAttendance?.actual_check_in && todayAttendance?.actual_check_out);
 
   return (
     <div className="fixed inset-0 bg-black">
@@ -198,7 +353,7 @@ export default function QRScanPage() {
           >
             <ArrowLeft className="w-5 h-5 text-white" />
           </Link>
-          <h1 className="text-lg font-semibold text-white">QR 출근</h1>
+          <h1 className="text-lg font-semibold text-white">QR 출퇴근</h1>
           <div className="w-10" />
         </div>
 
@@ -221,7 +376,9 @@ export default function QRScanPage() {
         {/* Guide Text */}
         {status === 'scanning' && (
           <div className="absolute bottom-32 left-0 right-0 text-center">
-            <p className="text-white text-lg mb-2">매장 QR 코드를 스캔하세요</p>
+            <p className="text-white text-lg mb-2">
+              {userInfo?.stores?.name ? `${userInfo.stores.name} QR 코드를 스캔하세요` : '매장 QR 코드를 스캔하세요'}
+            </p>
             {location && (
               <div className="flex items-center justify-center gap-1 text-white/70 text-sm">
                 <MapPin className="w-4 h-4" />
@@ -231,14 +388,21 @@ export default function QRScanPage() {
           </div>
         )}
 
-        {/* Demo Scan Button (for testing without actual QR) */}
+        {/* Check In/Out Button */}
         {status === 'scanning' && (
           <div className="absolute bottom-16 left-0 right-0 flex justify-center safe-bottom">
             <button
-              onClick={handleScanDemo}
-              className="px-8 py-4 bg-primary text-white font-semibold rounded-full shadow-lg"
+              onClick={handleCheckInOut}
+              disabled={isWorkComplete}
+              className={`px-8 py-4 font-semibold rounded-full shadow-lg ${
+                isWorkComplete
+                  ? 'bg-gray-400 text-white'
+                  : todayAttendance?.actual_check_in
+                  ? 'bg-red-500 text-white'
+                  : 'bg-primary text-white'
+              }`}
             >
-              출근하기 (데모)
+              {getButtonText()}
             </button>
           </div>
         )}

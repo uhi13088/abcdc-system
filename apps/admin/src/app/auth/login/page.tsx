@@ -6,12 +6,13 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { LoginSchema } from '@abc/shared';
 
-// Demo accounts for testing
-const DEMO_ACCOUNTS = [
+// Demo accounts for development testing only
+const IS_DEVELOPMENT = process.env.NODE_ENV === 'development';
+const DEMO_ACCOUNTS = IS_DEVELOPMENT ? [
   { email: 'admin@demo.com', password: 'demo1234', role: '관리자' },
   { email: 'manager@demo.com', password: 'demo1234', role: '매장관리자' },
   { email: 'staff@demo.com', password: 'demo1234', role: '직원' },
-];
+] : [];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -214,57 +215,59 @@ export default function LoginPage() {
           </div>
         </form>
 
-        {/* Demo Account Section */}
-        <div className="mt-6">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
+        {/* Demo Account Section - Only visible in development */}
+        {IS_DEVELOPMENT && (
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-gray-50 text-gray-500">개발 테스트용</span>
+              </div>
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-50 text-gray-500">테스트용</span>
-            </div>
+
+            <button
+              type="button"
+              onClick={enterDemoMode}
+              className="mt-4 w-full flex justify-center py-3 px-4 border-2 border-primary rounded-md shadow-sm text-sm font-bold text-primary bg-primary/5 hover:bg-primary/10 transition-colors"
+            >
+              🚀 데모 모드로 바로 입장
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowDemoAccounts(!showDemoAccounts)}
+              className="mt-2 w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+            >
+              {showDemoAccounts ? '닫기' : '데모 계정 보기'}
+            </button>
+
+            {showDemoAccounts && (
+              <div className="mt-3 space-y-2">
+                {DEMO_ACCOUNTS.map((account) => (
+                  <button
+                    key={account.email}
+                    type="button"
+                    onClick={() => handleDemoLogin(account)}
+                    className="w-full flex items-center justify-between px-4 py-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="text-left">
+                      <p className="text-sm font-medium text-gray-900">{account.email}</p>
+                      <p className="text-xs text-gray-500">비밀번호: {account.password}</p>
+                    </div>
+                    <span className="px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded">
+                      {account.role}
+                    </span>
+                  </button>
+                ))}
+                <p className="text-xs text-center text-gray-400 mt-2">
+                  * Supabase에 해당 계정이 등록되어 있어야 합니다
+                </p>
+              </div>
+            )}
           </div>
-
-          <button
-            type="button"
-            onClick={enterDemoMode}
-            className="mt-4 w-full flex justify-center py-3 px-4 border-2 border-primary rounded-md shadow-sm text-sm font-bold text-primary bg-primary/5 hover:bg-primary/10 transition-colors"
-          >
-            🚀 데모 모드로 바로 입장
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowDemoAccounts(!showDemoAccounts)}
-            className="mt-2 w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-          >
-            {showDemoAccounts ? '닫기' : '데모 계정 보기'}
-          </button>
-
-          {showDemoAccounts && (
-            <div className="mt-3 space-y-2">
-              {DEMO_ACCOUNTS.map((account) => (
-                <button
-                  key={account.email}
-                  type="button"
-                  onClick={() => handleDemoLogin(account)}
-                  className="w-full flex items-center justify-between px-4 py-3 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors"
-                >
-                  <div className="text-left">
-                    <p className="text-sm font-medium text-gray-900">{account.email}</p>
-                    <p className="text-xs text-gray-500">비밀번호: {account.password}</p>
-                  </div>
-                  <span className="px-2 py-1 text-xs font-medium bg-primary/10 text-primary rounded">
-                    {account.role}
-                  </span>
-                </button>
-              ))}
-              <p className="text-xs text-center text-gray-400 mt-2">
-                * Supabase에 해당 계정이 등록되어 있어야 합니다
-              </p>
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

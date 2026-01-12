@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Calendar, Clock, FileText, Send, CheckCircle } from 'lucide-react';
 import { BottomNav } from '@/components/bottom-nav';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 
 type RequestType = 'LEAVE' | 'OVERTIME' | 'SCHEDULE_CHANGE';
 
@@ -11,6 +12,15 @@ interface LeaveType {
   id: string;
   name: string;
   description: string;
+}
+
+interface UserInfo {
+  id: string;
+  name: string;
+  role: string;
+  company_id: string | null;
+  brand_id: string | null;
+  store_id: string | null;
 }
 
 const leaveTypes: LeaveType[] = [
@@ -25,6 +35,9 @@ export default function RequestPage() {
   const router = useRouter();
   const [requestType, setRequestType] = useState<RequestType>('LEAVE');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [remainingAnnualLeave, setRemainingAnnualLeave] = useState(0);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
 
   // Leave request state
   const [leaveType, setLeaveType] = useState('ANNUAL');
@@ -42,15 +55,143 @@ export default function RequestPage() {
   const [requestedDate, setRequestedDate] = useState('');
   const [changeReason, setChangeReason] = useState('');
 
-  const remainingAnnualLeave = 12; // Mock data
+  const supabase = createClient();
 
-  const handleSubmit = () => {
-    // TODO: Implement actual API call
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      router.push('/home');
-    }, 2000);
+  const fetchUserInfo = useCallback(async () => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        router.push('/auth/login');
+        return;
+      }
+
+      // Fetch user info including contract for leave days
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id, name, role, company_id, brand_id, store_id')
+        .eq('id', authUser.id)
+        .single();
+
+      if (userData) {
+        setUserInfo(userData);
+      }
+
+      // Fetch user's remaining annual leave from active contract
+      const { data: contractData } = await supabase
+        .from('contracts')
+        .select('annual_leave_days')
+        .eq('staff_id', authUser.id)
+        .in('status', ['SIGNED', 'ACTIVE'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (contractData?.annual_leave_days) {
+        // Calculate used leave days from approved leave requests
+        const currentYear = new Date().getFullYear();
+        const { data: usedLeave } = await supabase
+          .from('approval_requests')
+          .select('details')
+          .eq('requester_id', authUser.id)
+          .eq('type', 'LEAVE')
+          .eq('final_status', 'APPROVED');
+
+        let usedDays = 0;
+        if (usedLeave) {
+          usedLeave.forEach((req) => {
+            const details = req.details as { leave_type?: string; start_date?: string; end_date?: string };
+            if (details.leave_type === 'ANNUAL' && details.start_date) {
+              const start = new Date(details.start_date);
+              if (start.getFullYear() === currentYear) {
+                const end = details.end_date ? new Date(details.end_date) : start;
+                const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+                usedDays += days;
+              }
+            }
+          });
+        }
+
+        setRemainingAnnualLeave(contractData.annual_leave_days - usedDays);
+      }
+    } catch (error) {
+      console.error('Error fetching user info:', error);
+    }
+  }, [supabase, router]);
+
+  useEffect(() => {
+    fetchUserInfo();
+  }, [fetchUserInfo]);
+
+  const handleSubmit = async () => {
+    if (submitting || !userInfo) return;
+    setSubmitting(true);
+
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      // Build details object based on request type
+      let details: Record<string, unknown> = {};
+
+      if (requestType === 'LEAVE') {
+        details = {
+          leave_type: leaveType,
+          leave_type_name: leaveTypes.find(t => t.id === leaveType)?.name || leaveType,
+          start_date: startDate,
+          end_date: endDate,
+          reason: reason,
+        };
+      } else if (requestType === 'OVERTIME') {
+        details = {
+          overtime_date: overtimeDate,
+          overtime_hours: parseInt(overtimeHours),
+          reason: overtimeReason,
+        };
+      } else if (requestType === 'SCHEDULE_CHANGE') {
+        details = {
+          original_date: originalDate,
+          requested_date: requestedDate,
+          reason: changeReason,
+        };
+      }
+
+      // Create approval request with approval line (auto-approve for now, can be enhanced)
+      const approvalLine = [{
+        order: 1,
+        approverId: null, // Will be set by admin
+        approverRole: 'store_manager',
+        status: 'PENDING',
+      }];
+
+      const { error } = await supabase
+        .from('approval_requests')
+        .insert({
+          type: requestType,
+          requester_id: authUser.id,
+          requester_name: userInfo.name,
+          requester_role: userInfo.role,
+          company_id: userInfo.company_id,
+          brand_id: userInfo.brand_id,
+          store_id: userInfo.store_id,
+          approval_line: approvalLine,
+          current_step: 1,
+          final_status: 'PENDING',
+          details: details,
+        });
+
+      if (error) throw error;
+
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        router.push('/home');
+      }, 2000);
+    } catch (error) {
+      console.error('Error submitting request:', error);
+      alert('신청 중 오류가 발생했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const isFormValid = () => {
@@ -103,9 +244,7 @@ export default function RequestPage() {
           <button
             onClick={() => setRequestType('LEAVE')}
             className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-              requestType === 'LEAVE'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500'
+              requestType === 'LEAVE' ? 'border-primary text-primary' : 'border-transparent text-gray-500'
             }`}
           >
             휴가 신청
@@ -113,9 +252,7 @@ export default function RequestPage() {
           <button
             onClick={() => setRequestType('OVERTIME')}
             className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-              requestType === 'OVERTIME'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500'
+              requestType === 'OVERTIME' ? 'border-primary text-primary' : 'border-transparent text-gray-500'
             }`}
           >
             초과근무
@@ -123,9 +260,7 @@ export default function RequestPage() {
           <button
             onClick={() => setRequestType('SCHEDULE_CHANGE')}
             className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-              requestType === 'SCHEDULE_CHANGE'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500'
+              requestType === 'SCHEDULE_CHANGE' ? 'border-primary text-primary' : 'border-transparent text-gray-500'
             }`}
           >
             근무조정
@@ -157,9 +292,7 @@ export default function RequestPage() {
                     key={type.id}
                     onClick={() => setLeaveType(type.id)}
                     className={`py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
-                      leaveType === type.id
-                        ? 'bg-primary text-white'
-                        : 'bg-gray-100 text-gray-600'
+                      leaveType === type.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'
                     }`}
                   >
                     {type.name}
@@ -267,8 +400,8 @@ export default function RequestPage() {
             {/* Overtime Info */}
             <div className="bg-amber-50 rounded-2xl p-4">
               <p className="text-sm text-amber-700">
-                <strong>참고:</strong> 초과근무는 사전 승인 후 진행되어야 합니다.
-                연장근로수당은 통상시급의 150%로 지급됩니다.
+                <strong>참고:</strong> 초과근무는 사전 승인 후 진행되어야 합니다. 연장근로수당은 통상시급의 150%로
+                지급됩니다.
               </p>
             </div>
           </>
@@ -321,8 +454,8 @@ export default function RequestPage() {
             {/* Schedule Change Info */}
             <div className="bg-blue-50 rounded-2xl p-4">
               <p className="text-sm text-blue-700">
-                <strong>참고:</strong> 근무조정 신청은 최소 3일 전에 해주세요.
-                동료와 스케줄 교환이 필요한 경우 먼저 협의 후 신청해주세요.
+                <strong>참고:</strong> 근무조정 신청은 최소 3일 전에 해주세요. 동료와 스케줄 교환이 필요한 경우 먼저
+                협의 후 신청해주세요.
               </p>
             </div>
           </>
@@ -331,15 +464,13 @@ export default function RequestPage() {
         {/* Submit Button */}
         <button
           onClick={handleSubmit}
-          disabled={!isFormValid()}
+          disabled={!isFormValid() || submitting}
           className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center transition-colors ${
-            isFormValid()
-              ? 'bg-primary text-white'
-              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            isFormValid() && !submitting ? 'bg-primary text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
           }`}
         >
           <Send className="w-5 h-5 mr-2" />
-          신청하기
+          {submitting ? '처리 중...' : '신청하기'}
         </button>
       </div>
 

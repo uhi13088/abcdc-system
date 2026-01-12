@@ -1,63 +1,103 @@
 'use client';
 
-import { useState } from 'react';
-import { Bell, ChevronRight, Pin } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ChevronRight, Pin } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/bottom-nav';
+import { createClient } from '@/lib/supabase/client';
 
 interface Notice {
-  id: number;
+  id: string;
   title: string;
   content: string;
-  date: string;
-  isPinned: boolean;
-  isRead: boolean;
+  is_pinned: boolean;
+  created_at: string;
 }
 
-export default function NoticesPage() {
-  const [notices] = useState<Notice[]>([
-    {
-      id: 1,
-      title: '1월 급여 지급 안내',
-      content: '1월분 급여가 1월 25일에 지급될 예정입니다.',
-      date: '01/10',
-      isPinned: true,
-      isRead: false,
-    },
-    {
-      id: 2,
-      title: '설 연휴 근무 일정 안내',
-      content: '설 연휴 기간 근무 일정을 확인해 주세요.',
-      date: '01/08',
-      isPinned: true,
-      isRead: true,
-    },
-    {
-      id: 3,
-      title: 'HACCP 위생 교육 안내',
-      content: '1월 15일 위생 교육이 진행됩니다.',
-      date: '01/05',
-      isPinned: false,
-      isRead: true,
-    },
-    {
-      id: 4,
-      title: '신메뉴 출시 안내',
-      content: '1월 신메뉴가 출시되었습니다. 메뉴 교육을 확인해 주세요.',
-      date: '01/02',
-      isPinned: false,
-      isRead: true,
-    },
-    {
-      id: 5,
-      title: '새해 인사',
-      content: '2024년 새해 복 많이 받으세요!',
-      date: '01/01',
-      isPinned: false,
-      isRead: true,
-    },
-  ]);
+const READ_NOTICES_KEY = 'abcdc_read_notices';
 
+export default function NoticesPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [readNotices, setReadNotices] = useState<Set<string>>(new Set());
   const [selectedNotice, setSelectedNotice] = useState<Notice | null>(null);
+
+  const supabase = createClient();
+
+  useEffect(() => {
+    // Load read notices from localStorage
+    const loadReadNotices = () => {
+      try {
+        const stored = localStorage.getItem(READ_NOTICES_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setReadNotices(new Set(parsed));
+        }
+      } catch (error) {
+        console.error('Error loading read notices from localStorage:', error);
+      }
+    };
+
+    const fetchNotices = async () => {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) {
+          router.push('/auth/login');
+          return;
+        }
+
+        // Fetch notices
+        const { data: noticesData } = await supabase
+          .from('notices')
+          .select('id, title, content, is_pinned, created_at')
+          .order('is_pinned', { ascending: false })
+          .order('created_at', { ascending: false });
+
+        if (noticesData) {
+          setNotices(noticesData);
+        }
+
+        // Load read status from localStorage
+        loadReadNotices();
+      } catch (error) {
+        console.error('Error fetching notices:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNotices();
+  }, [supabase, router]);
+
+  const handleSelectNotice = (notice: Notice) => {
+    setSelectedNotice(notice);
+
+    // Mark as read in localStorage
+    if (!readNotices.has(notice.id)) {
+      const newReadNotices = new Set(Array.from(readNotices).concat(notice.id));
+      setReadNotices(newReadNotices);
+
+      try {
+        localStorage.setItem(READ_NOTICES_KEY, JSON.stringify(Array.from(newReadNotices)));
+      } catch (error) {
+        console.error('Error saving read notices to localStorage:', error);
+      }
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-20 bg-gray-50">
@@ -68,32 +108,36 @@ export default function NoticesPage() {
 
       {/* Notices List */}
       <div className="p-4 space-y-3">
-        {notices.map((notice) => (
-          <button
-            key={notice.id}
-            onClick={() => setSelectedNotice(notice)}
-            className="w-full bg-white rounded-xl p-4 shadow-sm text-left"
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center space-x-2 mb-1">
-                  {notice.isPinned && (
-                    <Pin className="w-4 h-4 text-primary" />
-                  )}
-                  {!notice.isRead && (
-                    <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                  )}
+        {notices.length > 0 ? (
+          notices.map((notice) => (
+            <button
+              key={notice.id}
+              onClick={() => handleSelectNotice(notice)}
+              className="w-full bg-white rounded-xl p-4 shadow-sm text-left"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2 mb-1">
+                    {notice.is_pinned && <Pin className="w-4 h-4 text-primary" />}
+                    {!readNotices.has(notice.id) && (
+                      <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                    )}
+                  </div>
+                  <h3 className="font-medium text-gray-900">{notice.title}</h3>
+                  <p className="text-sm text-gray-500 mt-1 line-clamp-1">{notice.content}</p>
                 </div>
-                <h3 className="font-medium text-gray-900">{notice.title}</h3>
-                <p className="text-sm text-gray-500 mt-1 line-clamp-1">{notice.content}</p>
+                <div className="flex items-center ml-4">
+                  <span className="text-xs text-gray-400">{formatDate(notice.created_at)}</span>
+                  <ChevronRight className="w-5 h-5 text-gray-400 ml-1" />
+                </div>
               </div>
-              <div className="flex items-center ml-4">
-                <span className="text-xs text-gray-400">{notice.date}</span>
-                <ChevronRight className="w-5 h-5 text-gray-400 ml-1" />
-              </div>
-            </div>
-          </button>
-        ))}
+            </button>
+          ))
+        ) : (
+          <div className="bg-white rounded-xl p-8 shadow-sm text-center">
+            <p className="text-gray-400">공지사항이 없습니다</p>
+          </div>
+        )}
       </div>
 
       {/* Notice Detail Modal */}
@@ -102,22 +146,19 @@ export default function NoticesPage() {
           <div className="bg-white w-full rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
-                {selectedNotice.isPinned && (
+                {selectedNotice.is_pinned && (
                   <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
                     고정
                   </span>
                 )}
-                <span className="text-sm text-gray-500">{selectedNotice.date}</span>
+                <span className="text-sm text-gray-500">{formatDate(selectedNotice.created_at)}</span>
               </div>
-              <button
-                onClick={() => setSelectedNotice(null)}
-                className="text-gray-400"
-              >
+              <button onClick={() => setSelectedNotice(null)} className="text-gray-400">
                 닫기
               </button>
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-4">{selectedNotice.title}</h2>
-            <p className="text-gray-700 leading-relaxed">{selectedNotice.content}</p>
+            <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{selectedNotice.content}</p>
           </div>
         </div>
       )}
