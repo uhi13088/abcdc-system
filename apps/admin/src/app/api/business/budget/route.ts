@@ -4,7 +4,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 // GET /api/business/budget
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const { searchParams } = new URL(request.url);
     const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
     const month = parseInt(searchParams.get('month') || String(new Date().getMonth() + 1));
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 // POST /api/business/budget
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();

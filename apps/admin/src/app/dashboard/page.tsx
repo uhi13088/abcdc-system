@@ -17,7 +17,7 @@ const SUPER_ADMIN_EMAIL = 'uhi1308@naver.com';
 
 async function getStats() {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // Get current user's company
     const { data: { user } } = await supabase.auth.getUser();

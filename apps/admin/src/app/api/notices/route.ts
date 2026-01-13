@@ -4,7 +4,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 // GET /api/notices - 공지사항 목록 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
 
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 // POST /api/notices - 공지사항 생성
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const body = await request.json();
 
     const { title, content, category = 'GENERAL', is_pinned = false } = body;

@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET /api/company - 현재 사용자의 회사 정보 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 // POST /api/company - 회사 생성 또는 업데이트
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const adminClient = createAdminClient();
 
     const { data: { user } } = await supabase.auth.getUser();

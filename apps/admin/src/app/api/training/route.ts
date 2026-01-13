@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 // GET - List training programs
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 // POST - Create new training program
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

@@ -7,7 +7,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const { id } = params;
 
     const { data: userData } = await supabase.auth.getUser();

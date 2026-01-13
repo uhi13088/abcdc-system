@@ -5,7 +5,7 @@ import { CreateCompanySchema } from '@abc/shared';
 // GET /api/companies - 회사 목록 조회
 export async function GET() {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -49,7 +49,7 @@ export async function GET() {
 // POST /api/companies - 회사 생성 (super_admin only)
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

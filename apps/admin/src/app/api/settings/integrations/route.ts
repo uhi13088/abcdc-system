@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET /api/settings/integrations - 연동 설정 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const adminClient = createAdminClient();
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 // POST /api/settings/integrations - 연동 설정 저장
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const adminClient = createAdminClient();
 
     const { data: { user } } = await supabase.auth.getUser();
