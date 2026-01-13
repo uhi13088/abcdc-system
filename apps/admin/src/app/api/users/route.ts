@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { CreateUserSchema } from '@abc/shared';
 
@@ -110,13 +110,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: currentUser } = await supabase
+    // Use adminClient to bypass RLS for user role check
+    const { data: currentUser } = await adminClient
       .from('users')
       .select('role, company_id')
       .eq('auth_id', user.id)
@@ -136,8 +138,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create auth user first
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    // Create auth user first (requires admin client with service role)
+    const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
       email: validation.data.email,
       password: validation.data.password,
       email_confirm: true,
@@ -154,7 +156,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create user profile
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('users')
       .insert({
         auth_id: authData.user.id,
@@ -176,12 +178,13 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       // Cleanup: delete auth user if profile creation fails
-      await supabase.auth.admin.deleteUser(authData.user.id);
+      await adminClient.auth.admin.deleteUser(authData.user.id);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
+    console.error('User creation error:', error);
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
