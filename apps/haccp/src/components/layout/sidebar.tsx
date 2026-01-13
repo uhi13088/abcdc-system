@@ -98,20 +98,20 @@ function SidebarComponent() {
   return (
     <div
       className={cn(
-        'flex flex-col bg-emerald-900 text-emerald-100 transition-all duration-300 ease-in-out h-screen fixed left-0 top-0 z-50',
+        'flex flex-col bg-white text-gray-700 transition-all duration-300 ease-in-out h-screen fixed left-0 top-0 z-50 border-r border-gray-200 shadow-sm',
         isHovered ? 'w-64' : 'w-16'
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Logo */}
-      <div className="flex items-center h-16 px-4 border-b border-emerald-800">
+      <div className="flex items-center h-16 px-4 border-b border-gray-200">
         <div className="flex items-center justify-center w-8 h-8 min-w-[32px] min-h-[32px] bg-emerald-500 rounded-lg flex-shrink-0">
           <ShieldCheck className="w-5 h-5 text-white" />
         </div>
         <span
           className={cn(
-            'ml-3 text-lg font-semibold text-white whitespace-nowrap transition-opacity duration-200',
+            'ml-3 text-lg font-semibold text-gray-900 whitespace-nowrap transition-opacity duration-200',
             isHovered ? 'opacity-100' : 'opacity-0'
           )}
         >
@@ -134,12 +134,12 @@ function SidebarComponent() {
                   className={cn(
                     'flex items-center w-full px-4 py-2.5 text-sm font-medium transition-colors relative group',
                     isActive
-                      ? 'bg-emerald-800 text-white'
-                      : 'text-emerald-200 hover:bg-emerald-800/50 hover:text-white'
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   )}
                   title={!isHovered ? item.name : undefined}
                 >
-                  <item.icon className={cn('w-5 h-5 flex-shrink-0', isActive ? 'text-emerald-300' : 'text-emerald-400')} />
+                  <item.icon className={cn('w-5 h-5 flex-shrink-0', isActive ? 'text-emerald-600' : 'text-gray-400')} />
                   <span
                     className={cn(
                       'ml-3 flex-1 text-left whitespace-nowrap transition-opacity duration-200',
@@ -150,19 +150,19 @@ function SidebarComponent() {
                   </span>
                   {isHovered && (
                     isExpanded ? (
-                      <ChevronDown className="w-4 h-4 flex-shrink-0 text-emerald-400" />
+                      <ChevronDown className="w-4 h-4 flex-shrink-0 text-gray-400" />
                     ) : (
-                      <ChevronRight className="w-4 h-4 flex-shrink-0 text-emerald-400" />
+                      <ChevronRight className="w-4 h-4 flex-shrink-0 text-gray-400" />
                     )
                   )}
                   {!isHovered && (
-                    <div className="absolute left-full ml-2 px-2 py-1 bg-emerald-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
                       {item.name}
                     </div>
                   )}
                 </button>
                 {isExpanded && (
-                  <div className="mt-1 space-y-1 bg-emerald-950/50">
+                  <div className="mt-1 space-y-1 bg-gray-50">
                     {item.children!.map((child) => {
                       const isChildActive = pathname === child.href;
                       return (
@@ -173,8 +173,8 @@ function SidebarComponent() {
                           className={cn(
                             'block pl-12 pr-4 py-2 text-sm transition-colors',
                             isChildActive
-                              ? 'bg-emerald-800 text-white font-medium'
-                              : 'text-emerald-300 hover:bg-emerald-800/50 hover:text-white'
+                              ? 'bg-emerald-50 text-emerald-700 font-medium'
+                              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                           )}
                         >
                           {child.name}
@@ -195,12 +195,12 @@ function SidebarComponent() {
               className={cn(
                 'flex items-center px-4 py-2.5 text-sm font-medium transition-colors relative group',
                 isActive
-                  ? 'bg-emerald-800 text-white'
-                  : 'text-emerald-200 hover:bg-emerald-800/50 hover:text-white'
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
               )}
               title={!isHovered ? item.name : undefined}
             >
-              <item.icon className={cn('w-5 h-5 flex-shrink-0', isActive ? 'text-emerald-300' : 'text-emerald-400')} />
+              <item.icon className={cn('w-5 h-5 flex-shrink-0', isActive ? 'text-emerald-600' : 'text-gray-400')} />
               <span
                 className={cn(
                   'ml-3 whitespace-nowrap transition-opacity duration-200',
@@ -210,10 +210,10 @@ function SidebarComponent() {
                 {item.name}
               </span>
               {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-emerald-400 rounded-r" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-emerald-500 rounded-r" />
               )}
               {!isHovered && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-emerald-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
                   {item.name}
                 </div>
               )}
@@ -223,13 +223,13 @@ function SidebarComponent() {
       </nav>
 
       {/* Sign out button */}
-      <div className="p-2 border-t border-emerald-800">
+      <div className="p-2 border-t border-gray-200">
         <button
           onClick={handleSignOut}
-          className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-emerald-200 hover:bg-emerald-800/50 hover:text-white transition-colors rounded relative group"
+          className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors rounded relative group"
           title={!isHovered ? '로그아웃' : undefined}
         >
-          <LogOut className="w-5 h-5 flex-shrink-0 text-emerald-400" />
+          <LogOut className="w-5 h-5 flex-shrink-0 text-gray-400" />
           <span
             className={cn(
               'ml-3 whitespace-nowrap transition-opacity duration-200',
@@ -239,7 +239,7 @@ function SidebarComponent() {
             로그아웃
           </span>
           {!isHovered && (
-            <div className="absolute left-full ml-2 px-2 py-1 bg-emerald-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
               로그아웃
             </div>
           )}
