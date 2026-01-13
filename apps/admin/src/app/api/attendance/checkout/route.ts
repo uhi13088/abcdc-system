@@ -184,19 +184,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 퇴근 기록 업데이트
+    // 퇴근 기록 업데이트 (기본 스키마 필드만 사용)
     const { data: updatedAttendance, error: updateError } = await supabase
       .from('attendances')
       .update({
         actual_check_out: now.toISOString(),
         check_out_lat: latitude,
         check_out_lng: longitude,
-        check_out_photo_url: photoUrl,
         work_hours: workData.workHours,
         break_hours: breakMinutes / 60,
         overtime_hours: workData.overtimeHours,
         night_hours: workData.nightHours,
-        status: isEarly && attendance.status === 'NORMAL' ? 'EARLY_OUT' : attendance.status,
+        status: isEarly && attendance.status === 'NORMAL' ? 'EARLY_LEAVE' : attendance.status,
       })
       .eq('id', attendance.id)
       .select()
@@ -210,19 +209,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 조기퇴근 이상 감지
-    if (isEarly) {
-      await supabase.from('attendance_anomalies').insert({
-        attendance_id: attendance.id,
-        anomaly_type: 'EARLY_CHECKOUT',
-        severity: 'LOW',
-        description: '예정 퇴근 시간보다 일찍 퇴근했습니다.',
-        expected_time: schedule?.end_time,
-        actual_time: now.toISOString(),
-        difference_minutes: schedule?.end_time
-          ? differenceInMinutes(new Date(schedule.end_time), now)
-          : null,
-      });
+    // 조기퇴근 이상 감지 시 anomalies JSONB에 저장
+    if (isEarly && schedule?.end_time) {
+      // attendance_anomalies 테이블은 008 마이그레이션에만 존재
+      // 기본 스키마에서는 attendances.anomalies JSONB 필드 사용
+      await supabase
+        .from('attendances')
+        .update({
+          anomalies: {
+            type: 'EARLY_CHECKOUT',
+            severity: 'LOW',
+            description: '예정 퇴근 시간보다 일찍 퇴근했습니다.',
+            expected_time: schedule.end_time,
+            actual_time: now.toISOString(),
+            difference_minutes: differenceInMinutes(new Date(schedule.end_time), now),
+          },
+        })
+        .eq('id', attendance.id);
     }
 
     return NextResponse.json({
@@ -292,6 +295,9 @@ export async function PUT(request: NextRequest) {
           const checkInTime = new Date(attendance.actual_check_in);
           const workData = calculateWorkHours(checkInTime, scheduledEnd, 60);
 
+          // 자동 퇴근 처리 (기본 스키마 필드만 사용)
+          // auto_checkout, auto_checkout_reason은 008 마이그레이션에만 존재
+          // extensions JSONB에 자동퇴근 정보 저장
           await supabase
             .from('attendances')
             .update({
@@ -299,9 +305,11 @@ export async function PUT(request: NextRequest) {
               work_hours: workData.workHours,
               overtime_hours: workData.overtimeHours,
               night_hours: workData.nightHours,
-              auto_checkout: true,
-              auto_checkout_reason: 'SCHEDULE_END',
-              status: 'AUTO_CHECKOUT',
+              status: 'NORMAL',
+              extensions: {
+                auto_checkout: true,
+                auto_checkout_reason: 'SCHEDULE_END',
+              },
             })
             .eq('id', attendance.id);
 
