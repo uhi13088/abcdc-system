@@ -603,7 +603,21 @@ export class PushNotificationService {
   }
 }
 
-// 싱글톤 인스턴스
-export const pushNotificationService = new PushNotificationService();
+// Lazy-loaded 싱글톤 인스턴스
+let _pushNotificationService: PushNotificationService | null = null;
+
+export function getPushNotificationService(): PushNotificationService {
+  if (!_pushNotificationService) {
+    _pushNotificationService = new PushNotificationService();
+  }
+  return _pushNotificationService;
+}
+
+// 하위 호환성을 위한 프록시 (pushNotificationService를 직접 사용하는 코드 지원)
+export const pushNotificationService = new Proxy({} as PushNotificationService, {
+  get(_, prop) {
+    return (getPushNotificationService() as any)[prop];
+  }
+});
 
 export default PushNotificationService;

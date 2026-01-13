@@ -3,13 +3,27 @@
  * 계약서 기반 스케줄 생성 및 관리
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { format, addDays, parseISO, isWeekend, startOfWeek, endOfWeek } from 'date-fns';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+let _supabaseClient: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabaseClient) {
+    _supabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    );
+  }
+  return _supabaseClient;
+}
+
+// Lazy-loaded supabase client accessor
+const supabase = new Proxy({} as SupabaseClient, {
+  get(_, prop) {
+    return (getSupabase() as any)[prop];
+  }
+});
 
 export interface WorkSchedule {
   daysOfWeek: number[]; // 0-6 (일-토)

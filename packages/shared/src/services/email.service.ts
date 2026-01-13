@@ -602,7 +602,21 @@ export class EmailService {
   }
 }
 
-// 싱글톤 인스턴스
-export const emailService = new EmailService();
+// Lazy-loaded 싱글톤 인스턴스
+let _emailService: EmailService | null = null;
+
+export function getEmailService(): EmailService {
+  if (!_emailService) {
+    _emailService = new EmailService();
+  }
+  return _emailService;
+}
+
+// 하위 호환성을 위한 프록시 (emailService를 직접 사용하는 코드 지원)
+export const emailService = new Proxy({} as EmailService, {
+  get(_, prop) {
+    return (getEmailService() as any)[prop];
+  }
+});
 
 export default EmailService;

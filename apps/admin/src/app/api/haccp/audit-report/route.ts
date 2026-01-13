@@ -7,10 +7,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { format, parseISO, differenceInDays } from 'date-fns';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+export const dynamic = 'force-dynamic';
+
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+}
 
 interface AuditReportSummary {
   period: {
@@ -67,6 +71,7 @@ interface AuditReportSummary {
 }
 
 export async function GET(request: NextRequest) {
+  const supabase = getSupabaseClient();
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
@@ -161,6 +166,7 @@ async function getDailyHygieneStats(
   endDate: string,
   totalDays: number
 ) {
+  const supabase = getSupabaseClient();
   const { data: checks } = await supabase
     .from('haccp_check_status')
     .select('check_date, status')
@@ -184,6 +190,7 @@ async function getDailyHygieneStats(
 }
 
 async function getCCPMonitoringStats(companyId: string, startDate: string, endDate: string) {
+  const supabase = getSupabaseClient();
   const { data: records } = await supabase
     .from('ccp_records')
     .select('*, ccp:ccp_definitions(process, critical_limit)')
@@ -216,6 +223,7 @@ async function getCCPMonitoringStats(companyId: string, startDate: string, endDa
 }
 
 async function getCorrectiveActionStats(companyId: string, startDate: string, endDate: string) {
+  const supabase = getSupabaseClient();
   const { data: actions } = await supabase
     .from('corrective_actions')
     .select('*')
@@ -253,6 +261,7 @@ async function getCorrectiveActionStats(companyId: string, startDate: string, en
 }
 
 async function getMaterialInspectionStats(companyId: string, startDate: string, endDate: string) {
+  const supabase = getSupabaseClient();
   const { data: inspections } = await supabase
     .from('material_inspections')
     .select('result')
@@ -273,6 +282,7 @@ async function getMaterialInspectionStats(companyId: string, startDate: string, 
 }
 
 async function getProductionStats(companyId: string, startDate: string, endDate: string) {
+  const supabase = getSupabaseClient();
   const { data: records } = await supabase
     .from('production_records')
     .select('quantity, quality')
@@ -298,6 +308,7 @@ async function getProductionStats(companyId: string, startDate: string, endDate:
 }
 
 async function getCCPVerificationStats(companyId: string, startDate: string, endDate: string) {
+  const supabase = getSupabaseClient();
   // CCP 정의 수 조회
   const { data: ccpDefs } = await supabase
     .from('ccp_definitions')
@@ -325,6 +336,7 @@ async function getCCPVerificationStats(companyId: string, startDate: string, end
 }
 
 async function getTrainingStats(companyId: string, startDate: string, endDate: string) {
+  const supabase = getSupabaseClient();
   const { data: trainings } = await supabase
     .from('trainings')
     .select('title, attendee_count')

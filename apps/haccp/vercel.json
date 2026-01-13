@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/haccp-reminder",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/sensor-health-check",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}

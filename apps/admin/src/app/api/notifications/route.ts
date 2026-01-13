@@ -8,13 +8,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+}
 
 // 알림 목록 조회
 export async function GET(request: NextRequest) {
+  const supabase = getSupabaseClient();
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
@@ -97,6 +100,7 @@ export async function GET(request: NextRequest) {
 
 // 알림 읽음 처리
 export async function PATCH(request: NextRequest) {
+  const supabase = getSupabaseClient();
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
@@ -161,6 +165,7 @@ export async function PATCH(request: NextRequest) {
 
 // 알림 삭제
 export async function DELETE(request: NextRequest) {
+  const supabase = getSupabaseClient();
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {

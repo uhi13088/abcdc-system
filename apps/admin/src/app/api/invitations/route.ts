@@ -203,8 +203,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // 초대 링크 생성
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    // 초대 링크 생성 - 요청 URL에서 호스트 추출
+    const requestUrl = new URL(request.url);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${requestUrl.protocol}//${requestUrl.host}`;
     const inviteUrl = `${baseUrl}/invite/${token}`;
 
     // 발송 결과 저장

@@ -17,7 +17,6 @@ import {
   AlertTriangle,
   Bell,
   MessageSquare,
-  ShieldCheck,
   BarChart3,
   ChevronDown,
   ChevronRight,
@@ -57,7 +56,6 @@ const navigation: NavItem[] = [
   { name: '긴급 근무', href: '/emergency', icon: AlertTriangle },
   { name: '공지사항', href: '/notices', icon: Bell },
   { name: '메시지', href: '/messages', icon: MessageSquare },
-  { name: 'HACCP', href: '/haccp', icon: ShieldCheck },
   { name: '경영관리', href: '/business', icon: BarChart3 },
   {
     name: '조직 관리',
@@ -97,20 +95,20 @@ function SidebarComponent() {
   return (
     <div
       className={cn(
-        'flex flex-col bg-[#0f172a] text-slate-300 transition-all duration-300 ease-in-out h-screen fixed left-0 top-0 z-50 border-r border-slate-800/50',
+        'flex flex-col bg-white text-gray-700 transition-all duration-300 ease-in-out h-screen fixed left-0 top-0 z-50 border-r border-gray-200 shadow-sm',
         isHovered ? 'w-64' : 'w-16'
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Logo */}
-      <div className="flex items-center h-16 px-4 border-b border-slate-800/50">
+      <div className="flex items-center h-16 px-4 border-b border-gray-200">
         <div className="flex items-center justify-center w-8 h-8 min-w-[32px] min-h-[32px] bg-emerald-500 rounded-lg text-white font-bold text-sm flex-shrink-0">
           A
         </div>
         <span
           className={cn(
-            'ml-3 text-lg font-semibold text-white whitespace-nowrap transition-opacity duration-200',
+            'ml-3 text-lg font-semibold text-gray-900 whitespace-nowrap transition-opacity duration-200',
             isHovered ? 'opacity-100' : 'opacity-0'
           )}
         >
@@ -133,12 +131,12 @@ function SidebarComponent() {
                   className={cn(
                     'flex items-center w-full px-4 py-2.5 text-sm font-medium transition-colors relative group',
                     isActive
-                      ? 'bg-slate-800 text-white'
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   )}
                   title={!isHovered ? item.name : undefined}
                 >
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  <item.icon className={cn('w-5 h-5 flex-shrink-0', isActive ? 'text-emerald-600' : 'text-gray-500')} />
                   <span
                     className={cn(
                       'ml-3 flex-1 text-left whitespace-nowrap transition-opacity duration-200',
@@ -149,20 +147,20 @@ function SidebarComponent() {
                   </span>
                   {isHovered && (
                     isExpanded ? (
-                      <ChevronDown className="w-4 h-4 flex-shrink-0" />
+                      <ChevronDown className="w-4 h-4 flex-shrink-0 text-gray-400" />
                     ) : (
-                      <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                      <ChevronRight className="w-4 h-4 flex-shrink-0 text-gray-400" />
                     )
                   )}
                   {/* Tooltip for collapsed state */}
                   {!isHovered && (
-                    <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
                       {item.name}
                     </div>
                   )}
                 </button>
                 {isExpanded && (
-                  <div className="mt-1 space-y-1 bg-slate-950/50">
+                  <div className="mt-1 space-y-1 bg-gray-50">
                     {item.children!.map((child) => {
                       const isChildActive = pathname === child.href;
                       return (
@@ -173,8 +171,8 @@ function SidebarComponent() {
                           className={cn(
                             'block pl-12 pr-4 py-2 text-sm transition-colors',
                             isChildActive
-                              ? 'bg-slate-800 text-emerald-400 font-medium'
-                              : 'text-slate-500 hover:bg-slate-800 hover:text-white'
+                              ? 'bg-emerald-50 text-emerald-700 font-medium'
+                              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
                           )}
                         >
                           {child.name}
@@ -195,12 +193,12 @@ function SidebarComponent() {
               className={cn(
                 'flex items-center px-4 py-2.5 text-sm font-medium transition-colors relative group',
                 isActive
-                  ? 'bg-slate-800 text-white'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               )}
               title={!isHovered ? item.name : undefined}
             >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
+              <item.icon className={cn('w-5 h-5 flex-shrink-0', isActive ? 'text-emerald-600' : 'text-gray-500')} />
               <span
                 className={cn(
                   'ml-3 whitespace-nowrap transition-opacity duration-200',
@@ -215,7 +213,7 @@ function SidebarComponent() {
               )}
               {/* Tooltip for collapsed state */}
               {!isHovered && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
                   {item.name}
                 </div>
               )}
@@ -225,13 +223,13 @@ function SidebarComponent() {
       </nav>
 
       {/* Sign out button */}
-      <div className="p-2 border-t border-slate-700">
+      <div className="p-2 border-t border-gray-200">
         <button
           onClick={handleSignOut}
-          className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors rounded relative group"
+          className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors rounded relative group"
           title={!isHovered ? '로그아웃' : undefined}
         >
-          <LogOut className="w-5 h-5 flex-shrink-0" />
+          <LogOut className="w-5 h-5 flex-shrink-0 text-gray-500" />
           <span
             className={cn(
               'ml-3 whitespace-nowrap transition-opacity duration-200',
@@ -242,7 +240,7 @@ function SidebarComponent() {
           </span>
           {/* Tooltip for collapsed state */}
           {!isHovered && (
-            <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
               로그아웃
             </div>
           )}

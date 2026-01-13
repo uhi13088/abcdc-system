@@ -7,13 +7,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+}
 
 // FCM 토큰 등록
 export async function POST(request: NextRequest) {
+  const supabase = getSupabaseClient();
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
@@ -89,6 +92,7 @@ export async function POST(request: NextRequest) {
 
 // FCM 토큰 삭제 (로그아웃 시)
 export async function DELETE(request: NextRequest) {
+  const supabase = getSupabaseClient();
   try {
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {

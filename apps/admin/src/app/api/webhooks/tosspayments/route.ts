@@ -6,10 +6,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+}
 
 interface TossWebhookPayload {
   eventType: string;
@@ -31,6 +33,7 @@ interface TossWebhookPayload {
 }
 
 export async function POST(request: NextRequest) {
+  const supabase = getSupabaseClient();
   try {
     const payload: TossWebhookPayload = await request.json();
 
@@ -67,6 +70,7 @@ export async function POST(request: NextRequest) {
  * 결제 상태 변경 처리
  */
 async function handlePaymentStatusChanged(data: TossWebhookPayload['data']) {
+  const supabase = getSupabaseClient();
   const { paymentKey, status } = data;
 
   await supabase
@@ -81,6 +85,7 @@ async function handlePaymentStatusChanged(data: TossWebhookPayload['data']) {
  * 가상계좌 입금 처리
  */
 async function handleVirtualAccountDeposit(data: TossWebhookPayload['data']) {
+  const supabase = getSupabaseClient();
   const { paymentKey, orderId, totalAmount, secret } = data;
 
   // 결제 상태 업데이트
@@ -138,6 +143,7 @@ async function handleVirtualAccountDeposit(data: TossWebhookPayload['data']) {
  * 결제 취소 처리
  */
 async function handlePaymentCanceled(data: TossWebhookPayload['data']) {
+  const supabase = getSupabaseClient();
   const { paymentKey, orderId } = data;
 
   await supabase

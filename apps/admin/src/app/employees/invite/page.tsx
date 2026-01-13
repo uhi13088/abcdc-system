@@ -10,7 +10,7 @@ import {
   Label,
   Alert,
 } from '@/components/ui';
-import { Send, Copy, Check, MessageSquare, MessageCircle, Link2, ExternalLink } from 'lucide-react';
+import { Send, Copy, Check, MessageSquare, MessageCircle, Share2, ExternalLink } from 'lucide-react';
 
 // Kakao SDK type declaration
 declare global {
@@ -193,16 +193,19 @@ export default function InviteEmployeePage() {
   };
 
   // 카카오톡 공유
-  const shareKakao = () => {
+  const shareKakao = async () => {
     if (!success?.inviteUrl) return;
+
+    const shareTitle = `[${success.storeName}] 직원 등록 초대`;
+    const shareText = `${formData.name}님, 직원 등록을 위해 아래 링크를 눌러주세요.`;
 
     // Kakao SDK가 있으면 사용
     if (window.Kakao && window.Kakao.isInitialized()) {
       window.Kakao.Share.sendDefault({
         objectType: 'feed',
         content: {
-          title: `[${success.storeName}] 직원 등록 초대`,
-          description: `${formData.name}님, 아래 버튼을 눌러 직원 등록을 완료해주세요.`,
+          title: shareTitle,
+          description: shareText,
           link: {
             mobileWebUrl: success.inviteUrl,
             webUrl: success.inviteUrl,
@@ -220,20 +223,56 @@ export default function InviteEmployeePage() {
       });
       setKakaoSent(true);
       setTimeout(() => setKakaoSent(false), 3000);
-    } else {
-      // Kakao SDK가 없으면 카카오톡 공유 URL 사용 (웹에서 카카오톡으로 공유)
-      const shareText = `[${success.storeName}] ${formData.name}님, 직원 등록을 위해 아래 링크를 눌러주세요.\n${success.inviteUrl}`;
+      return;
+    }
 
-      // 카카오톡 scheme으로 직접 열기 시도
-      const kakaoUrl = `https://story.kakao.com/share?url=${encodeURIComponent(success.inviteUrl)}&text=${encodeURIComponent(shareText)}`;
-
-      // 새 창에서 카카오스토리 공유 페이지 열기 (대안)
-      // 실제로는 클립보드 복사 + 카카오톡 앱 열기를 권장
-      navigator.clipboard.writeText(shareText).then(() => {
+    // Web Share API 지원하면 사용 (모바일에서 카카오톡 선택 가능)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: success.inviteUrl,
+        });
         setKakaoSent(true);
         setTimeout(() => setKakaoSent(false), 3000);
-        alert('메시지가 복사되었습니다.\n카카오톡에서 붙여넣기 해주세요.');
-      });
+        return;
+      } catch (err) {
+        // 사용자가 취소한 경우 무시
+        if ((err as Error).name === 'AbortError') return;
+      }
+    }
+
+    // 폴백: 클립보드 복사
+    const fullText = `${shareTitle}\n${shareText}\n${success.inviteUrl}`;
+    await navigator.clipboard.writeText(fullText);
+    setKakaoSent(true);
+    setTimeout(() => setKakaoSent(false), 3000);
+    alert('메시지가 복사되었습니다.\n카카오톡에서 붙여넣기 해주세요.');
+  };
+
+  // 네이티브 공유 (Web Share API)
+  const shareNative = async () => {
+    if (!success?.inviteUrl) return;
+
+    const shareTitle = `[${success.storeName}] 직원 등록 초대`;
+    const shareText = `${formData.name}님, 직원 등록을 위해 아래 링크를 눌러주세요.`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: success.inviteUrl,
+        });
+      } catch (err) {
+        // 사용자가 취소한 경우 무시
+      }
+    } else {
+      // Web Share API 미지원시 클립보드 복사
+      const fullText = `${shareTitle}\n${shareText}\n${success.inviteUrl}`;
+      await navigator.clipboard.writeText(fullText);
+      alert('메시지가 복사되었습니다.');
     }
   };
 

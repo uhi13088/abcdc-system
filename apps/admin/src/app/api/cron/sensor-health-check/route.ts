@@ -7,15 +7,18 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+}
 
 // Offline threshold: 5 minutes
 const OFFLINE_THRESHOLD_MS = 5 * 60 * 1000;
 
 export async function GET() {
+  const supabase = getSupabaseClient();
   console.log('[Cron] Starting sensor health check...');
 
   try {
