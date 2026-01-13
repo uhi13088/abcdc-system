@@ -155,6 +155,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create store using adminClient
+    // 기본 필드만 저장 (급여설정은 019_store_settings.sql 마이그레이션 적용 후 활성화)
     const { data, error } = await adminClient
       .from('stores')
       .insert({
@@ -169,18 +170,6 @@ export async function POST(request: NextRequest) {
         early_checkin_minutes: validation.data.earlyCheckinMinutes,
         early_checkout_minutes: validation.data.earlyCheckoutMinutes,
         default_hourly_rate: validation.data.defaultHourlyRate || null,
-        // 급여 설정
-        pay_day: validation.data.payDay,
-        pay_period_type: validation.data.payPeriodType,
-        pay_period_start_day: validation.data.payPeriodStartDay || null,
-        pay_period_end_day: validation.data.payPeriodEndDay || null,
-        // 수당 적용 설정
-        allowance_overtime: validation.data.allowanceOvertime,
-        allowance_night: validation.data.allowanceNight,
-        allowance_holiday: validation.data.allowanceHoliday,
-        // 운영 시간
-        opening_time: validation.data.openingTime || null,
-        closing_time: validation.data.closingTime || null,
       })
       .select()
       .single();
