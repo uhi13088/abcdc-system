@@ -1,1 +1,16 @@
-{"name":"ABC Platform Admin","short_name":"ABC Platform","description":"ABC Staff System - Platform Administration","start_url":"/","display":"standalone","background_color":"#ffffff","theme_color":"#6366f1","icons":[{"src":"/favicon.ico","sizes":"64x64","type":"image/x-icon"}]}
+{
+  "name": "ABC Platform Admin",
+  "short_name": "ABC Platform",
+  "description": "ABC Staff System - Platform Administration",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
