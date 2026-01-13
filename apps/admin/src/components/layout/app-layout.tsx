@@ -6,10 +6,11 @@ import { Sidebar } from './sidebar';
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // Don't show sidebar on auth pages
+  // Don't show sidebar on auth pages and public invite pages
   const isAuthPage = pathname?.startsWith('/auth');
+  const isInvitePage = pathname?.startsWith('/invite');
 
-  if (isAuthPage) {
+  if (isAuthPage || isInvitePage) {
     return <>{children}</>;
   }
 
