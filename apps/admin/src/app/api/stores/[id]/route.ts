@@ -68,21 +68,6 @@ export async function PUT(
     if (body.earlyCheckinMinutes !== undefined) updateData.early_checkin_minutes = body.earlyCheckinMinutes;
     if (body.earlyCheckoutMinutes !== undefined) updateData.early_checkout_minutes = body.earlyCheckoutMinutes;
 
-    // 급여 설정
-    if (body.payDay !== undefined) updateData.pay_day = body.payDay;
-    if (body.payPeriodType !== undefined) updateData.pay_period_type = body.payPeriodType;
-    if (body.payPeriodStartDay !== undefined) updateData.pay_period_start_day = body.payPeriodStartDay || null;
-    if (body.payPeriodEndDay !== undefined) updateData.pay_period_end_day = body.payPeriodEndDay || null;
-
-    // 수당 적용 옵션
-    if (body.allowanceOvertime !== undefined) updateData.allowance_overtime = body.allowanceOvertime;
-    if (body.allowanceNight !== undefined) updateData.allowance_night = body.allowanceNight;
-    if (body.allowanceHoliday !== undefined) updateData.allowance_holiday = body.allowanceHoliday;
-
-    // 운영시간
-    if (body.openingTime !== undefined) updateData.opening_time = body.openingTime || null;
-    if (body.closingTime !== undefined) updateData.closing_time = body.closingTime || null;
-
     // Use admin client to bypass RLS
     const adminClient = createAdminClient();
     const { data, error } = await adminClient

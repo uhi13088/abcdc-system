@@ -85,18 +85,22 @@ export async function GET(request: NextRequest) {
 
     // 만료 체크 및 상태 업데이트
     const now = new Date();
+    const expiredIds: string[] = [];
     const updatedInvitations = invitations?.map(inv => {
       if (inv.status === 'PENDING' && new Date(inv.expires_at) < now) {
-        // 만료 상태로 업데이트 (비동기로 DB 업데이트)
-        adminClient
-          .from('invitations')
-          .update({ status: 'EXPIRED' })
-          .eq('id', inv.id)
-          .then();
+        expiredIds.push(inv.id);
         return { ...inv, status: 'EXPIRED' };
       }
       return inv;
     });
+
+    // 만료된 초대들 일괄 업데이트
+    if (expiredIds.length > 0) {
+      await adminClient
+        .from('invitations')
+        .update({ status: 'EXPIRED' })
+        .in('id', expiredIds);
+    }
 
     return NextResponse.json({ data: updatedInvitations || [] });
   } catch (error) {

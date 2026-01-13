@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
 
       const allowedRadius = store.allowed_radius || 100; // 기본 100m
 
-      if (store.geofence_enabled !== false && distanceFromStore > allowedRadius) {
+      if (distanceFromStore > allowedRadius) {
         // 위치 이탈 기록 (하지만 출근은 허용할 수도 있음)
         locationValid = false;
       }
@@ -200,9 +200,7 @@ export async function POST(request: NextRequest) {
       actual_check_in: now.toISOString(),
       check_in_lat: latitude,
       check_in_lng: longitude,
-      check_in_method: qrToken ? 'QR' : 'LOCATION',
-      check_in_photo_url: photoUrl,
-      device_info: deviceInfo,
+      check_in_method: qrToken ? 'QR' : 'GEOFENCE',
       status,
     };
 
@@ -222,19 +220,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 위치 이상 감지 시 anomaly 기록
+    // 위치 이상 감지 시 anomaly 기록 (extensions JSONB에 저장)
     if (!locationValid && distanceFromStore !== null) {
-      await supabase.from('attendance_anomalies').insert({
-        attendance_id: attendance.id,
-        anomaly_type: 'LOCATION_OUTSIDE_GEOFENCE',
-        severity: 'MEDIUM',
-        description: '출근 위치가 허용 범위를 벗어났습니다.',
-        expected_lat: store.latitude,
-        expected_lng: store.longitude,
-        actual_lat: latitude,
-        actual_lng: longitude,
-        distance_meters: Math.round(distanceFromStore),
-      });
+      // attendance_anomalies 테이블이 008_attendance_extensions 마이그레이션에만 존재
+      // 기본 스키마에서는 attendances.anomalies JSONB 필드 사용
+      await supabase
+        .from('attendances')
+        .update({
+          anomalies: {
+            type: 'LOCATION_OUTSIDE_GEOFENCE',
+            severity: 'MEDIUM',
+            description: '출근 위치가 허용 범위를 벗어났습니다.',
+            expected: { lat: store.latitude, lng: store.longitude },
+            actual: { lat: latitude, lng: longitude },
+            distance_meters: Math.round(distanceFromStore),
+          },
+        })
+        .eq('id', attendance.id);
     }
 
     return NextResponse.json({

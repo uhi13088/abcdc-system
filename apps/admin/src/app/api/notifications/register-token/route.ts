@@ -59,12 +59,13 @@ export async function POST(request: NextRequest) {
 
     if (existingToken) {
       // 기존 토큰 업데이트
+      // device_info 컬럼은 005 마이그레이션에 없음 - device_name 사용
       await supabase
         .from('user_fcm_tokens')
         .update({
           user_id: userData.id,
           device_type: deviceType || 'unknown',
-          device_info: deviceInfo,
+          device_name: deviceInfo?.model || deviceInfo?.name || null,
           is_active: true,
           updated_at: new Date().toISOString(),
         })
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
         user_id: userData.id,
         fcm_token: fcmToken,
         device_type: deviceType || 'unknown',
-        device_info: deviceInfo,
+        device_name: deviceInfo?.model || deviceInfo?.name || null,
         is_active: true,
       });
     }
