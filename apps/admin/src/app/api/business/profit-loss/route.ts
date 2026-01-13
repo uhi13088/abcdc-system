@@ -4,7 +4,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 // GET /api/business/profit-loss
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const { searchParams } = new URL(request.url);
     const year = parseInt(searchParams.get('year') || String(new Date().getFullYear()));
     const periodType = searchParams.get('type') || 'MONTHLY';

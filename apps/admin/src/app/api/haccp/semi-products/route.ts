@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 // GET - Fetch semi-products with filters
 export async function GET(request: NextRequest) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { searchParams } = new URL(request.url);
   const productionDate = searchParams.get('production_date');
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
 
 // POST - Create new semi-product record
 export async function POST(request: NextRequest) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const body = await request.json();
 
   try {
@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
 
 // PUT - Update semi-product usage
 export async function PUT(request: NextRequest) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const body = await request.json();
 
   try {

@@ -34,7 +34,7 @@ const CreateTemplateSchema = z.object({
 // GET /api/invitation-templates - 템플릿 목록 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const adminClient = createAdminClient();
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
 // POST /api/invitation-templates - 템플릿 생성
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const adminClient = createAdminClient();
 
     const { data: { user } } = await supabase.auth.getUser();

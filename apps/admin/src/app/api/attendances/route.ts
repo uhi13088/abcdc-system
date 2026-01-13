@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET /api/attendances - 출퇴근 목록 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const searchParams = request.nextUrl.searchParams;
     const storeId = searchParams.get('storeId');
     const staffId = searchParams.get('staffId');
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
 // POST /api/attendances - 출근 기록 (체크인)
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

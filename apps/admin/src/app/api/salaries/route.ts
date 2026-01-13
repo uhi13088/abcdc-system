@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET /api/salaries - 급여 목록 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const searchParams = request.nextUrl.searchParams;
     const staffId = searchParams.get('staffId');
     const year = searchParams.get('year');
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
 // POST /api/salaries/calculate - 급여 계산 (월별)
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

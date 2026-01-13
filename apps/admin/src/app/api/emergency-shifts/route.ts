@@ -4,7 +4,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 // GET /api/emergency-shifts - 긴급 근무 목록 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const store_id = searchParams.get('store_id');
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 // POST /api/emergency-shifts - 긴급 근무 생성
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const body = await request.json();
 
     const {

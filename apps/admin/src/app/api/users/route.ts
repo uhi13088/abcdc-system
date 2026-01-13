@@ -5,7 +5,7 @@ import { CreateUserSchema } from '@abc/shared';
 // GET /api/users - 직원 목록 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const searchParams = request.nextUrl.searchParams;
     const role = searchParams.get('role');
     const status = searchParams.get('status');
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
 // POST /api/users - 직원 생성
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

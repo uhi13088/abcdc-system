@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET /api/approvals - 승인 요청 목록 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get('type');
     const status = searchParams.get('status');
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
 // POST /api/approvals - 승인 요청 생성
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

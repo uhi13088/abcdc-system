@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET /api/schedules - 스케줄 목록 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const searchParams = request.nextUrl.searchParams;
     const storeId = searchParams.get('storeId');
     const staffId = searchParams.get('staffId');
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
 // POST /api/schedules - 스케줄 생성
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

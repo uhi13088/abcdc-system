@@ -37,7 +37,7 @@ function generateToken(): string {
 // GET /api/invitations - 초대 목록 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const adminClient = createAdminClient();
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status');
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
 // POST /api/invitations - 초대 생성 및 발송
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const adminClient = createAdminClient();
 
     const { data: { user } } = await supabase.auth.getUser();

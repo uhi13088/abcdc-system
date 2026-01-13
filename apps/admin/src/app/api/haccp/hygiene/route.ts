@@ -4,7 +4,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 // GET /api/haccp/hygiene
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
 
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 // POST /api/haccp/hygiene
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();

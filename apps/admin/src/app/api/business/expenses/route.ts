@@ -4,7 +4,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 // GET /api/business/expenses
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const { searchParams } = new URL(request.url);
     const month = searchParams.get('month') || new Date().toISOString().slice(0, 7);
     const category = searchParams.get('category');
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
 // POST /api/business/expenses
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();

@@ -4,7 +4,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 // GET /api/business/dashboard - 경영 대시보드 통계
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    const supabase = await createServerClient();
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {

@@ -5,7 +5,7 @@ import { CreateBrandSchema } from '@abc/shared';
 // GET /api/brands - 브랜드 목록 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const adminClient = createAdminClient();
     const searchParams = request.nextUrl.searchParams;
     const companyId = searchParams.get('companyId');
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   const adminClient = createAdminClient();
 
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

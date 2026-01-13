@@ -38,8 +38,8 @@ export function isAdminClientConfigured(): boolean {
   return !!process.env.SUPABASE_SERVICE_ROLE_KEY;
 }
 
-export function createClient() {
-  const cookieStore = cookies();
+export async function createClient() {
+  const cookieStore = await cookies();
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEMO_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEMO_KEY;
