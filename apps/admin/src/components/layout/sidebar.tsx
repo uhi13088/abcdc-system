@@ -17,7 +17,6 @@ import {
   AlertTriangle,
   Bell,
   MessageSquare,
-  ShieldCheck,
   BarChart3,
   ChevronDown,
   ChevronRight,
@@ -57,7 +56,6 @@ const navigation: NavItem[] = [
   { name: '긴급 근무', href: '/emergency', icon: AlertTriangle },
   { name: '공지사항', href: '/notices', icon: Bell },
   { name: '메시지', href: '/messages', icon: MessageSquare },
-  { name: 'HACCP', href: '/haccp', icon: ShieldCheck },
   { name: '경영관리', href: '/business', icon: BarChart3 },
   {
     name: '조직 관리',
