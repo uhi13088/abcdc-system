@@ -10,7 +10,38 @@ import {
   Label,
   Alert,
 } from '@/components/ui';
-import { Send, Copy, Check, MessageSquare, MessageCircle, Link2 } from 'lucide-react';
+import { Send, Copy, Check, MessageSquare, MessageCircle, Link2, ExternalLink } from 'lucide-react';
+
+// Kakao SDK type declaration
+declare global {
+  interface Window {
+    Kakao?: {
+      init: (key: string) => void;
+      isInitialized: () => boolean;
+      Share: {
+        sendDefault: (options: {
+          objectType: string;
+          content: {
+            title: string;
+            description: string;
+            imageUrl?: string;
+            link: {
+              mobileWebUrl: string;
+              webUrl: string;
+            };
+          };
+          buttons?: Array<{
+            title: string;
+            link: {
+              mobileWebUrl: string;
+              webUrl: string;
+            };
+          }>;
+        }) => void;
+      };
+    };
+  }
+}
 
 interface Store {
   id: string;
@@ -45,16 +76,18 @@ export default function InviteEmployeePage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<{
     inviteUrl: string;
-    sendResults: Record<string, { success: boolean }>;
+    storeName: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [smsSent, setSmsSent] = useState(false);
+  const [kakaoSent, setKakaoSent] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
     storeId: '',
     templateId: '',
-    sendMethods: ['kakao', 'sms', 'link'] as string[],
+    sendMethods: ['link'] as string[],
   });
 
   useEffect(() => {
@@ -73,6 +106,18 @@ export default function InviteEmployeePage() {
         if (templatesRes.ok) {
           const templatesData = await templatesRes.json();
           setTemplates(templatesData.data || []);
+        }
+
+        // sessionStorage에서 폼 데이터 복원
+        const savedFormData = sessionStorage.getItem('invite_form_data');
+        if (savedFormData) {
+          try {
+            const parsed = JSON.parse(savedFormData);
+            setFormData(parsed);
+            sessionStorage.removeItem('invite_form_data');
+          } catch (e) {
+            console.error('Failed to restore form data:', e);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch data:', err);
@@ -109,15 +154,16 @@ export default function InviteEmployeePage() {
       const result = await response.json();
 
       if (response.ok) {
+        const selectedStore = stores.find(s => s.id === formData.storeId);
         setSuccess({
           inviteUrl: result.inviteUrl,
-          sendResults: result.sendResults,
+          storeName: selectedStore?.name || '',
         });
       } else {
-        setError(result.error || '초대 발송에 실패했습니다.');
+        setError(result.error || '초대 생성에 실패했습니다.');
       }
     } catch (err) {
-      setError('초대 발송에 실패했습니다.');
+      setError('초대 생성에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }
@@ -131,8 +177,64 @@ export default function InviteEmployeePage() {
     }
   };
 
-  const getSelectedTemplate = () => {
-    return templates.find((t) => t.id === formData.templateId);
+  // SMS 딥링크로 문자 앱 열기
+  const openSmsApp = () => {
+    if (!success?.inviteUrl) return;
+
+    const message = `[${success.storeName}] ${formData.name}님, 직원 등록을 위해 아래 링크를 눌러주세요.\n\n${success.inviteUrl}`;
+    const phone = formData.phone.replace(/-/g, '');
+
+    // iOS/Android 모두 지원하는 SMS URL scheme
+    const smsUrl = `sms:${phone}?body=${encodeURIComponent(message)}`;
+
+    window.open(smsUrl, '_self');
+    setSmsSent(true);
+    setTimeout(() => setSmsSent(false), 3000);
+  };
+
+  // 카카오톡 공유
+  const shareKakao = () => {
+    if (!success?.inviteUrl) return;
+
+    // Kakao SDK가 있으면 사용
+    if (window.Kakao && window.Kakao.isInitialized()) {
+      window.Kakao.Share.sendDefault({
+        objectType: 'feed',
+        content: {
+          title: `[${success.storeName}] 직원 등록 초대`,
+          description: `${formData.name}님, 아래 버튼을 눌러 직원 등록을 완료해주세요.`,
+          link: {
+            mobileWebUrl: success.inviteUrl,
+            webUrl: success.inviteUrl,
+          },
+        },
+        buttons: [
+          {
+            title: '등록하기',
+            link: {
+              mobileWebUrl: success.inviteUrl,
+              webUrl: success.inviteUrl,
+            },
+          },
+        ],
+      });
+      setKakaoSent(true);
+      setTimeout(() => setKakaoSent(false), 3000);
+    } else {
+      // Kakao SDK가 없으면 카카오톡 공유 URL 사용 (웹에서 카카오톡으로 공유)
+      const shareText = `[${success.storeName}] ${formData.name}님, 직원 등록을 위해 아래 링크를 눌러주세요.\n${success.inviteUrl}`;
+
+      // 카카오톡 scheme으로 직접 열기 시도
+      const kakaoUrl = `https://story.kakao.com/share?url=${encodeURIComponent(success.inviteUrl)}&text=${encodeURIComponent(shareText)}`;
+
+      // 새 창에서 카카오스토리 공유 페이지 열기 (대안)
+      // 실제로는 클립보드 복사 + 카카오톡 앱 열기를 권장
+      navigator.clipboard.writeText(shareText).then(() => {
+        setKakaoSent(true);
+        setTimeout(() => setKakaoSent(false), 3000);
+        alert('메시지가 복사되었습니다.\n카카오톡에서 붙여넣기 해주세요.');
+      });
+    }
   };
 
   const formatWorkDays = (days: number[]) => {
@@ -150,7 +252,7 @@ export default function InviteEmployeePage() {
     );
   }
 
-  // 초대 발송 성공 화면
+  // 초대 링크 생성 성공 화면
   if (success) {
     return (
       <div>
@@ -160,37 +262,45 @@ export default function InviteEmployeePage() {
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Check className="h-8 w-8 text-green-600" />
             </div>
-            <h2 className="text-xl font-bold mb-2">초대가 발송되었습니다!</h2>
+            <h2 className="text-xl font-bold mb-2">초대 링크가 생성되었습니다</h2>
             <p className="text-gray-600 mb-6">
               {formData.name} ({formData.phone})
             </p>
 
-            <div className="text-left mb-6">
-              <p className="text-sm font-medium text-gray-700 mb-2">발송 결과</p>
-              <div className="space-y-2">
-                {success.sendResults.kakao && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <MessageCircle className="h-4 w-4" />
-                    <span>카카오톡</span>
-                    <span className={success.sendResults.kakao.success ? 'text-green-600' : 'text-red-600'}>
-                      {success.sendResults.kakao.success ? '발송 완료' : '발송 실패'}
-                    </span>
-                  </div>
-                )}
-                {success.sendResults.sms && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <MessageSquare className="h-4 w-4" />
-                    <span>SMS</span>
-                    <span className={success.sendResults.sms.success ? 'text-green-600' : 'text-red-600'}>
-                      {success.sendResults.sms.success ? '발송 완료' : '발송 실패'}
-                    </span>
-                  </div>
-                )}
-              </div>
+            {/* 공유 버튼들 */}
+            <div className="space-y-3 mb-6">
+              <p className="text-sm font-medium text-gray-700 text-left">공유 방법 선택</p>
+
+              {/* 카카오톡 공유 */}
+              <button
+                type="button"
+                onClick={shareKakao}
+                className="w-full flex items-center justify-center gap-2 p-4 rounded-lg border-2 border-yellow-400 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 transition-colors"
+              >
+                <MessageCircle className="h-5 w-5" />
+                <span className="font-medium">
+                  {kakaoSent ? '복사 완료! 카카오톡에서 붙여넣기' : '카카오톡으로 공유'}
+                </span>
+                <ExternalLink className="h-4 w-4 ml-auto" />
+              </button>
+
+              {/* SMS 공유 */}
+              <button
+                type="button"
+                onClick={openSmsApp}
+                className="w-full flex items-center justify-center gap-2 p-4 rounded-lg border-2 border-blue-400 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+              >
+                <MessageSquare className="h-5 w-5" />
+                <span className="font-medium">
+                  {smsSent ? 'SMS 앱 열림' : 'SMS로 공유'}
+                </span>
+                <ExternalLink className="h-4 w-4 ml-auto" />
+              </button>
             </div>
 
+            {/* 초대 링크 복사 */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <p className="text-sm font-medium text-gray-700 mb-2">초대 링크</p>
+              <p className="text-sm font-medium text-gray-700 mb-2 text-left">초대 링크 직접 복사</p>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -202,7 +312,7 @@ export default function InviteEmployeePage() {
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
-              <p className="text-xs text-gray-500 mt-2">* 유효기간: 7일</p>
+              <p className="text-xs text-gray-500 mt-2 text-left">* 유효기간: 7일</p>
             </div>
 
             <div className="flex gap-3">
@@ -217,12 +327,15 @@ export default function InviteEmployeePage() {
                 className="flex-1"
                 onClick={() => {
                   setSuccess(null);
+                  setSmsSent(false);
+                  setKakaoSent(false);
+                  setCopied(false);
                   setFormData({
                     name: '',
                     phone: '',
                     storeId: formData.storeId,
                     templateId: formData.templateId,
-                    sendMethods: ['kakao', 'sms', 'link'],
+                    sendMethods: ['link'],
                   });
                 }}
               >
@@ -285,18 +398,24 @@ export default function InviteEmployeePage() {
 
           {/* 템플릿 선택 */}
           <div className="space-y-4 mb-8">
-            <h3 className="font-semibold text-gray-900 border-b pb-2">템플릿 선택</h3>
+            <div className="flex items-center justify-between border-b pb-2">
+              <h3 className="font-semibold text-gray-900">템플릿 선택</h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // 현재 폼 데이터를 sessionStorage에 저장
+                  sessionStorage.setItem('invite_form_data', JSON.stringify(formData));
+                  router.push('/employees/templates');
+                }}
+              >
+                템플릿 관리
+              </Button>
+            </div>
             {templates.length === 0 ? (
               <div className="bg-gray-50 rounded-lg p-4 text-center">
-                <p className="text-gray-500 text-sm mb-2">등록된 템플릿이 없습니다.</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push('/employees/templates')}
-                >
-                  템플릿 만들기
-                </Button>
+                <p className="text-gray-500 text-sm">등록된 템플릿이 없습니다. 템플릿을 먼저 만들어주세요.</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -336,67 +455,6 @@ export default function InviteEmployeePage() {
             )}
           </div>
 
-          {/* 발송 방법 */}
-          <div className="space-y-4 mb-8">
-            <h3 className="font-semibold text-gray-900 border-b pb-2">발송 방법 (복수 선택 가능)</h3>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => toggleSendMethod('kakao')}
-                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-colors relative ${
-                  formData.sendMethods.includes('kakao')
-                    ? 'border-yellow-500 bg-yellow-50 text-yellow-700'
-                    : 'border-gray-200 hover:border-gray-300 text-gray-500'
-                }`}
-              >
-                {formData.sendMethods.includes('kakao') && (
-                  <div className="absolute top-2 right-2">
-                    <Check className="h-4 w-4 text-yellow-600" />
-                  </div>
-                )}
-                <MessageCircle className="h-5 w-5" />
-                <span>카카오톡</span>
-                <span className="text-xs opacity-60">(준비중)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleSendMethod('sms')}
-                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-colors relative ${
-                  formData.sendMethods.includes('sms')
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 hover:border-gray-300 text-gray-500'
-                }`}
-              >
-                {formData.sendMethods.includes('sms') && (
-                  <div className="absolute top-2 right-2">
-                    <Check className="h-4 w-4 text-blue-600" />
-                  </div>
-                )}
-                <MessageSquare className="h-5 w-5" />
-                <span>SMS</span>
-                <span className="text-xs opacity-60">(준비중)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => toggleSendMethod('link')}
-                className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border-2 transition-colors relative ${
-                  formData.sendMethods.includes('link')
-                    ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-gray-200 hover:border-gray-300 text-gray-500'
-                }`}
-              >
-                {formData.sendMethods.includes('link') && (
-                  <div className="absolute top-2 right-2">
-                    <Check className="h-4 w-4 text-green-600" />
-                  </div>
-                )}
-                <Link2 className="h-5 w-5" />
-                <span>링크 복사</span>
-              </button>
-            </div>
-            <p className="text-xs text-gray-500">* 카카오톡/SMS는 외부 연동 후 사용 가능합니다. 현재는 링크 복사만 동작합니다.</p>
-          </div>
-
           {/* 제출 버튼 */}
           <div className="flex gap-3">
             <Button
@@ -410,14 +468,14 @@ export default function InviteEmployeePage() {
             <Button
               type="submit"
               className="flex-1"
-              disabled={submitting || !formData.name || !formData.phone || !formData.storeId || formData.sendMethods.length === 0}
+              disabled={submitting || !formData.name || !formData.phone || !formData.storeId}
             >
               {submitting ? (
-                '발송 중...'
+                '생성 중...'
               ) : (
                 <>
                   <Send className="h-4 w-4 mr-2" />
-                  초대 발송
+                  초대 링크 생성
                 </>
               )}
             </Button>

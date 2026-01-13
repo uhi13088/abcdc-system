@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import {
   Button,
@@ -14,7 +15,7 @@ import {
   Label,
   Alert,
 } from '@/components/ui';
-import { Plus, Edit, Trash2, FileText, Clock, DollarSign } from 'lucide-react';
+import { Plus, Edit, Trash2, FileText, Clock, DollarSign, ArrowLeft } from 'lucide-react';
 
 interface DaySchedule {
   startTime: string;
@@ -66,12 +67,20 @@ const documentOptions = [
 ];
 
 export default function InvitationTemplatesPage() {
+  const router = useRouter();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [hasInviteFormData, setHasInviteFormData] = useState(false);
+
+  // sessionStorage에 저장된 초대 폼 데이터가 있는지 확인
+  useEffect(() => {
+    const savedData = sessionStorage.getItem('invite_form_data');
+    setHasInviteFormData(!!savedData);
+  }, []);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -331,9 +340,21 @@ export default function InvitationTemplatesPage() {
 
       <div className="p-6">
         <div className="mb-6 flex justify-between items-center">
-          <p className="text-gray-600">
-            자주 사용하는 초대 조건을 템플릿으로 저장하면 초대 시 간편하게 사용할 수 있습니다.
-          </p>
+          <div className="flex items-center gap-4">
+            {hasInviteFormData && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push('/employees/invite')}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                직원 초대로 돌아가기
+              </Button>
+            )}
+            <p className="text-gray-600">
+              자주 사용하는 초대 조건을 템플릿으로 저장하면 초대 시 간편하게 사용할 수 있습니다.
+            </p>
+          </div>
           <Button onClick={openCreateDialog}>
             <Plus className="h-4 w-4 mr-2" />
             템플릿 추가
