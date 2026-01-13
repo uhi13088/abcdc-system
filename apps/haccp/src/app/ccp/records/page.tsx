@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, Check, X, AlertTriangle, Calendar, Filter } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -444,7 +444,7 @@ function CCPRecordsContent() {
 
 export default function CCPRecordsPage() {
   return (
-    <Suspense fallback={
+    <React.Suspense fallback={
       <div className="p-6">
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -452,6 +452,6 @@ export default function CCPRecordsPage() {
       </div>
     }>
       <CCPRecordsContent />
-    </Suspense>
+    </React.Suspense>
   );
 }

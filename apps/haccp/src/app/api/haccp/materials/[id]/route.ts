@@ -4,11 +4,11 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 // DELETE /api/haccp/materials/[id]
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createServerClient();
-    const { id } = params;
+    const supabase = await createServerClient();
+    const { id } = await params;
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {

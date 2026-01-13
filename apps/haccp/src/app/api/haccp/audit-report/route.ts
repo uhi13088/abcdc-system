@@ -4,13 +4,20 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { format, parseISO, differenceInDays } from 'date-fns';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+let _supabaseClient: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabaseClient) {
+    _supabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    );
+  }
+  return _supabaseClient;
+}
 
 interface AuditReportSummary {
   period: {
@@ -74,13 +81,13 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authError } = await getSupabase().auth.getUser(token);
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await getSupabase()
       .from('users')
       .select('company_id, role')
       .eq('auth_id', user.id)
@@ -161,7 +168,7 @@ async function getDailyHygieneStats(
   endDate: string,
   totalDays: number
 ) {
-  const { data: checks } = await supabase
+  const { data: checks } = await getSupabase()
     .from('haccp_check_status')
     .select('check_date, status')
     .eq('company_id', companyId)
@@ -184,7 +191,7 @@ async function getDailyHygieneStats(
 }
 
 async function getCCPMonitoringStats(companyId: string, startDate: string, endDate: string) {
-  const { data: records } = await supabase
+  const { data: records } = await getSupabase()
     .from('ccp_records')
     .select('*, ccp:ccp_definitions(process, critical_limit)')
     .eq('company_id', companyId)
@@ -216,7 +223,7 @@ async function getCCPMonitoringStats(companyId: string, startDate: string, endDa
 }
 
 async function getCorrectiveActionStats(companyId: string, startDate: string, endDate: string) {
-  const { data: actions } = await supabase
+  const { data: actions } = await getSupabase()
     .from('corrective_actions')
     .select('*')
     .eq('company_id', companyId)
@@ -253,7 +260,7 @@ async function getCorrectiveActionStats(companyId: string, startDate: string, en
 }
 
 async function getMaterialInspectionStats(companyId: string, startDate: string, endDate: string) {
-  const { data: inspections } = await supabase
+  const { data: inspections } = await getSupabase()
     .from('material_inspections')
     .select('result')
     .eq('company_id', companyId)
@@ -273,7 +280,7 @@ async function getMaterialInspectionStats(companyId: string, startDate: string, 
 }
 
 async function getProductionStats(companyId: string, startDate: string, endDate: string) {
-  const { data: records } = await supabase
+  const { data: records } = await getSupabase()
     .from('production_records')
     .select('quantity, quality')
     .eq('company_id', companyId)
@@ -299,14 +306,14 @@ async function getProductionStats(companyId: string, startDate: string, endDate:
 
 async function getCCPVerificationStats(companyId: string, startDate: string, endDate: string) {
   // CCP 정의 수 조회
-  const { data: ccpDefs } = await supabase
+  const { data: ccpDefs } = await getSupabase()
     .from('ccp_definitions')
     .select('id')
     .eq('company_id', companyId)
     .eq('is_active', true);
 
   // 검증 기록 조회
-  const { data: verifications } = await supabase
+  const { data: verifications } = await getSupabase()
     .from('ccp_verifications')
     .select('ccp_id')
     .eq('company_id', companyId)
@@ -325,7 +332,7 @@ async function getCCPVerificationStats(companyId: string, startDate: string, end
 }
 
 async function getTrainingStats(companyId: string, startDate: string, endDate: string) {
-  const { data: trainings } = await supabase
+  const { data: trainings } = await getSupabase()
     .from('trainings')
     .select('title, attendee_count')
     .eq('company_id', companyId)

@@ -5,12 +5,19 @@
  */
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+let _supabaseClient: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabaseClient) {
+    _supabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    );
+  }
+  return _supabaseClient;
+}
 
 // Offline threshold: 5 minutes
 const OFFLINE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -31,7 +38,7 @@ export async function GET() {
     };
 
     // Get all active sensors
-    const { data: sensors, error: fetchError } = await supabase
+    const { data: sensors, error: fetchError } = await getSupabase()
       .from('iot_sensors')
       .select('*, company:companies(name)')
       .eq('is_active', true);
@@ -59,7 +66,7 @@ export async function GET() {
           results.newOffline++;
 
           // Update sensor status to OFFLINE
-          await supabase
+          await getSupabase()
             .from('iot_sensors')
             .update({ status: 'OFFLINE' })
             .eq('id', sensor.id);
@@ -78,7 +85,7 @@ export async function GET() {
 
         // Update status to ONLINE if it was OFFLINE
         if (sensor.status === 'OFFLINE') {
-          await supabase
+          await getSupabase()
             .from('iot_sensors')
             .update({ status: 'ONLINE' })
             .eq('id', sensor.id);
@@ -89,7 +96,7 @@ export async function GET() {
     // Send notifications for newly offline sensors
     for (const [companyId, sensorNames] of Object.entries(offlineSensorsByCompany)) {
       // Get HACCP managers and admins for this company
-      const { data: users } = await supabase
+      const { data: users } = await getSupabase()
         .from('users')
         .select('id')
         .eq('company_id', companyId)
@@ -99,7 +106,7 @@ export async function GET() {
       const additionalCount = sensorNames.length > 3 ? ` 외 ${sensorNames.length - 3}개` : '';
 
       for (const user of users || []) {
-        await supabase.from('notifications').insert({
+        await getSupabase().from('notifications').insert({
           user_id: user.id,
           category: 'HACCP',
           priority: 'HIGH',
@@ -113,7 +120,7 @@ export async function GET() {
     // Check for sensors with calibration due
     const calibrationDueDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    const { data: needsCalibration } = await supabase
+    const { data: needsCalibration } = await getSupabase()
       .from('iot_sensors')
       .select('*, company:companies(name)')
       .eq('is_active', true)
@@ -132,14 +139,14 @@ export async function GET() {
       }
 
       for (const [companyId, sensorNames] of Object.entries(calibrationByCompany)) {
-        const { data: users } = await supabase
+        const { data: users } = await getSupabase()
           .from('users')
           .select('id')
           .eq('company_id', companyId)
           .in('role', ['HACCP_MANAGER', 'COMPANY_ADMIN']);
 
         for (const user of users || []) {
-          await supabase.from('notifications').insert({
+          await getSupabase().from('notifications').insert({
             user_id: user.id,
             category: 'HACCP',
             priority: 'NORMAL',

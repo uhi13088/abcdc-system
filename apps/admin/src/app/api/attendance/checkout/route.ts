@@ -8,12 +8,12 @@ import { createClient } from '@supabase/supabase-js';
 import { format, differenceInMinutes, differenceInHours } from 'date-fns';
 import { QRCodeService } from '@/lib/services/qr-code.service';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
-
-const qrService = new QRCodeService();
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+}
 
 /**
  * 근무시간 계산 (휴게시간 제외)
@@ -61,6 +61,9 @@ function calculateWorkHours(
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getSupabaseClient();
+    const qrService = new QRCodeService();
+
     const body = await request.json();
     const {
       userId,
@@ -237,6 +240,7 @@ export async function POST(request: NextRequest) {
 // 자동 퇴근 처리 (Cron용)
 export async function PUT(request: NextRequest) {
   try {
+    const supabase = getSupabaseClient();
     const today = format(new Date(), 'yyyy-MM-dd');
     const now = new Date();
 

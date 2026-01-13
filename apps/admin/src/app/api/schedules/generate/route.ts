@@ -8,14 +8,16 @@ import { createClient } from '@supabase/supabase-js';
 import { ScheduleGeneratorService } from '@/lib/services/schedule-generator.service';
 import { parseISO } from 'date-fns';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
-
-const scheduleGenerator = new ScheduleGeneratorService();
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+}
 
 export async function POST(request: NextRequest) {
+  const supabase = getSupabaseClient();
+  const scheduleGenerator = new ScheduleGeneratorService();
   try {
     const body = await request.json();
     const {
@@ -126,6 +128,8 @@ export async function POST(request: NextRequest) {
 
 // 스케줄 삭제
 export async function DELETE(request: NextRequest) {
+  const supabase = getSupabaseClient();
+  const scheduleGenerator = new ScheduleGeneratorService();
   try {
     const { searchParams } = new URL(request.url);
     const staffId = searchParams.get('staffId');

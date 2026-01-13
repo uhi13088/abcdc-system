@@ -7,15 +7,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { PDFGenerator, emailService, pushNotificationService } from '@abc/shared/server';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+}
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const supabase = getSupabaseClient();
   try {
     const salaryId = params.id;
 
@@ -159,6 +162,7 @@ export async function POST(
 
 // 일괄 발송
 export async function PUT(request: NextRequest) {
+  const supabase = getSupabaseClient();
   try {
     const body = await request.json();
     const { salaryIds } = body;

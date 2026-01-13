@@ -8,12 +8,12 @@ import { createClient } from '@supabase/supabase-js';
 import { format } from 'date-fns';
 import { QRCodeService } from '@/lib/services/qr-code.service';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
-
-const qrService = new QRCodeService();
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+}
 
 /**
  * 두 좌표 간의 거리 계산 (미터)
@@ -41,6 +41,9 @@ function calculateDistance(
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = getSupabaseClient();
+    const qrService = new QRCodeService();
+
     const body = await request.json();
     const {
       userId,

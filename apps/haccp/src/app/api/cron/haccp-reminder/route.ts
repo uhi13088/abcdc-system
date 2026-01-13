@@ -4,14 +4,21 @@
  */
 
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
-import { pushNotificationService } from '@abc/shared/server';
+import { getPushNotificationService } from '@abc/shared/server';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+let _supabaseClient: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabaseClient) {
+    _supabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    );
+  }
+  return _supabaseClient;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -87,7 +94,7 @@ async function sendDailyCheckReminders(shift: string): Promise<{ sent: number; e
   const today = format(new Date(), 'yyyy-MM-dd');
 
   // 아직 점검 안 된 회사들 조회
-  const { data: companies } = await supabase
+  const { data: companies } = await getSupabase()
     .from('companies')
     .select('id, name')
     .eq('status', 'ACTIVE');
@@ -96,7 +103,7 @@ async function sendDailyCheckReminders(shift: string): Promise<{ sent: number; e
 
   for (const company of companies || []) {
     // 해당 시프트 점검 상태 확인
-    const { data: checkStatus } = await supabase
+    const { data: checkStatus } = await getSupabase()
       .from('haccp_check_status')
       .select('id, status')
       .eq('company_id', company.id)
@@ -111,14 +118,14 @@ async function sendDailyCheckReminders(shift: string): Promise<{ sent: number; e
     }
 
     // HACCP 담당 직원 조회
-    const { data: staff } = await supabase
+    const { data: staff } = await getSupabase()
       .from('users')
       .select('id')
       .eq('company_id', company.id)
       .in('role', ['HACCP_STAFF', 'STORE_MANAGER']);
 
     for (const user of staff || []) {
-      await supabase.from('notifications').insert({
+      await getSupabase().from('notifications').insert({
         user_id: user.id,
         category: 'HACCP',
         priority: 'HIGH',
@@ -131,7 +138,7 @@ async function sendDailyCheckReminders(shift: string): Promise<{ sent: number; e
     }
 
     // 점검 상태 기록/업데이트
-    await supabase.from('haccp_check_status').upsert(
+    await getSupabase().from('haccp_check_status').upsert(
       {
         company_id: company.id,
         check_type: 'DAILY_HYGIENE',
@@ -151,7 +158,7 @@ async function sendDailyCheckReminders(shift: string): Promise<{ sent: number; e
 async function sendWeeklyCheckReminders(): Promise<{ sent: number; escalated: number }> {
   const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
-  const { data: companies } = await supabase
+  const { data: companies } = await getSupabase()
     .from('companies')
     .select('id')
     .eq('status', 'ACTIVE');
@@ -163,7 +170,7 @@ async function sendWeeklyCheckReminders(): Promise<{ sent: number; escalated: nu
     const weeklyChecks = ['PEST_CONTROL', 'EQUIPMENT_CALIBRATION', 'CLEANING_SCHEDULE'];
 
     for (const checkType of weeklyChecks) {
-      const { data: checkStatus } = await supabase
+      const { data: checkStatus } = await getSupabase()
         .from('haccp_check_status')
         .select('status')
         .eq('company_id', company.id)
@@ -173,7 +180,7 @@ async function sendWeeklyCheckReminders(): Promise<{ sent: number; escalated: nu
 
       if (checkStatus?.status === 'COMPLETED') continue;
 
-      const { data: managers } = await supabase
+      const { data: managers } = await getSupabase()
         .from('users')
         .select('id')
         .eq('company_id', company.id)
@@ -186,7 +193,7 @@ async function sendWeeklyCheckReminders(): Promise<{ sent: number; escalated: nu
       }[checkType];
 
       for (const manager of managers || []) {
-        await supabase.from('notifications').insert({
+        await getSupabase().from('notifications').insert({
           user_id: manager.id,
           category: 'HACCP',
           priority: 'NORMAL',
@@ -205,7 +212,7 @@ async function sendWeeklyCheckReminders(): Promise<{ sent: number; escalated: nu
 async function sendMonthlyVerificationReminders(): Promise<{ sent: number; escalated: number }> {
   const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
 
-  const { data: companies } = await supabase
+  const { data: companies } = await getSupabase()
     .from('companies')
     .select('id')
     .eq('status', 'ACTIVE');
@@ -214,14 +221,14 @@ async function sendMonthlyVerificationReminders(): Promise<{ sent: number; escal
 
   for (const company of companies || []) {
     // CCP 월간 검증 필요 여부 확인
-    const { data: ccpDefs } = await supabase
+    const { data: ccpDefs } = await getSupabase()
       .from('ccp_definitions')
       .select('id, process')
       .eq('company_id', company.id)
       .eq('is_active', true);
 
     for (const ccp of ccpDefs || []) {
-      const { data: verification } = await supabase
+      const { data: verification } = await getSupabase()
         .from('ccp_verifications')
         .select('id')
         .eq('ccp_id', ccp.id)
@@ -230,14 +237,14 @@ async function sendMonthlyVerificationReminders(): Promise<{ sent: number; escal
 
       if (verification) continue;
 
-      const { data: managers } = await supabase
+      const { data: managers } = await getSupabase()
         .from('users')
         .select('id')
         .eq('company_id', company.id)
         .in('role', ['HACCP_MANAGER', 'COMPANY_ADMIN']);
 
       for (const manager of managers || []) {
-        await supabase.from('notifications').insert({
+        await getSupabase().from('notifications').insert({
           user_id: manager.id,
           category: 'HACCP',
           priority: 'HIGH',
@@ -257,7 +264,7 @@ async function processEscalations(): Promise<{ escalated: number }> {
   const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
 
   // 2시간 전 리마인더 보냈는데 아직 미완료인 항목
-  const { data: pendingChecks } = await supabase
+  const { data: pendingChecks } = await getSupabase()
     .from('haccp_check_status')
     .select('*')
     .eq('status', 'PENDING')
@@ -269,14 +276,14 @@ async function processEscalations(): Promise<{ escalated: number }> {
 
   for (const check of pendingChecks || []) {
     // 상위 관리자에게 에스컬레이션
-    const { data: admins } = await supabase
+    const { data: admins } = await getSupabase()
       .from('users')
       .select('id')
       .eq('company_id', check.company_id)
       .in('role', ['COMPANY_ADMIN', 'HACCP_MANAGER']);
 
     for (const admin of admins || []) {
-      await supabase.from('notifications').insert({
+      await getSupabase().from('notifications').insert({
         user_id: admin.id,
         category: 'HACCP',
         priority: 'HIGH',
@@ -287,7 +294,7 @@ async function processEscalations(): Promise<{ escalated: number }> {
     }
 
     // FCM 푸시 발송
-    const { data: fcmTokens } = await supabase
+    const { data: fcmTokens } = await getSupabase()
       .from('user_fcm_tokens')
       .select('fcm_token')
       .in('user_id', (admins || []).map(a => a.id))
@@ -295,7 +302,7 @@ async function processEscalations(): Promise<{ escalated: number }> {
 
     for (const token of fcmTokens || []) {
       try {
-        await pushNotificationService.send(token.fcm_token, {
+        await getPushNotificationService().send(token.fcm_token, {
           title: '긴급: 점검 미완료',
           body: `${check.check_type} 점검 지연`,
           category: 'HACCP',
@@ -307,7 +314,7 @@ async function processEscalations(): Promise<{ escalated: number }> {
     }
 
     // 에스컬레이션 상태 업데이트
-    await supabase
+    await getSupabase()
       .from('haccp_check_status')
       .update({
         escalation_sent: true,

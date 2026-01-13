@@ -5,15 +5,33 @@
 
 import * as jwt from 'jsonwebtoken';
 import QRCode from 'qrcode';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+let _supabaseClient: SupabaseClient | null = null;
 
-const QR_SECRET = process.env.QR_SECRET || 'abc-staff-qr-secret-key';
-const APP_SCHEME = process.env.APP_SCHEME || 'abcstaff';
+function getSupabase(): SupabaseClient {
+  if (!_supabaseClient) {
+    _supabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    );
+  }
+  return _supabaseClient;
+}
+
+const supabase = new Proxy({} as SupabaseClient, {
+  get(_, prop) {
+    return (getSupabase() as any)[prop];
+  }
+});
+
+function getQRSecret(): string {
+  return process.env.QR_SECRET || 'abc-staff-qr-secret-key';
+}
+
+function getAppScheme(): string {
+  return process.env.APP_SCHEME || 'abcstaff';
+}
 
 export interface QRPayload {
   type: 'STORE_CHECKIN';
@@ -69,10 +87,10 @@ export class QRCodeService {
       nonce,
     };
 
-    const token = jwt.sign(payload, QR_SECRET, { expiresIn } as jwt.SignOptions);
+    const token = jwt.sign(payload, getQRSecret(), { expiresIn } as jwt.SignOptions);
 
     // QR 코드 데이터 URL 생성
-    const qrContent = `${APP_SCHEME}://checkin/${token}`;
+    const qrContent = `${getAppScheme()}://checkin/${token}`;
     const qrDataUrl = await QRCode.toDataURL(qrContent, {
       width: 300,
       margin: 2,
@@ -112,7 +130,7 @@ export class QRCodeService {
   async verifyQR(token: string): Promise<QRVerifyResult> {
     try {
       // JWT 검증
-      const decoded = jwt.verify(token, QR_SECRET) as QRPayload;
+      const decoded = jwt.verify(token, getQRSecret()) as QRPayload;
 
       if (decoded.type !== 'STORE_CHECKIN') {
         return { valid: false, storeId: '', error: 'Invalid QR type' };

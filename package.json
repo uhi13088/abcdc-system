@@ -6,6 +6,12 @@
     "apps/*",
     "packages/*"
   ],
+  "pnpm": {
+    "overrides": {
+      "@types/react": "18.3.27",
+      "@types/react-dom": "18.3.7"
+    }
+  },
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",

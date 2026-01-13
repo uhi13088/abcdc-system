@@ -8,15 +8,18 @@ import { createClient } from '@supabase/supabase-js';
 import { pushNotificationService } from '@abc/shared/server';
 import { ContractPDFService } from '@/lib/services/contract-pdf.service';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+}
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const supabase = getSupabaseClient();
   try {
     const contractId = params.id;
     const body = await request.json();
@@ -252,6 +255,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const supabase = getSupabaseClient();
   try {
     const contractId = params.id;
 

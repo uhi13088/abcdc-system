@@ -3,13 +3,26 @@
  * BLE/WiFi 센서 연결 및 CCP 자동 기록
  */
 
-import { createClient } from '@supabase/supabase-js';
-import { pushNotificationService } from '@abc/shared/server';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { getPushNotificationService } from '@abc/shared/server';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+let _supabaseClient: SupabaseClient | null = null;
+
+function getSupabase(): SupabaseClient {
+  if (!_supabaseClient) {
+    _supabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    );
+  }
+  return _supabaseClient;
+}
+
+const supabase = new Proxy({} as SupabaseClient, {
+  get(_, prop) {
+    return (getSupabase() as any)[prop];
+  }
+});
 
 export interface Sensor {
   id: string;
@@ -228,7 +241,7 @@ export class IoTSensorService {
 
     for (const token of fcmTokens || []) {
       try {
-        await pushNotificationService.send(token.fcm_token, {
+        await getPushNotificationService().send(token.fcm_token, {
           title: 'CCP 한계 초과 경고',
           body: `${sensor.location}: ${value}${unit}`,
           category: 'HACCP',

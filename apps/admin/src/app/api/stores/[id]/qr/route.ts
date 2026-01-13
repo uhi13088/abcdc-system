@@ -9,10 +9,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { QRCodeService } from '@/lib/services/qr-code.service';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+}
 
 const qrService = new QRCodeService();
 
@@ -21,6 +23,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const supabase = getSupabaseClient();
   try {
     const storeId = params.id;
 
@@ -63,6 +66,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const supabase = getSupabaseClient();
   try {
     const storeId = params.id;
     const body = await request.json();
@@ -127,6 +131,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const supabase = getSupabaseClient();
   try {
     const storeId = params.id;
     const { searchParams } = new URL(request.url);

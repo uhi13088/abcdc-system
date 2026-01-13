@@ -1,8 +1,9 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, memo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   LayoutDashboard,
   ShieldCheck,
@@ -80,7 +81,7 @@ function SidebarComponent() {
   const [isHovered, setIsHovered] = useState(false);
 
   const handleSignOut = useCallback(async () => {
-    const supabase = createClient();
+    const supabase = await createClient();
     await supabase.auth.signOut();
     router.push('/auth/login');
     router.refresh();
@@ -248,4 +249,4 @@ function SidebarComponent() {
   );
 }
 
-export const Sidebar = memo(SidebarComponent);
+export { SidebarComponent as Sidebar };

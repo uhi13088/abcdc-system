@@ -41,7 +41,7 @@ export default function LoginPage() {
         localStorage.removeItem('rememberedEmail');
       }
 
-      const supabase = createClient();
+      const supabase = await createClient();
       const { error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,

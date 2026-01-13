@@ -8,10 +8,12 @@ import { createClient } from '@supabase/supabase-js';
 import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
 import { pushNotificationService } from '@abc/shared/server';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +34,7 @@ const SHIFT_NAMES: Record<number, string> = {
 };
 
 export async function GET() {
+  const supabase = getSupabaseClient();
   try {
     const now = new Date();
     const currentHour = now.getHours();
@@ -84,6 +87,7 @@ export async function GET() {
 }
 
 async function sendDailyCheckReminders(shift: string): Promise<{ sent: number; escalated: number }> {
+  const supabase = getSupabaseClient();
   const today = format(new Date(), 'yyyy-MM-dd');
 
   // 아직 점검 안 된 회사들 조회
@@ -149,6 +153,7 @@ async function sendDailyCheckReminders(shift: string): Promise<{ sent: number; e
 }
 
 async function sendWeeklyCheckReminders(): Promise<{ sent: number; escalated: number }> {
+  const supabase = getSupabaseClient();
   const weekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
   const { data: companies } = await supabase
@@ -203,6 +208,7 @@ async function sendWeeklyCheckReminders(): Promise<{ sent: number; escalated: nu
 }
 
 async function sendMonthlyVerificationReminders(): Promise<{ sent: number; escalated: number }> {
+  const supabase = getSupabaseClient();
   const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
 
   const { data: companies } = await supabase
@@ -254,6 +260,7 @@ async function sendMonthlyVerificationReminders(): Promise<{ sent: number; escal
 }
 
 async function processEscalations(): Promise<{ escalated: number }> {
+  const supabase = getSupabaseClient();
   const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
 
   // 2시간 전 리마인더 보냈는데 아직 미완료인 항목
