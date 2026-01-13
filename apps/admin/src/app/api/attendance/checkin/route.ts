@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
 
       const allowedRadius = store.allowed_radius || 100; // 기본 100m
 
-      if (store.geofence_enabled !== false && distanceFromStore > allowedRadius) {
+      if (distanceFromStore > allowedRadius) {
         // 위치 이탈 기록 (하지만 출근은 허용할 수도 있음)
         locationValid = false;
       }
@@ -201,8 +201,6 @@ export async function POST(request: NextRequest) {
       check_in_lat: latitude,
       check_in_lng: longitude,
       check_in_method: qrToken ? 'QR' : 'LOCATION',
-      check_in_photo_url: photoUrl,
-      device_info: deviceInfo,
       status,
     };
 

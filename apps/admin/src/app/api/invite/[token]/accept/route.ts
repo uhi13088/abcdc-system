@@ -122,7 +122,7 @@ export async function POST(
       return NextResponse.json({ error: '계정 생성에 실패했습니다: ' + authError.message }, { status: 500 });
     }
 
-    // users 테이블에 사용자 정보 저장
+    // users 테이블에 사용자 정보 저장 (기본 스키마 필드만 사용)
     const { data: newUser, error: userError } = await adminClient
       .from('users')
       .insert({
@@ -137,23 +137,10 @@ export async function POST(
         store_id: invitation.store_id,
         status: 'ACTIVE',
         birth_date: data.birthDate || null,
-        ssn_last: data.ssnLast || null,
         address: data.address || null,
-        address_detail: data.addressDetail || null,
-        emergency_contact: data.emergencyContact || null,
         bank_name: data.bankName || null,
         bank_account: data.bankAccount || null,
-        bank_holder: data.bankHolder || null,
-        salary_type: invitation.salary_type,
-        salary_amount: data.salaryAmount || invitation.salary_amount,
-        work_days: data.workDays || invitation.work_days,
-        work_start_time: data.workStartTime || invitation.work_start_time,
-        work_end_time: data.workEndTime || invitation.work_end_time,
-        break_minutes: data.breakMinutes || invitation.break_minutes,
-        vehicle_number: data.vehicleNumber || null,
-        certifications: data.certifications || [],
-        documents: data.documents || {},
-        invitation_id: invitation.id,
+        account_holder: data.bankHolder || null,
       })
       .select()
       .single();
