@@ -227,12 +227,12 @@ export default function InviteEmployeePage() {
     }
 
     // Web Share API 지원하면 사용 (모바일에서 카카오톡 선택 가능)
+    // URL을 text에 직접 포함해야 메시지에 표시됨
     if (navigator.share) {
       try {
         await navigator.share({
           title: shareTitle,
-          text: shareText,
-          url: success.inviteUrl,
+          text: `${shareText}\n\n${success.inviteUrl}`,
         });
         setKakaoSent(true);
         setTimeout(() => setKakaoSent(false), 3000);
@@ -260,10 +260,10 @@ export default function InviteEmployeePage() {
 
     if (navigator.share) {
       try {
+        // URL을 text에 직접 포함해야 메시지에 표시됨
         await navigator.share({
           title: shareTitle,
-          text: shareText,
-          url: success.inviteUrl,
+          text: `${shareText}\n\n${success.inviteUrl}`,
         });
       } catch (err) {
         // 사용자가 취소한 경우 무시
