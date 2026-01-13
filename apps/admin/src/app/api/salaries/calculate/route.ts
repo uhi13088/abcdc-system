@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createClient as createAuthClient } from '@/lib/supabase/server';
 import { SalaryCalculationService } from '@/lib/services/salary-calculation.service';
 
 function getSupabaseClient() {
@@ -17,6 +18,29 @@ function getSupabaseClient() {
 export async function POST(request: NextRequest) {
   const supabase = getSupabaseClient();
   try {
+    // 인증 검증
+    const authClient = await createAuthClient();
+    const { data: { user: authUser } } = await authClient.auth.getUser();
+    if (!authUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // 사용자 정보 및 권한 확인
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, role, company_id')
+      .eq('auth_id', authUser.id)
+      .single();
+
+    if (!userData) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // 관리자 권한 확인
+    if (!['super_admin', 'company_admin', 'manager', 'store_manager'].includes(userData.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { staffId, staffIds, companyId, year, month } = body;
 

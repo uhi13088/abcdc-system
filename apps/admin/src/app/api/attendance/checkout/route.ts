@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createClient as createAuthClient } from '@/lib/supabase/server';
 import { format, differenceInMinutes, differenceInHours } from 'date-fns';
 import { QRCodeService } from '@/lib/services/qr-code.service';
 
@@ -64,9 +65,26 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseClient();
     const qrService = new QRCodeService();
 
+    // 인증 검증
+    const authClient = await createAuthClient();
+    const { data: { user: authUser } } = await authClient.auth.getUser();
+    if (!authUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // 사용자 정보 조회
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('auth_id', authUser.id)
+      .single();
+
+    if (!userData) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
     const body = await request.json();
     const {
-      userId,
       qrToken,
       latitude,
       longitude,
@@ -74,12 +92,8 @@ export async function POST(request: NextRequest) {
       photoUrl,
     } = body;
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: '사용자 ID가 필요합니다.' },
-        { status: 400 }
-      );
-    }
+    // 인증된 사용자 ID 사용 (보안: body에서 받지 않음)
+    const userId = userData.id;
 
     const today = format(new Date(), 'yyyy-MM-dd');
     const now = new Date();
