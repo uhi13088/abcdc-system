@@ -191,7 +191,7 @@ export default function CCPPage() {
 
               <div className="flex justify-end gap-1 px-5 py-3 border-t bg-gray-50">
                 <Link
-                  href={`/haccp/ccp/records?ccp=${ccp.id}`}
+                  href={`/ccp/records?ccp=${ccp.id}`}
                   className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded"
                 >
                   기록하기
