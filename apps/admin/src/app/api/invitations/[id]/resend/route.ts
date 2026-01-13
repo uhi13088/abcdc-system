@@ -74,8 +74,9 @@ export async function POST(
       newExpiresAt.setDate(newExpiresAt.getDate() + (validation.data.extendDays || 7));
     }
 
-    // 초대 링크
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    // 초대 링크 - 요청 URL에서 호스트 추출
+    const requestUrl = new URL(request.url);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${requestUrl.protocol}//${requestUrl.host}`;
     const inviteUrl = `${baseUrl}/invite/${invitation.token}`;
 
     // 발송 결과

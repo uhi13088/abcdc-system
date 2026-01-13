@@ -41,8 +41,9 @@ export async function GET(
       return NextResponse.json({ error: '초대를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 초대 링크 생성
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    // 초대 링크 생성 - 요청 URL에서 호스트 추출
+    const requestUrl = new URL(request.url);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${requestUrl.protocol}//${requestUrl.host}`;
     const inviteUrl = `${baseUrl}/invite/${invitation.token}`;
 
     return NextResponse.json({ data: invitation, inviteUrl });
