@@ -106,6 +106,18 @@ export const CreateStoreSchema = z.object({
   earlyCheckinMinutes: z.number().min(0).max(120, '조기 출근 허용 시간은 최대 120분까지 설정 가능합니다').default(30),
   earlyCheckoutMinutes: z.number().min(0).max(120, '조기 퇴근 허용 시간은 최대 120분까지 설정 가능합니다').default(30),
   defaultHourlyRate: z.number().min(0, '기본 시급은 0 이상이어야 합니다').optional(),
+  // 급여 설정
+  payDay: z.number().min(1, '급여 지급일은 1 이상이어야 합니다').max(31, '급여 지급일은 31 이하여야 합니다').default(10),
+  payPeriodType: z.enum(['previous_month', 'current_month', 'custom']).default('previous_month'),
+  payPeriodStartDay: z.number().min(1).max(31).optional(),
+  payPeriodEndDay: z.number().min(1).max(31).optional(),
+  // 수당 적용 설정
+  allowanceOvertime: z.boolean().default(false),
+  allowanceNight: z.boolean().default(false),
+  allowanceHoliday: z.boolean().default(false),
+  // 운영 시간
+  openingTime: TimeSchema.optional(),
+  closingTime: TimeSchema.optional(),
 });
 
 export const UpdateStoreSchema = CreateStoreSchema.partial().omit({ companyId: true, brandId: true });

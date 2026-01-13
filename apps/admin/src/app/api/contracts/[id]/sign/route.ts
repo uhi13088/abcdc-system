@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createClient as createAuthClient } from '@/lib/supabase/server';
 import { pushNotificationService } from '@abc/shared/server';
 import { ContractPDFService } from '@/lib/services/contract-pdf.service';
 
@@ -21,6 +22,13 @@ export async function POST(
 ) {
   const supabase = getSupabaseClient();
   try {
+    // 인증 검증
+    const authClient = await createAuthClient();
+    const { data: { user } } = await authClient.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const contractId = params.id;
     const body = await request.json();
     const { signature, signerId, signerType = 'EMPLOYEE', deviceInfo, ipAddress } = body;
@@ -30,6 +38,17 @@ export async function POST(
         { error: '서명 데이터가 필요합니다.' },
         { status: 400 }
       );
+    }
+
+    // 서명자가 본인 또는 관련자인지 확인
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('auth_id', user.id)
+      .single();
+
+    if (!userData) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // 계약서 정보 조회
@@ -58,6 +77,24 @@ export async function POST(
       return NextResponse.json(
         { error: '계약서를 찾을 수 없습니다.' },
         { status: 404 }
+      );
+    }
+
+    // 서명 권한 확인: 직원 본인이거나 관리자(고용주 서명)인지
+    const isEmployee = contract.staff_id === userData.id;
+    const isAdmin = ['super_admin', 'company_admin', 'manager', 'store_manager'].includes(userData.role);
+
+    if (signerType === 'EMPLOYEE' && !isEmployee) {
+      return NextResponse.json(
+        { error: '본인의 계약서만 서명할 수 있습니다.' },
+        { status: 403 }
+      );
+    }
+
+    if (signerType === 'EMPLOYER' && !isAdmin) {
+      return NextResponse.json(
+        { error: '고용주 서명 권한이 없습니다.' },
+        { status: 403 }
       );
     }
 

@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createClient as createAuthClient } from '@/lib/supabase/server';
 import { format } from 'date-fns';
 import { QRCodeService } from '@/lib/services/qr-code.service';
 
@@ -44,9 +45,26 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseClient();
     const qrService = new QRCodeService();
 
+    // 인증 검증
+    const authClient = await createAuthClient();
+    const { data: { user: authUser } } = await authClient.auth.getUser();
+    if (!authUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // 사용자 정보 조회
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, store_id')
+      .eq('auth_id', authUser.id)
+      .single();
+
+    if (!userData) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
     const body = await request.json();
     const {
-      userId,
       qrToken,
       latitude,
       longitude,
@@ -54,12 +72,8 @@ export async function POST(request: NextRequest) {
       photoUrl,
     } = body;
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: '사용자 ID가 필요합니다.' },
-        { status: 400 }
-      );
-    }
+    // 인증된 사용자 ID 사용 (보안: body에서 받지 않음)
+    const userId = userData.id;
 
     let storeId: string;
 
@@ -84,21 +98,15 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 사용자의 배정 매장 조회
-      const { data: user, error: userError } = await supabase
-        .from('users')
-        .select('store_id')
-        .eq('id', userId)
-        .single();
-
-      if (userError || !user?.store_id) {
+      // 이미 인증에서 조회한 store_id 사용
+      if (!userData.store_id) {
         return NextResponse.json(
           { error: '배정된 매장이 없습니다.' },
           { status: 400 }
         );
       }
 
-      storeId = user.store_id;
+      storeId = userData.store_id;
     }
 
     // 매장 정보 조회
