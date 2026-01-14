@@ -2,8 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Script from 'next/script';
 import { Button, Input, Select, Label, Alert } from '@/components/ui';
-import { Check, Building2, MapPin, Clock, DollarSign, Smartphone, Download } from 'lucide-react';
+import { Check, Building2, MapPin, Clock, DollarSign, Smartphone, Search, Briefcase } from 'lucide-react';
+
+// DaumPostcodeData 인터페이스 (Window.daum 타입은 register/page.tsx에서 전역 선언됨)
+interface DaumPostcodeData {
+  zonecode: string;
+  address: string;
+  addressType: string;
+  bname: string;
+  buildingName: string;
+  jibunAddress: string;
+  roadAddress: string;
+}
 
 interface InvitationData {
   id: string;
@@ -54,6 +66,7 @@ export default function InviteAcceptPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [postcodeLoaded, setPostcodeLoaded] = useState(false);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -61,6 +74,7 @@ export default function InviteAcceptPage() {
     passwordConfirm: '',
     birthDate: '',
     ssnLast: '',
+    zonecode: '',
     address: '',
     addressDetail: '',
     emergencyName: '',
@@ -69,9 +83,8 @@ export default function InviteAcceptPage() {
     bankName: '',
     bankAccount: '',
     bankHolder: '',
-    salaryAmount: 0,
-    position: '',
     vehicleNumber: '',
+    agreePrivacy: false,
   });
 
   useEffect(() => {
@@ -82,11 +95,6 @@ export default function InviteAcceptPage() {
 
         if (response.ok) {
           setInvitation(result.data);
-          setFormData((prev) => ({
-            ...prev,
-            salaryAmount: result.data.salary_amount,
-            position: result.data.position || '',
-          }));
         } else {
           setError(result.error || '초대 정보를 불러올 수 없습니다.');
         }
@@ -99,6 +107,26 @@ export default function InviteAcceptPage() {
 
     fetchInvitation();
   }, [token]);
+
+  const openAddressSearch = () => {
+    if (!postcodeLoaded || !window.daum) {
+      alert('주소 검색 서비스를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
+    new window.daum.Postcode({
+      oncomplete: (data: DaumPostcodeData) => {
+        // 도로명 주소 우선, 없으면 지번 주소
+        const fullAddress = data.roadAddress || data.jibunAddress;
+
+        setFormData(prev => ({
+          ...prev,
+          zonecode: data.zonecode,
+          address: fullAddress,
+        }));
+      },
+    }).open();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +143,56 @@ export default function InviteAcceptPage() {
       return;
     }
 
+    if (!formData.birthDate) {
+      setError('생년월일을 입력해주세요.');
+      return;
+    }
+
+    if (!formData.ssnLast || formData.ssnLast.length !== 7) {
+      setError('주민등록번호 뒷자리 7자리를 입력해주세요.');
+      return;
+    }
+
+    if (!formData.address) {
+      setError('주소를 검색하여 입력해주세요.');
+      return;
+    }
+
+    if (!formData.addressDetail) {
+      setError('상세주소를 입력해주세요.');
+      return;
+    }
+
+    if (!formData.emergencyPhone) {
+      setError('비상연락처 전화번호를 입력해주세요.');
+      return;
+    }
+
+    if (!formData.emergencyRelationship) {
+      setError('비상연락처 관계를 입력해주세요.');
+      return;
+    }
+
+    if (!formData.bankName) {
+      setError('은행을 선택해주세요.');
+      return;
+    }
+
+    if (!formData.bankAccount) {
+      setError('계좌번호를 입력해주세요.');
+      return;
+    }
+
+    if (!formData.bankHolder) {
+      setError('예금주를 입력해주세요.');
+      return;
+    }
+
+    if (!formData.agreePrivacy) {
+      setError('개인정보 수집·이용에 동의해주세요.');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -124,22 +202,19 @@ export default function InviteAcceptPage() {
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
-          birthDate: formData.birthDate || undefined,
-          ssnLast: formData.ssnLast || undefined,
-          address: formData.address || undefined,
-          addressDetail: formData.addressDetail || undefined,
-          emergencyContact: formData.emergencyName
-            ? {
-                name: formData.emergencyName,
-                phone: formData.emergencyPhone,
-                relationship: formData.emergencyRelationship,
-              }
-            : undefined,
-          bankName: formData.bankName || undefined,
-          bankAccount: formData.bankAccount || undefined,
-          bankHolder: formData.bankHolder || undefined,
-          salaryAmount: formData.salaryAmount,
-          position: formData.position || undefined,
+          birthDate: formData.birthDate,
+          ssnLast: formData.ssnLast,
+          zonecode: formData.zonecode,
+          address: formData.address,
+          addressDetail: formData.addressDetail,
+          emergencyContact: {
+            name: formData.emergencyName || undefined,
+            phone: formData.emergencyPhone,
+            relationship: formData.emergencyRelationship,
+          },
+          bankName: formData.bankName,
+          bankAccount: formData.bankAccount,
+          bankHolder: formData.bankHolder,
           vehicleNumber: formData.vehicleNumber || undefined,
         }),
       });
@@ -244,231 +319,259 @@ export default function InviteAcceptPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* 헤더 */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6 text-center">
-          <div className="flex items-center justify-center gap-2 text-blue-600 mb-2">
-            <Building2 className="h-5 w-5" />
-            <span className="font-medium">{invitation?.companies?.name}</span>
+    <>
+      {/* 다음 주소검색 API 로드 */}
+      <Script
+        src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"
+        onLoad={() => setPostcodeLoaded(true)}
+        strategy="lazyOnload"
+      />
+
+      <div className="min-h-screen bg-gray-50 py-8 px-4">
+        <div className="max-w-2xl mx-auto">
+          {/* 헤더 */}
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-6 text-center">
+            <div className="flex items-center justify-center gap-2 text-blue-600 mb-2">
+              <Building2 className="h-5 w-5" />
+              <span className="font-medium">{invitation?.companies?.name}</span>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">
+              {invitation?.stores?.name}
+            </h1>
+            <p className="text-gray-600">직원 등록</p>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">
-            {invitation?.stores?.name}
-          </h1>
-          <p className="text-gray-600">직원 등록</p>
-        </div>
 
-        {/* 근무 조건 요약 */}
-        <div className="bg-blue-50 rounded-lg p-4 mb-6">
-          <h3 className="font-medium text-blue-900 mb-3">근무 조건</h3>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-blue-600" />
-              <span>
-                {salaryTypeLabels[invitation?.salary_type || 'hourly']}{' '}
-                {invitation?.salary_amount?.toLocaleString()}원
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-blue-600" />
-              <span>
-                {invitation?.work_start_time} ~ {invitation?.work_end_time}
-              </span>
-            </div>
-            <div className="col-span-2 flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-blue-600" />
-              <span>
-                {formatWorkDays(invitation?.work_days || [])} 근무
-              </span>
+          {/* 근무 조건 요약 */}
+          <div className="bg-blue-50 rounded-lg p-4 mb-6">
+            <h3 className="font-medium text-blue-900 mb-3">근무 조건</h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-blue-600" />
+                <span>
+                  {salaryTypeLabels[invitation?.salary_type || 'hourly']}{' '}
+                  {invitation?.salary_amount?.toLocaleString()}원
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-blue-600" />
+                <span>
+                  {invitation?.work_start_time} ~ {invitation?.work_end_time}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-blue-600" />
+                <span>
+                  {formatWorkDays(invitation?.work_days || [])} 근무
+                </span>
+              </div>
+              {invitation?.position && (
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-blue-600" />
+                  <span>{invitation.position}</span>
+                </div>
+              )}
             </div>
           </div>
-        </div>
 
-        {/* 가입 폼 */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-6">
-          {error && <Alert variant="error" className="mb-6">{error}</Alert>}
+          {/* 가입 폼 */}
+          <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-6">
+            {error && <Alert variant="error" className="mb-6">{error}</Alert>}
 
-          {/* 계정 정보 */}
-          <div className="space-y-4 mb-8">
-            <h3 className="font-semibold text-gray-900 border-b pb-2">계정 정보</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>이름</Label>
-                <Input value={invitation?.name || ''} disabled className="mt-1 bg-gray-50" />
+            {/* 계정 정보 */}
+            <div className="space-y-4 mb-8">
+              <h3 className="font-semibold text-gray-900 border-b pb-2">계정 정보</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>이름</Label>
+                  <Input value={invitation?.name || ''} disabled className="mt-1 bg-gray-100 cursor-not-allowed" />
+                </div>
+                <div>
+                  <Label>전화번호</Label>
+                  <Input value={invitation?.phone || ''} disabled className="mt-1 bg-gray-100 cursor-not-allowed" />
+                </div>
               </div>
               <div>
-                <Label>전화번호</Label>
-                <Input value={invitation?.phone || ''} disabled className="mt-1 bg-gray-50" />
-              </div>
-            </div>
-            <div>
-              <Label required>이메일</Label>
-              <Input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="email@example.com"
-                className="mt-1"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label required>비밀번호</Label>
+                <Label required>이메일</Label>
                 <Input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="8자 이상"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="email@example.com"
                   className="mt-1"
                   required
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label required>비밀번호</Label>
+                  <Input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder="8자 이상"
+                    className="mt-1"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label required>비밀번호 확인</Label>
+                  <Input
+                    type="password"
+                    value={formData.passwordConfirm}
+                    onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })}
+                    placeholder="비밀번호 재입력"
+                    className="mt-1"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 인적 사항 */}
+            <div className="space-y-4 mb-8">
+              <h3 className="font-semibold text-gray-900 border-b pb-2">인적 사항</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label required>생년월일</Label>
+                  <Input
+                    type="date"
+                    value={formData.birthDate}
+                    onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                    className="mt-1"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label required>주민등록번호 뒷자리</Label>
+                  <Input
+                    type="password"
+                    maxLength={7}
+                    value={formData.ssnLast}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 7);
+                      setFormData({ ...formData, ssnLast: value });
+                    }}
+                    placeholder="7자리 숫자"
+                    className="mt-1"
+                    required
+                  />
+                </div>
+              </div>
               <div>
-                <Label required>비밀번호 확인</Label>
+                <Label required>주소</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    value={formData.zonecode ? `[${formData.zonecode}] ${formData.address}` : formData.address}
+                    placeholder="주소 검색 버튼을 클릭하세요"
+                    className="flex-1 bg-gray-50 cursor-not-allowed"
+                    readOnly
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={openAddressSearch}
+                    className="shrink-0"
+                  >
+                    <Search className="h-4 w-4 mr-1" />
+                    주소 검색
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">실제 우편물 수령이 가능한 주소를 검색해주세요</p>
+              </div>
+              <div>
+                <Label required>상세주소</Label>
                 <Input
-                  type="password"
-                  value={formData.passwordConfirm}
-                  onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })}
-                  placeholder="비밀번호 재입력"
+                  value={formData.addressDetail}
+                  onChange={(e) => setFormData({ ...formData, addressDetail: e.target.value })}
+                  placeholder="동/호수, 건물명 등"
                   className="mt-1"
                   required
                 />
               </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>비상연락처 (이름)</Label>
+                  <Input
+                    value={formData.emergencyName}
+                    onChange={(e) => setFormData({ ...formData, emergencyName: e.target.value })}
+                    placeholder="홍길순"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label required>비상연락처 (전화)</Label>
+                  <Input
+                    value={formData.emergencyPhone}
+                    onChange={(e) => setFormData({ ...formData, emergencyPhone: e.target.value })}
+                    placeholder="010-0000-0000"
+                    className="mt-1"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label required>관계</Label>
+                  <Input
+                    value={formData.emergencyRelationship}
+                    onChange={(e) => setFormData({ ...formData, emergencyRelationship: e.target.value })}
+                    placeholder="부모, 배우자 등"
+                    className="mt-1"
+                    required
+                  />
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* 인적 사항 */}
-          <div className="space-y-4 mb-8">
-            <h3 className="font-semibold text-gray-900 border-b pb-2">인적 사항</h3>
-            <div className="grid grid-cols-2 gap-4">
+            {/* 급여 정보 */}
+            <div className="space-y-4 mb-8">
+              <h3 className="font-semibold text-gray-900 border-b pb-2">급여 정보</h3>
               <div>
-                <Label>생년월일</Label>
+                <Label>{salaryTypeLabels[invitation?.salary_type || 'hourly']}</Label>
                 <Input
-                  type="date"
-                  value={formData.birthDate}
-                  onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-                  className="mt-1"
+                  type="text"
+                  value={`${invitation?.salary_amount?.toLocaleString()}원`}
+                  disabled
+                  className="mt-1 bg-gray-100 cursor-not-allowed"
                 />
+                <p className="text-xs text-gray-500 mt-1">초대 시 설정된 급여입니다. 변경이 필요하면 관리자에게 문의하세요.</p>
               </div>
-              <div>
-                <Label>주민등록번호 뒷자리</Label>
-                <Input
-                  type="password"
-                  maxLength={7}
-                  value={formData.ssnLast}
-                  onChange={(e) => setFormData({ ...formData, ssnLast: e.target.value })}
-                  placeholder="●●●●●●●"
-                  className="mt-1"
-                />
-              </div>
-            </div>
-            <div>
-              <Label>주소</Label>
-              <Input
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="주소를 입력하세요"
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>상세주소</Label>
-              <Input
-                value={formData.addressDetail}
-                onChange={(e) => setFormData({ ...formData, addressDetail: e.target.value })}
-                placeholder="상세주소"
-                className="mt-1"
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label>비상연락처 (이름)</Label>
-                <Input
-                  value={formData.emergencyName}
-                  onChange={(e) => setFormData({ ...formData, emergencyName: e.target.value })}
-                  placeholder="홍길순"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>비상연락처 (전화)</Label>
-                <Input
-                  value={formData.emergencyPhone}
-                  onChange={(e) => setFormData({ ...formData, emergencyPhone: e.target.value })}
-                  placeholder="010-0000-0000"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>관계</Label>
-                <Input
-                  value={formData.emergencyRelationship}
-                  onChange={(e) => setFormData({ ...formData, emergencyRelationship: e.target.value })}
-                  placeholder="부모, 배우자 등"
-                  className="mt-1"
-                />
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label required>은행</Label>
+                  <Select
+                    value={formData.bankName}
+                    onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                    options={bankOptions}
+                    className="mt-1"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label required>계좌번호</Label>
+                  <Input
+                    value={formData.bankAccount}
+                    onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value.replace(/\D/g, '') })}
+                    placeholder="숫자만 입력"
+                    className="mt-1"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label required>예금주</Label>
+                  <Input
+                    value={formData.bankHolder}
+                    onChange={(e) => setFormData({ ...formData, bankHolder: e.target.value })}
+                    placeholder="예금주명"
+                    className="mt-1"
+                    required
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* 급여 정보 */}
-          <div className="space-y-4 mb-8">
-            <h3 className="font-semibold text-gray-900 border-b pb-2">급여 정보</h3>
-            <div>
-              <Label>시급 (확인)</Label>
-              <Input
-                type="number"
-                value={formData.salaryAmount}
-                onChange={(e) => setFormData({ ...formData, salaryAmount: parseInt(e.target.value) || 0 })}
-                className="mt-1"
-              />
-              <p className="text-xs text-gray-500 mt-1">합의된 시급을 입력해주세요</p>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label>은행</Label>
-                <Select
-                  value={formData.bankName}
-                  onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                  options={bankOptions}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>계좌번호</Label>
-                <Input
-                  value={formData.bankAccount}
-                  onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value })}
-                  placeholder="'-' 없이 입력"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label>예금주</Label>
-                <Input
-                  value={formData.bankHolder}
-                  onChange={(e) => setFormData({ ...formData, bankHolder: e.target.value })}
-                  placeholder="예금주명"
-                  className="mt-1"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 추가 정보 */}
-          <div className="space-y-4 mb-8">
-            <h3 className="font-semibold text-gray-900 border-b pb-2">추가 정보 (선택)</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>직책/포지션</Label>
-                <Input
-                  value={formData.position}
-                  onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                  placeholder="홀서빙, 주방보조 등"
-                  className="mt-1"
-                />
-              </div>
+            {/* 추가 정보 */}
+            <div className="space-y-4 mb-8">
+              <h3 className="font-semibold text-gray-900 border-b pb-2">추가 정보 (선택)</h3>
               <div>
                 <Label>차량번호</Label>
                 <Input
@@ -479,23 +582,28 @@ export default function InviteAcceptPage() {
                 />
               </div>
             </div>
-          </div>
 
-          {/* 동의 및 제출 */}
-          <div className="space-y-4">
-            <label className="flex items-start gap-2">
-              <input type="checkbox" required className="mt-1" />
-              <span className="text-sm text-gray-600">
-                개인정보 수집·이용에 동의합니다. 입력한 정보는 근로계약서 작성에 사용됩니다.
-              </span>
-            </label>
+            {/* 동의 및 제출 */}
+            <div className="space-y-4">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.agreePrivacy}
+                  onChange={(e) => setFormData({ ...formData, agreePrivacy: e.target.checked })}
+                  className="mt-1"
+                />
+                <span className="text-sm text-gray-600">
+                  개인정보 수집·이용에 동의합니다. 입력한 정보는 근로계약서 작성에 사용됩니다.
+                </span>
+              </label>
 
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? '처리 중...' : '가입 완료'}
-            </Button>
-          </div>
-        </form>
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting ? '처리 중...' : '가입 완료'}
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

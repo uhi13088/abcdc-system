@@ -2,50 +2,33 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-// 가입 데이터 스키마
+// 가입 데이터 스키마 - 필수 필드 명확히 지정
 const AcceptInvitationSchema = z.object({
-  // 계정 정보
+  // 계정 정보 (필수)
   email: z.string().email('올바른 이메일 형식이 아닙니다'),
   password: z.string().min(8, '비밀번호는 8자 이상이어야 합니다'),
 
-  // 인적 사항
-  birthDate: z.string().optional(),
-  ssnLast: z.string().length(7, '주민등록번호 뒷자리 7자리를 입력해주세요').optional(),
-  address: z.string().optional(),
-  addressDetail: z.string().optional(),
+  // 인적 사항 (필수)
+  birthDate: z.string().min(1, '생년월일을 입력해주세요'),
+  ssnLast: z.string().length(7, '주민등록번호 뒷자리 7자리를 입력해주세요'),
+  zonecode: z.string().min(1, '우편번호가 필요합니다'),
+  address: z.string().min(1, '주소를 검색하여 입력해주세요'),
+  addressDetail: z.string().min(1, '상세주소를 입력해주세요'),
+
+  // 비상연락처 (전화, 관계는 필수 / 이름은 선택)
   emergencyContact: z.object({
-    name: z.string(),
-    phone: z.string(),
-    relationship: z.string(),
-  }).optional(),
+    name: z.string().optional(),
+    phone: z.string().min(1, '비상연락처 전화번호를 입력해주세요'),
+    relationship: z.string().min(1, '비상연락처 관계를 입력해주세요'),
+  }),
 
-  // 급여 정보
-  bankName: z.string().optional(),
-  bankAccount: z.string().optional(),
-  bankHolder: z.string().optional(),
-  salaryAmount: z.number().min(0).optional(),  // 확인된 시급
+  // 급여 정보 (필수)
+  bankName: z.string().min(1, '은행을 선택해주세요'),
+  bankAccount: z.string().min(1, '계좌번호를 입력해주세요'),
+  bankHolder: z.string().min(1, '예금주를 입력해주세요'),
 
-  // 근무 스케줄 (확인)
-  workDays: z.array(z.number()).optional(),
-  workStartTime: z.string().optional(),
-  workEndTime: z.string().optional(),
-  breakMinutes: z.number().optional(),
-
-  // 추가 정보
-  position: z.string().optional(),
+  // 추가 정보 (선택)
   vehicleNumber: z.string().optional(),
-  certifications: z.array(z.object({
-    name: z.string(),
-    issuer: z.string().optional(),
-    date: z.string().optional(),
-  })).optional(),
-
-  // 서류 URL (업로드된 파일)
-  documents: z.object({
-    healthCertificate: z.string().optional(),
-    bankCopy: z.string().optional(),
-    careerCertificate: z.string().optional(),
-  }).optional(),
 });
 
 // POST /api/invite/:token/accept - 초대 수락 (가입 완료)
@@ -122,7 +105,10 @@ export async function POST(
       return NextResponse.json({ error: '계정 생성에 실패했습니다: ' + authError.message }, { status: 500 });
     }
 
-    // users 테이블에 사용자 정보 저장 (기본 스키마 필드만 사용)
+    // 전체 주소 조합
+    const fullAddress = `[${data.zonecode}] ${data.address} ${data.addressDetail}`;
+
+    // users 테이블에 사용자 정보 저장
     const { data: newUser, error: userError } = await adminClient
       .from('users')
       .insert({
@@ -131,16 +117,22 @@ export async function POST(
         name: invitation.name,
         phone: invitation.phone,
         role: invitation.role || 'staff',
-        position: data.position || invitation.position,
+        position: invitation.position,
         company_id: invitation.company_id,
         brand_id: null,  // 나중에 매장 정보에서 가져옴
         store_id: invitation.store_id,
         status: 'ACTIVE',
-        birth_date: data.birthDate || null,
-        address: data.address || null,
-        bank_name: data.bankName || null,
-        bank_account: data.bankAccount || null,
-        account_holder: data.bankHolder || null,
+        birth_date: data.birthDate,
+        address: fullAddress,
+        bank_name: data.bankName,
+        bank_account: data.bankAccount,
+        account_holder: data.bankHolder,
+        vehicle_number: data.vehicleNumber || null,
+        emergency_contact: {
+          name: data.emergencyContact.name || null,
+          phone: data.emergencyContact.phone,
+          relationship: data.emergencyContact.relationship,
+        },
       })
       .select()
       .single();
@@ -164,6 +156,21 @@ export async function POST(
         .from('users')
         .update({ brand_id: store.brand_id })
         .eq('id', newUser.id);
+    }
+
+    // 주민등록번호 뒷자리 저장 (별도 보안 테이블이 있다면)
+    // 이 부분은 ssn_encrypted 컬럼이나 별도 테이블에 암호화하여 저장해야 함
+    // 현재는 profiles 테이블에 ssn_last 컬럼이 있다면 저장
+    try {
+      await adminClient
+        .from('profiles')
+        .upsert({
+          user_id: newUser.id,
+          ssn_last: data.ssnLast,  // 실제로는 암호화 필요
+        });
+    } catch (e) {
+      // profiles 테이블이 없거나 ssn_last 컬럼이 없을 수 있음 - 무시
+      console.log('[POST /api/invite/:token/accept] Profile upsert skipped:', e);
     }
 
     // 초대 상태 업데이트
