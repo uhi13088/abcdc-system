@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
 
     // 다운로드 응답 (autoSend가 false인 경우 직접 다운로드)
     if (!autoSend) {
-      return new NextResponse(excelBuffer, {
+      return new NextResponse(new Uint8Array(excelBuffer), {
         status: 200,
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
