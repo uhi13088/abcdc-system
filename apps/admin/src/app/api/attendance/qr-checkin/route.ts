@@ -105,15 +105,16 @@ export async function POST(request: NextRequest) {
     if (action === 'CHECK_IN') {
       // 체크인 처리
 
-      // 오늘 출근 기록이 이미 있는지 확인
-      const { data: existingAttendance } = await adminClient
+      // 먼저 기존 출근 기록 확인 (중복 체크인 방지)
+      const { data: existingCheckin } = await adminClient
         .from('attendances')
         .select('id, actual_check_in')
         .eq('staff_id', userData.id)
         .eq('work_date', today)
-        .single();
+        .not('actual_check_in', 'is', null)
+        .maybeSingle();
 
-      if (existingAttendance && existingAttendance.actual_check_in) {
+      if (existingCheckin) {
         return NextResponse.json(
           { error: '이미 출근 처리되었습니다.' },
           { status: 400 }
@@ -127,51 +128,33 @@ export async function POST(request: NextRequest) {
         .eq('staff_id', userData.id)
         .eq('work_date', today)
         .eq('status', 'CONFIRMED')
+        .maybeSingle();
+
+      // 원자적 upsert 작업으로 race condition 방지
+      const { data, error } = await adminClient
+        .from('attendances')
+        .upsert({
+          staff_id: userData.id,
+          company_id: userData.company_id,
+          store_id: storeId,
+          work_date: today,
+          schedule_id: schedule?.id,
+          scheduled_check_in: schedule?.scheduled_check_in,
+          scheduled_check_out: schedule?.scheduled_check_out,
+          actual_check_in: now.toISOString(),
+          check_in_location: latitude && longitude ? `POINT(${longitude} ${latitude})` : null,
+          check_in_method: 'QR',
+          within_geofence: withinGeofence,
+          status: 'PRESENT',
+        }, {
+          onConflict: 'staff_id,work_date',
+          ignoreDuplicates: false,
+        })
+        .select()
         .single();
 
-      let attendanceId: string;
-
-      if (existingAttendance) {
-        // 기존 출석 레코드 업데이트
-        const { data, error } = await adminClient
-          .from('attendances')
-          .update({
-            actual_check_in: now.toISOString(),
-            check_in_location: latitude && longitude ? `POINT(${longitude} ${latitude})` : null,
-            check_in_method: 'QR',
-            within_geofence: withinGeofence,
-            status: 'PRESENT',
-          })
-          .eq('id', existingAttendance.id)
-          .select()
-          .single();
-
-        if (error) throw error;
-        attendanceId = data.id;
-      } else {
-        // 새 출석 레코드 생성
-        const { data, error } = await adminClient
-          .from('attendances')
-          .insert({
-            staff_id: userData.id,
-            company_id: userData.company_id,
-            store_id: storeId,
-            work_date: today,
-            schedule_id: schedule?.id,
-            scheduled_check_in: schedule?.scheduled_check_in,
-            scheduled_check_out: schedule?.scheduled_check_out,
-            actual_check_in: now.toISOString(),
-            check_in_location: latitude && longitude ? `POINT(${longitude} ${latitude})` : null,
-            check_in_method: 'QR',
-            within_geofence: withinGeofence,
-            status: 'PRESENT',
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-        attendanceId = data.id;
-      }
+      if (error) throw error;
+      const attendanceId = data.id;
 
       return NextResponse.json({
         message: '출근 처리되었습니다.',
