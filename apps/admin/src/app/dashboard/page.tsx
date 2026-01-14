@@ -59,20 +59,41 @@ async function getStats() {
       .eq('status', 'ACTIVE')
       .not('role', 'in', '("company_admin","super_admin")');
 
-    // Get company's subscription plan
-    const { data: company } = await supabase
-      .from('companies')
-      .select('name, subscription_plan_id')
-      .eq('id', companyId)
+    // Get company's subscription plan from database
+    const { data: subscription } = await supabase
+      .from('company_subscriptions')
+      .select(`
+        id,
+        subscription_plans (
+          id,
+          name,
+          tier,
+          max_employees,
+          max_stores
+        )
+      `)
+      .eq('company_id', companyId)
+      .eq('status', 'ACTIVE')
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
 
-    // Subscription plan limits (default to starter)
-    const planLimits: Record<string, { name: string; maxEmployees: number; maxStores: number }> = {
-      starter: { name: 'Starter', maxEmployees: 10, maxStores: 2 },
-      business: { name: 'Business', maxEmployees: 50, maxStores: 10 },
-      enterprise: { name: 'Enterprise', maxEmployees: 999, maxStores: 999 },
+    // Get plan limits from subscription or use free tier defaults
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const subscriptionPlans = subscription?.subscription_plans as any;
+    const planData = subscriptionPlans ? {
+      id: subscriptionPlans.id,
+      name: subscriptionPlans.name,
+      tier: subscriptionPlans.tier,
+      max_employees: subscriptionPlans.max_employees,
+      max_stores: subscriptionPlans.max_stores,
+    } : null;
+
+    const currentPlan = {
+      name: planData?.name || 'Free',
+      maxEmployees: planData?.max_employees || 5,
+      maxStores: planData?.max_stores || 1,
     };
-    const currentPlan = planLimits.starter; // Default to starter
 
     // Get store count
     const { count: storeCount } = await supabase

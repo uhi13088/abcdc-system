@@ -41,71 +41,28 @@ export default function ReportsPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      // Demo data for now
-      setInsights([
-        {
-          id: '1',
-          insight_type: 'LABOR_EFFICIENCY',
-          title: '인건비 최적화 기회',
-          description: '화요일과 수요일 점심시간대 인력이 평균 대비 30% 과다 배치되어 있습니다.',
-          recommendation: '해당 시간대 인력을 1명 줄이면 월 약 50만원 절감이 가능합니다.',
-          estimated_savings: 500000,
-          confidence_score: 0.87,
-          is_dismissed: false,
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          insight_type: 'COST_OPTIMIZATION',
-          title: '재료비 절감 기회',
-          description: '최근 3개월간 재료비가 매출 대비 28%로, 업종 평균(25%)보다 높습니다.',
-          recommendation: '주요 식재료 발주량 최적화 및 폐기량 관리를 권장합니다.',
-          estimated_savings: 350000,
-          confidence_score: 0.92,
-          is_dismissed: false,
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: '3',
-          insight_type: 'REVENUE_TREND',
-          title: '매출 성장 트렌드',
-          description: '지난 6개월간 월평균 매출이 8.5% 성장하고 있습니다.',
-          recommendation: '현재 운영 전략을 유지하며, 피크 타임 확대를 검토하세요.',
-          estimated_savings: 0,
-          confidence_score: 0.95,
-          is_dismissed: false,
-          created_at: new Date().toISOString(),
-        },
-      ]);
 
-      setAlerts([
-        {
-          id: '1',
-          alert_type: 'LABOR_COST_HIGH',
-          category: '인건비',
-          message: '이번달 인건비 비율이 36%로 기준(35%)을 초과했습니다.',
-          severity: 'MEDIUM',
-          threshold_value: 35,
-          current_value: 36,
-          is_read: false,
-          is_resolved: false,
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          alert_type: 'UNUSUAL_EXPENSE',
-          category: '관리비',
-          message: '관리비가 전월 대비 45% 증가했습니다.',
-          severity: 'HIGH',
-          threshold_value: 2000000,
-          current_value: 2900000,
-          is_read: true,
-          is_resolved: false,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      // Fetch insights from API
+      const insightsRes = await fetch('/api/business/insights');
+      if (insightsRes.ok) {
+        const data = await insightsRes.json();
+        setInsights(data);
+      } else {
+        setInsights([]);
+      }
+
+      // Fetch alerts from API
+      const alertsRes = await fetch('/api/business/alerts');
+      if (alertsRes.ok) {
+        const data = await alertsRes.json();
+        setAlerts(data);
+      } else {
+        setAlerts([]);
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      setInsights([]);
+      setAlerts([]);
     } finally {
       setLoading(false);
     }

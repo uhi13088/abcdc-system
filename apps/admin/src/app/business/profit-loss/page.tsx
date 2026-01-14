@@ -41,43 +41,7 @@ export default function ProfitLossPage() {
         const data = await response.json();
         setStatements(data);
       } else {
-        // Demo data
-        setStatements([
-          {
-            id: '1',
-            period_type: 'MONTHLY',
-            period_year: 2024,
-            period_month: 12,
-            total_revenue: 32500000,
-            revenue_breakdown: { 'TOSS_POS': 28000000, 'MANUAL': 4500000 },
-            total_expense: 12300000,
-            expense_breakdown: { '재료비': 8500000, '관리비': 2300000, '월세': 1500000 },
-            payroll_expense: 6200000,
-            net_profit: 14000000,
-            profit_margin: 43.1,
-            revenue_change: 8.5,
-            expense_change: 3.2,
-            profit_change: 12.3,
-            is_finalized: true,
-          },
-          {
-            id: '2',
-            period_type: 'MONTHLY',
-            period_year: 2024,
-            period_month: 11,
-            total_revenue: 29800000,
-            revenue_breakdown: { 'TOSS_POS': 26000000, 'MANUAL': 3800000 },
-            total_expense: 11500000,
-            expense_breakdown: { '재료비': 7800000, '관리비': 2200000, '월세': 1500000 },
-            payroll_expense: 5900000,
-            net_profit: 12400000,
-            profit_margin: 41.6,
-            revenue_change: 5.2,
-            expense_change: 2.1,
-            profit_change: 8.9,
-            is_finalized: true,
-          },
-        ]);
+        setStatements([]);
       }
     } catch (error) {
       console.error('Failed to fetch statements:', error);

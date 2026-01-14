@@ -45,13 +45,7 @@ export default function BudgetPage() {
         const data = await response.json();
         setBudgets(data);
       } else {
-        // Demo data
-        setBudgets([
-          { id: '1', budget_year: 2024, budget_month: 12, category: '재료비', planned_amount: 9000000, actual_amount: 8500000, variance: 500000 },
-          { id: '2', budget_year: 2024, budget_month: 12, category: '인건비', planned_amount: 6500000, actual_amount: 6200000, variance: 300000 },
-          { id: '3', budget_year: 2024, budget_month: 12, category: '관리비', planned_amount: 2000000, actual_amount: 2300000, variance: -300000 },
-          { id: '4', budget_year: 2024, budget_month: 12, category: '월세', planned_amount: 1500000, actual_amount: 1500000, variance: 0 },
-        ]);
+        setBudgets([]);
       }
     } catch (error) {
       console.error('Failed to fetch budgets:', error);
