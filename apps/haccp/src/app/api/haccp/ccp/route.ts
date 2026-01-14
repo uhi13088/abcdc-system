@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('ccp_definitions')
       .select('*')
       .eq('company_id', userProfile.company_id)
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('ccp_definitions')
       .insert({
         company_id: userProfile.company_id,
