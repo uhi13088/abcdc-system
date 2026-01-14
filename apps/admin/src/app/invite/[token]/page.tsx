@@ -6,25 +6,13 @@ import Script from 'next/script';
 import { Button, Input, Select, Label, Alert } from '@/components/ui';
 import { Check, Building2, MapPin, Clock, DollarSign, Smartphone, Search, Briefcase } from 'lucide-react';
 
-// 다음 주소검색 타입 정의
-declare global {
-  interface Window {
-    daum: {
-      Postcode: new (options: {
-        oncomplete: (data: DaumPostcodeData) => void;
-        onclose?: () => void;
-      }) => { open: () => void };
-    };
-  }
-}
-
+// DaumPostcodeData 인터페이스 (Window.daum 타입은 register/page.tsx에서 전역 선언됨)
 interface DaumPostcodeData {
   zonecode: string;
   address: string;
   addressType: string;
   bname: string;
   buildingName: string;
-  apartment: string;
   jibunAddress: string;
   roadAddress: string;
 }
