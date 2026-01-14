@@ -6,6 +6,7 @@ import { CreateUserSchema } from '@abc/shared';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const searchParams = request.nextUrl.searchParams;
     const role = searchParams.get('role');
     const status = searchParams.get('status');
@@ -18,7 +19,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    // Use adminClient to bypass RLS when checking current user
+    const { data: userData } = await adminClient
       .from('users')
       .select('role, company_id, brand_id, store_id')
       .eq('auth_id', user.id)
@@ -40,7 +42,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    let query = supabase
+    // Use adminClient to bypass RLS for fetching employee list
+    let query = adminClient
       .from('users')
       .select(`
         *,
@@ -65,7 +68,7 @@ export async function GET(request: NextRequest) {
     // Exclude company_admin and super_admin from employee list (they are admins, not employees)
     // Only include them if specifically filtering by role
     if (!role) {
-      query = query.not('role', 'in', '("company_admin","super_admin")');
+      query = query.not('role', 'in', '(company_admin,super_admin)');
     }
 
     // Additional filters
