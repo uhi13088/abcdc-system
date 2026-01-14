@@ -49,6 +49,16 @@ export async function POST(request: NextRequest) {
 
     const { token, action, latitude, longitude } = validation.data;
 
+    // 좌표 유효성 검증
+    if (latitude !== undefined && longitude !== undefined) {
+      if (latitude < -90 || latitude > 90) {
+        return NextResponse.json({ error: '유효하지 않은 위도입니다.' }, { status: 400 });
+      }
+      if (longitude < -180 || longitude > 180) {
+        return NextResponse.json({ error: '유효하지 않은 경도입니다.' }, { status: 400 });
+      }
+    }
+
     // QR 코드 검증
     const verifyResult = await qrCodeService.verifyQR(token);
 

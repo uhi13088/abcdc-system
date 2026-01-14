@@ -55,6 +55,11 @@ export async function GET(
       return NextResponse.json({ error: '급여 정보를 찾을 수 없습니다.' }, { status: 404 });
     }
 
+    // 관계 데이터 검증
+    if (!salary.staff || !salary.company) {
+      return NextResponse.json({ error: '급여 데이터가 불완전합니다.' }, { status: 500 });
+    }
+
     // 권한 확인: 본인 또는 관리자만 열람 가능
     const isOwner = userData.id === salary.staff_id;
     const isAdmin = ['super_admin', 'company_admin', 'manager'].includes(userData.role);

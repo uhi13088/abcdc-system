@@ -35,7 +35,7 @@ export async function GET(
     // 계약서 데이터 조회
     const { data: contract, error } = await adminClient
       .from('contracts')
-      .select('*, staff_id, company_id')
+      .select('*')
       .eq('id', params.id)
       .single();
 

@@ -51,6 +51,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 회사 권한 확인 (super_admin이 아닌 경우 자신의 회사만)
+    if (companyId && userData.role !== 'super_admin' && companyId !== userData.company_id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // companyId가 없으면 사용자의 회사 ID 사용
+    const targetCompanyId = companyId || userData.company_id;
+
     const service = new SalaryCalculationService();
 
     // 단일 직원 급여 계산
@@ -67,7 +75,7 @@ export async function POST(request: NextRequest) {
         .upsert(
           {
             staff_id: staffId,
-            company_id: companyId,
+            company_id: targetCompanyId,
             year,
             month,
             base_salary: calculation.baseSalary,
@@ -128,7 +136,7 @@ export async function POST(request: NextRequest) {
           await supabase.from('salaries').upsert(
             {
               staff_id: id,
-              company_id: companyId,
+              company_id: targetCompanyId,
               year,
               month,
               base_salary: calculation.baseSalary,
@@ -176,9 +184,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 회사 전체 일괄 계산
-    if (companyId) {
+    if (targetCompanyId) {
       const calculations = await service.calculateBulkSalaries(
-        companyId,
+        targetCompanyId,
         year,
         month
       );
@@ -188,7 +196,7 @@ export async function POST(request: NextRequest) {
         await supabase.from('salaries').upsert(
           {
             staff_id: calculation.staffId,
-            company_id: companyId,
+            company_id: targetCompanyId,
             year,
             month,
             base_salary: calculation.baseSalary,
@@ -227,7 +235,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'staffId, staffIds, 또는 companyId를 입력해주세요.' },
+      { error: 'staffId 또는 staffIds를 입력해주세요.' },
       { status: 400 }
     );
   } catch (error) {

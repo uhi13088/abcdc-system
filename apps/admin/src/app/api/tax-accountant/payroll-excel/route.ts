@@ -83,8 +83,7 @@ export async function POST(request: NextRequest) {
       .eq('company_id', targetCompanyId)
       .eq('year', year)
       .eq('month', month)
-      .in('status', ['CONFIRMED', 'PAID'])
-      .order('staff.name');
+      .in('status', ['CONFIRMED', 'PAID']);
 
     if (error) {
       throw error;
@@ -97,8 +96,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 관계 데이터 검증 및 필터링
+    const validSalaries = salaries.filter(s => s.staff && s.staff.name);
+
+    if (validSalaries.length === 0) {
+      return NextResponse.json(
+        { error: '유효한 급여 데이터가 없습니다.' },
+        { status: 404 }
+      );
+    }
+
+    // 직원 이름순 정렬
+    validSalaries.sort((a, b) => a.staff.name.localeCompare(b.staff.name, 'ko'));
+
     // 급여 데이터 변환
-    const payrollData: PayrollReportData[] = salaries.map((salary) => ({
+    const payrollData: PayrollReportData[] = validSalaries.map((salary) => ({
       staffId: salary.staff_id,
       staffName: salary.staff.name,
       department: salary.staff.department,
