@@ -71,7 +71,7 @@ export async function GET(
     // 파일명 생성
     const fileName = `근로계약서_${contract.contract_number}_${type === 'draft' ? '초안' : '최종'}.pdf`;
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
