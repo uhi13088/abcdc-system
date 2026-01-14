@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
         *,
         stores(id, name),
         invitation_templates(id, name),
-        users(id, name, email)
+        creator:users!invitations_created_by_fkey(id, name, email)
       `)
       .eq('company_id', userData.company_id)
       .order('created_at', { ascending: false });

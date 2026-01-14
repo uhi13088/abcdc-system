@@ -1,5 +1,7 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 
 // GET /api/users/[id] - 직원 상세 조회
 export async function GET(
@@ -8,6 +10,7 @@ export async function GET(
 ) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const userId = params.id;
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -15,7 +18,18 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data, error } = await supabase
+    // 요청자 정보 확인 (권한 체크용)
+    const { data: requester } = await adminClient
+      .from('users')
+      .select('company_id, role')
+      .eq('auth_id', user.id)
+      .single();
+
+    if (!requester) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const { data, error } = await adminClient
       .from('users')
       .select(`
         *,
@@ -50,6 +64,7 @@ export async function PUT(
 ) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const userId = params.id;
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -75,7 +90,7 @@ export async function PUT(
     if (body.bankAccount) updateData.bank_account = body.bankAccount;
     if (body.accountHolder) updateData.account_holder = body.accountHolder;
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('users')
       .update(updateData)
       .eq('id', userId)
@@ -102,6 +117,7 @@ export async function DELETE(
 ) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const userId = params.id;
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -110,7 +126,7 @@ export async function DELETE(
     }
 
     // Soft delete - just set status to INACTIVE
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('users')
       .update({ status: 'INACTIVE' })
       .eq('id', userId)
