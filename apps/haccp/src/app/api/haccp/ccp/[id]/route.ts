@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 // DELETE /api/haccp/ccp/[id]
 export async function DELETE(
   request: NextRequest,
