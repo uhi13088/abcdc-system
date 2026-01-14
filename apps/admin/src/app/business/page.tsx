@@ -53,17 +53,7 @@ export default function BusinessPage() {
         const data = await response.json();
         setStats(data);
       } else {
-        // Demo data for now
-        setStats({
-          todaySales: 1250000,
-          monthSales: 32500000,
-          monthExpenses: 18500000,
-          netProfit: 14000000,
-          profitMargin: 43.1,
-          salesChange: 8.5,
-          expenseChange: 3.2,
-          profitChange: 12.3,
-        });
+        setStats(null);
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error);
@@ -186,27 +176,11 @@ export default function BusinessPage() {
               자세히 보기
             </Link>
           </div>
-          <div className="space-y-3">
-            {[
-              { category: '재료비', amount: 8500000, percent: 46 },
-              { category: '인건비', amount: 6200000, percent: 33 },
-              { category: '월세', amount: 2500000, percent: 14 },
-              { category: '관리비', amount: 800000, percent: 4 },
-              { category: '기타', amount: 500000, percent: 3 },
-            ].map((item, idx) => (
-              <div key={idx}>
-                <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="text-gray-600">{item.category}</span>
-                  <span className="font-medium">{formatCurrency(item.amount)}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full"
-                    style={{ width: `${item.percent}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
+          <div className="h-48 flex items-center justify-center bg-gray-50 rounded-lg">
+            <div className="text-center text-gray-400">
+              <PieChart className="w-12 h-12 mx-auto mb-2" />
+              <p>지출 관리에서 비용을 등록하세요</p>
+            </div>
           </div>
         </div>
       </div>
