@@ -109,7 +109,7 @@ export async function GET(
     // PDF 반환
     const fileName = `급여명세서_${salary.year}년${salary.month}월_${salary.staff.name}.pdf`;
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
