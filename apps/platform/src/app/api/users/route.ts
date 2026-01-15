@@ -23,21 +23,32 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Get labor law versions
-    const { data: versions, error } = await adminClient
-      .from('labor_law_versions')
-      .select('*')
-      .order('effective_date', { ascending: false });
+    const { data: users, error } = await adminClient
+      .from('users')
+      .select(`
+        id,
+        name,
+        email,
+        role,
+        status,
+        last_login_at,
+        created_at,
+        company_id,
+        companies(id, name)
+      `)
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    return NextResponse.json(versions || []);
+    const formattedUsers = (users || []).map(u => ({
+      ...u,
+      company_name: u.companies?.name || '-',
+    }));
+
+    return NextResponse.json(formattedUsers);
   } catch (error) {
-    console.error('Error fetching labor law versions:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch labor law versions' },
-      { status: 500 }
-    );
+    console.error('Error fetching users:', error);
+    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
   }
 }
 
@@ -64,19 +75,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const { data, error } = await adminClient
-      .from('labor_law_versions')
+      .from('users')
       .insert([{
-        version: body.version,
-        effective_date: body.effectiveDate,
-        minimum_wage_hourly: body.minimumWageHourly,
-        overtime_rate: body.overtimeRate,
-        night_rate: body.nightRate,
-        holiday_rate: body.holidayRate,
-        national_pension_rate: body.nationalPensionRate,
-        health_insurance_rate: body.healthInsuranceRate,
-        long_term_care_rate: body.longTermCareRate,
-        employment_insurance_rate: body.employmentInsuranceRate,
-        status: 'DRAFT',
+        name: body.name,
+        email: body.email,
+        role: body.role,
+        company_id: body.company_id || null,
+        status: 'ACTIVE',
       }])
       .select()
       .single();
@@ -85,10 +90,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
-    console.error('Error creating labor law version:', error);
-    return NextResponse.json(
-      { error: 'Failed to create labor law version' },
-      { status: 500 }
-    );
+    console.error('Error creating user:', error);
+    return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
   }
 }

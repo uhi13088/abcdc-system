@@ -325,11 +325,12 @@ export default function SubscriptionsPage() {
             <div className="px-6 py-4 border-b">
               <h2 className="text-xl font-bold">플랜 수정: {editingPlan.displayName}</h2>
             </div>
-            <div className="p-6 space-y-4">
+            <form id="planEditForm" className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">표시 이름</label>
                 <input
                   type="text"
+                  name="displayName"
                   defaultValue={editingPlan.displayName}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
@@ -339,6 +340,7 @@ export default function SubscriptionsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">월간 가격</label>
                   <input
                     type="number"
+                    name="priceMonthly"
                     defaultValue={editingPlan.priceMonthly}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
@@ -347,6 +349,7 @@ export default function SubscriptionsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">연간 가격</label>
                   <input
                     type="number"
+                    name="priceYearly"
                     defaultValue={editingPlan.priceYearly}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
@@ -357,6 +360,7 @@ export default function SubscriptionsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">최대 직원 수</label>
                   <input
                     type="number"
+                    name="maxEmployees"
                     defaultValue={editingPlan.maxEmployees}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
@@ -366,6 +370,7 @@ export default function SubscriptionsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">최대 매장 수</label>
                   <input
                     type="number"
+                    name="maxStores"
                     defaultValue={editingPlan.maxStores}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
@@ -376,12 +381,13 @@ export default function SubscriptionsPage() {
                 <input
                   type="checkbox"
                   id="active"
+                  name="active"
                   defaultChecked={editingPlan.active}
                   className="w-4 h-4 text-blue-600 rounded"
                 />
                 <label htmlFor="active" className="text-sm text-gray-700">활성화</label>
               </div>
-            </div>
+            </form>
             <div className="px-6 py-4 border-t flex justify-end gap-3">
               <button
                 onClick={() => {
@@ -393,10 +399,35 @@ export default function SubscriptionsPage() {
                 취소
               </button>
               <button
-                onClick={() => {
-                  setIsEditPlanOpen(false);
-                  setEditingPlan(null);
-                  alert('플랜이 수정되었습니다.');
+                onClick={async () => {
+                  try {
+                    const form = document.getElementById('planEditForm') as HTMLFormElement;
+                    const formData = new FormData(form);
+
+                    const response = await fetch(`/api/subscriptions/${editingPlan?.id}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        displayName: formData.get('displayName') || editingPlan?.displayName,
+                        priceMonthly: Number(formData.get('priceMonthly')) || editingPlan?.priceMonthly,
+                        priceYearly: Number(formData.get('priceYearly')) || editingPlan?.priceYearly,
+                        maxEmployees: Number(formData.get('maxEmployees')) || editingPlan?.maxEmployees,
+                        maxStores: Number(formData.get('maxStores')) || editingPlan?.maxStores,
+                        features: editingPlan?.features || [],
+                      }),
+                    });
+
+                    if (response.ok) {
+                      setIsEditPlanOpen(false);
+                      setEditingPlan(null);
+                      fetchData();
+                    } else {
+                      alert('저장에 실패했습니다.');
+                    }
+                  } catch (error) {
+                    console.error('Failed to save:', error);
+                    alert('저장에 실패했습니다.');
+                  }
                 }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >

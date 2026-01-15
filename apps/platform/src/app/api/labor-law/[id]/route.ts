@@ -3,45 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  try {
-    const supabase = await createClient();
-    const adminClient = createAdminClient();
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { data: profile } = await adminClient
-      .from('users')
-      .select('role')
-      .eq('auth_id', user.id)
-      .single();
-
-    if (profile?.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    // Get labor law versions
-    const { data: versions, error } = await adminClient
-      .from('labor_law_versions')
-      .select('*')
-      .order('effective_date', { ascending: false });
-
-    if (error) throw error;
-
-    return NextResponse.json(versions || []);
-  } catch (error) {
-    console.error('Error fetching labor law versions:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch labor law versions' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: NextRequest) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     const supabase = await createClient();
     const adminClient = createAdminClient();
@@ -65,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     const { data, error } = await adminClient
       .from('labor_law_versions')
-      .insert([{
+      .update({
         version: body.version,
         effective_date: body.effectiveDate,
         minimum_wage_hourly: body.minimumWageHourly,
@@ -76,19 +41,54 @@ export async function POST(request: NextRequest) {
         health_insurance_rate: body.healthInsuranceRate,
         long_term_care_rate: body.longTermCareRate,
         employment_insurance_rate: body.employmentInsuranceRate,
-        status: 'DRAFT',
-      }])
+        status: body.status,
+      })
+      .eq('id', params.id)
       .select()
       .single();
 
     if (error) throw error;
 
-    return NextResponse.json(data, { status: 201 });
+    return NextResponse.json(data);
   } catch (error) {
-    console.error('Error creating labor law version:', error);
-    return NextResponse.json(
-      { error: 'Failed to create labor law version' },
-      { status: 500 }
-    );
+    console.error('Error updating labor law version:', error);
+    return NextResponse.json({ error: 'Failed to update version' }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const supabase = await createClient();
+    const adminClient = createAdminClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: profile } = await adminClient
+      .from('users')
+      .select('role')
+      .eq('auth_id', user.id)
+      .single();
+
+    if (profile?.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { error } = await adminClient
+      .from('labor_law_versions')
+      .delete()
+      .eq('id', params.id);
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting labor law version:', error);
+    return NextResponse.json({ error: 'Failed to delete version' }, { status: 500 });
   }
 }

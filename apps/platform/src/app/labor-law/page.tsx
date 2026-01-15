@@ -89,22 +89,72 @@ export default function LaborLawPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // API call would go here
-    setIsCreateOpen(false);
-    setEditingVersion(null);
-    alert(editingVersion ? '버전이 수정되었습니다.' : '새 버전이 추가되었습니다.');
+    try {
+      const url = editingVersion ? `/api/labor-law/${editingVersion.id}` : '/api/labor-law';
+      const method = editingVersion ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        setIsCreateOpen(false);
+        setEditingVersion(null);
+        fetchVersions();
+      } else {
+        alert('저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to save:', error);
+      alert('저장에 실패했습니다.');
+    }
   };
 
   const handleActivate = async (id: string) => {
     if (!confirm('이 버전을 활성화하시겠습니까? 현재 활성 버전은 만료됩니다.')) return;
-    // API call would go here
-    alert('버전이 활성화되었습니다.');
+    try {
+      // Archive current active version
+      const currentActive = versions.find(v => v.status === 'ACTIVE');
+      if (currentActive) {
+        await fetch(`/api/labor-law/${currentActive.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...currentActive, status: 'ARCHIVED' }),
+        });
+      }
+
+      // Activate selected version
+      const toActivate = versions.find(v => v.id === id);
+      if (toActivate) {
+        await fetch(`/api/labor-law/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...toActivate, status: 'ACTIVE' }),
+        });
+      }
+
+      fetchVersions();
+    } catch (error) {
+      console.error('Failed to activate:', error);
+      alert('활성화에 실패했습니다.');
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('이 버전을 삭제하시겠습니까?')) return;
-    // API call would go here
-    setVersions(versions.filter(v => v.id !== id));
+    try {
+      const response = await fetch(`/api/labor-law/${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        fetchVersions();
+      } else {
+        alert('삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to delete:', error);
+      alert('삭제에 실패했습니다.');
+    }
   };
 
   const activeVersion = versions.find(v => v.status === 'ACTIVE');

@@ -1,75 +1,143 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Search, UserPlus, MoreVertical, Shield, Building2 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
+import { useState, useEffect } from 'react';
+import { Search, UserPlus, MoreVertical, Shield, Building2, Edit, Trash2, X } from 'lucide-react';
 
 interface User {
   id: string;
   name: string;
   email: string;
   role: string;
+  company_id: string | null;
   company_name: string;
   status: 'ACTIVE' | 'INACTIVE' | 'PENDING' | 'SUSPENDED';
-  last_login: string | null;
+  last_login_at: string | null;
   created_at: string;
 }
 
+interface Company {
+  id: string;
+  name: string;
+}
+
+const initialFormData = {
+  name: '',
+  email: '',
+  role: 'staff',
+  company_id: '',
+  status: 'ACTIVE',
+};
+
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-
-  const supabase = createClient();
-
-  const fetchUsers = useCallback(async () => {
-    try {
-      const { data: usersData, error } = await supabase
-        .from('users')
-        .select(`
-          id,
-          name,
-          email,
-          role,
-          status,
-          last_login_at,
-          created_at,
-          companies(name)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching users:', error);
-        return;
-      }
-
-      if (usersData) {
-        const formattedUsers: User[] = usersData.map((user) => {
-          const companyData = Array.isArray(user.companies) ? user.companies[0] : user.companies;
-          return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            company_name: companyData?.name || '-',
-            status: user.status as User['status'],
-            last_login: user.last_login_at,
-            created_at: user.created_at,
-          };
-        });
-        setUsers(formattedUsers);
-      }
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [supabase]);
+  const [showModal, setShowModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [formData, setFormData] = useState(initialFormData);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
-  }, [fetchUsers]);
+    fetchCompanies();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch('/api/users');
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCompanies = async () => {
+    try {
+      const response = await fetch('/api/companies');
+      if (response.ok) {
+        const data = await response.json();
+        setCompanies(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch companies:', error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
+
+    try {
+      const url = editingUser ? `/api/users/${editingUser.id}` : '/api/users';
+      const method = editingUser ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        setShowModal(false);
+        setEditingUser(null);
+        setFormData(initialFormData);
+        fetchUsers();
+      } else {
+        const data = await response.json();
+        setError(data.error || '저장에 실패했습니다.');
+      }
+    } catch (err) {
+      setError('저장에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEdit = (user: User) => {
+    setEditingUser(user);
+    setFormData({
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      company_id: user.company_id || '',
+      status: user.status,
+    });
+    setShowModal(true);
+    setOpenMenuId(null);
+  };
+
+  const handleDelete = async (user: User) => {
+    if (!confirm(`"${user.name}" 사용자를 비활성화하시겠습니까?`)) return;
+
+    try {
+      const response = await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
+      if (response.ok) {
+        fetchUsers();
+      } else {
+        alert('비활성화에 실패했습니다.');
+      }
+    } catch (err) {
+      alert('비활성화에 실패했습니다.');
+    }
+    setOpenMenuId(null);
+  };
+
+  const openNewModal = () => {
+    setEditingUser(null);
+    setFormData(initialFormData);
+    setError('');
+    setShowModal(true);
+  };
 
   const getRoleBadge = (role: string) => {
     const styles: Record<string, string> = {
@@ -129,9 +197,9 @@ export default function UsersPage() {
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.company_name.toLowerCase().includes(searchTerm.toLowerCase());
+      user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -151,7 +219,10 @@ export default function UsersPage() {
           <h1 className="text-2xl font-bold text-gray-900">사용자 관리</h1>
           <p className="text-gray-600">플랫폼의 모든 사용자를 관리합니다</p>
         </div>
-        <button className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-700">
+        <button
+          onClick={openNewModal}
+          className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-700"
+        >
           <UserPlus className="w-5 h-5 mr-2" />
           사용자 추가
         </button>
@@ -213,7 +284,7 @@ export default function UsersPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="flex items-center text-sm text-gray-500">
                       <Building2 className="w-4 h-4 mr-1" />
-                      {user.company_name}
+                      {user.company_name || '-'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -222,12 +293,35 @@ export default function UsersPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDateTime(user.last_login)}
+                    {formatDateTime(user.last_login_at)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <button className="text-gray-400 hover:text-gray-600">
-                      <MoreVertical className="w-5 h-5" />
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={() => setOpenMenuId(openMenuId === user.id ? null : user.id)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <MoreVertical className="w-5 h-5" />
+                      </button>
+                      {openMenuId === user.id && (
+                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+                          <button
+                            onClick={() => handleEdit(user)}
+                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          >
+                            <Edit className="w-4 h-4 mr-2" />
+                            수정
+                          </button>
+                          <button
+                            onClick={() => handleDelete(user)}
+                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            비활성화
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -241,6 +335,117 @@ export default function UsersPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Add/Edit User Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">
+                {editingUser ? '사용자 수정' : '새 사용자 추가'}
+              </h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-md text-sm">{error}</div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  이름 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  이메일 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">역할</label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="super_admin">Super Admin</option>
+                  <option value="company_admin">Company Admin</option>
+                  <option value="manager">관리자</option>
+                  <option value="store_manager">점장</option>
+                  <option value="team_leader">팀장</option>
+                  <option value="staff">직원</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">회사</label>
+                <select
+                  value={formData.company_id}
+                  onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">회사 없음</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>{company.name}</option>
+                  ))}
+                </select>
+              </div>
+              {editingUser && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">상태</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  >
+                    <option value="ACTIVE">활성</option>
+                    <option value="INACTIVE">비활성</option>
+                    <option value="PENDING">대기</option>
+                    <option value="SUSPENDED">정지</option>
+                  </select>
+                </div>
+              )}
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {submitting ? '저장 중...' : editingUser ? '수정' : '추가'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Click outside to close menu */}
+      {openMenuId && (
+        <div className="fixed inset-0 z-0" onClick={() => setOpenMenuId(null)} />
+      )}
     </div>
   );
 }
