@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Plus, Search, MoreVertical, Building2, Users, MapPin, Edit, Trash2, X } from 'lucide-react';
