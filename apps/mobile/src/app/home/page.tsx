@@ -69,11 +69,11 @@ export default function HomePage() {
         return;
       }
 
-      // Fetch user profile with store info
+      // Fetch user profile with store info (use auth_id, not id)
       const { data: userData } = await supabase
         .from('users')
         .select('id, name, company_id, brand_id, store_id, stores(id, name)')
-        .eq('id', authUser.id)
+        .eq('auth_id', authUser.id)
         .single();
 
       if (userData) {
@@ -90,35 +90,75 @@ export default function HomePage() {
       }
 
       const today = new Date().toISOString().split('T')[0];
+      const userProfileId = userData?.id;
 
-      // Fetch today's schedule - using correct column names
-      const { data: scheduleData } = await supabase
-        .from('schedules')
-        .select('start_time, end_time')
-        .eq('staff_id', authUser.id)
-        .eq('work_date', today)
-        .single();
+      if (userProfileId) {
+        // Fetch today's schedule - using user profile id, not auth id
+        const { data: scheduleData } = await supabase
+          .from('schedules')
+          .select('start_time, end_time')
+          .eq('staff_id', userProfileId)
+          .eq('work_date', today)
+          .single();
 
-      if (scheduleData) {
-        // start_time and end_time are timestamps
-        const startTime = scheduleData.start_time ? new Date(scheduleData.start_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-';
-        const endTime = scheduleData.end_time ? new Date(scheduleData.end_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-';
-        setTodaySchedule({
-          start: startTime,
-          end: endTime,
-        });
-      }
+        if (scheduleData) {
+          // start_time and end_time are timestamps
+          const startTime = scheduleData.start_time ? new Date(scheduleData.start_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-';
+          const endTime = scheduleData.end_time ? new Date(scheduleData.end_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-';
+          setTodaySchedule({
+            start: startTime,
+            end: endTime,
+          });
+        }
 
-      // Fetch today's attendance - using correct table and column names
-      const { data: attendanceData } = await supabase
-        .from('attendances')
-        .select('id, actual_check_in, actual_check_out, work_date, status')
-        .eq('staff_id', authUser.id)
-        .eq('work_date', today)
-        .single();
+        // Fetch today's attendance - using user profile id
+        const { data: attendanceData } = await supabase
+          .from('attendances')
+          .select('id, actual_check_in, actual_check_out, work_date, status')
+          .eq('staff_id', userProfileId)
+          .eq('work_date', today)
+          .single();
 
-      if (attendanceData) {
-        setTodayAttendance(attendanceData);
+        if (attendanceData) {
+          setTodayAttendance(attendanceData);
+        }
+
+        // Calculate weekly stats
+        const weekStart = new Date();
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+        const weekStartStr = weekStart.toISOString().split('T')[0];
+
+        const { data: weekAttendance } = await supabase
+          .from('attendances')
+          .select('actual_check_in, actual_check_out, status, work_hours')
+          .eq('staff_id', userProfileId)
+          .gte('work_date', weekStartStr);
+
+        if (weekAttendance) {
+          let totalHours = 0;
+          let lateCount = 0;
+
+          weekAttendance.forEach((record) => {
+            // Use pre-calculated work_hours if available
+            if (record.work_hours) {
+              totalHours += Number(record.work_hours);
+            } else if (record.actual_check_in && record.actual_check_out) {
+              // Fallback: calculate from timestamps
+              const checkIn = new Date(record.actual_check_in);
+              const checkOut = new Date(record.actual_check_out);
+              totalHours += (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
+            }
+            if (record.status === 'LATE' || record.status === 'EARLY_LEAVE') {
+              lateCount++;
+            }
+          });
+
+          setWeeklyStats({
+            totalHours: Math.round(totalHours),
+            workDays: weekAttendance.filter(r => r.actual_check_in).length,
+            lateCount,
+          });
+        }
       }
 
       // Fetch recent notices - filter by company_id if available
@@ -137,43 +177,6 @@ export default function HomePage() {
       if (noticesData) {
         setRecentNotices(noticesData);
       }
-
-      // Calculate weekly stats
-      const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-      const weekStartStr = weekStart.toISOString().split('T')[0];
-
-      const { data: weekAttendance } = await supabase
-        .from('attendances')
-        .select('actual_check_in, actual_check_out, status, work_hours')
-        .eq('staff_id', authUser.id)
-        .gte('work_date', weekStartStr);
-
-      if (weekAttendance) {
-        let totalHours = 0;
-        let lateCount = 0;
-
-        weekAttendance.forEach((record) => {
-          // Use pre-calculated work_hours if available
-          if (record.work_hours) {
-            totalHours += Number(record.work_hours);
-          } else if (record.actual_check_in && record.actual_check_out) {
-            // Fallback: calculate from timestamps
-            const checkIn = new Date(record.actual_check_in);
-            const checkOut = new Date(record.actual_check_out);
-            totalHours += (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
-          }
-          if (record.status === 'LATE' || record.status === 'EARLY_LEAVE') {
-            lateCount++;
-          }
-        });
-
-        setWeeklyStats({
-          totalHours: Math.round(totalHours),
-          workDays: weekAttendance.filter(r => r.actual_check_in).length,
-          lateCount,
-        });
-      }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -190,18 +193,15 @@ export default function HomePage() {
     setCheckingIn(true);
 
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
-
       const today = new Date().toISOString().split('T')[0];
       const now = new Date().toISOString();
 
       if (!todayAttendance || !todayAttendance.actual_check_in) {
-        // Check in - create attendance record
+        // Check in - create attendance record (use user.id which is the profile id)
         const { data, error } = await supabase
           .from('attendances')
           .upsert({
-            staff_id: authUser.id,
+            staff_id: user.id,
             company_id: user.company_id,
             brand_id: user.brand_id,
             store_id: user.store_id,
