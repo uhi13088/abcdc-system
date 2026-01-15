@@ -40,10 +40,13 @@ export async function GET() {
 
     if (error) throw error;
 
-    const formattedUsers = (users || []).map(u => ({
-      ...u,
-      company_name: u.companies?.name || '-',
-    }));
+    const formattedUsers = (users || []).map((u: any) => {
+      const companyData = Array.isArray(u.companies) ? u.companies[0] : u.companies;
+      return {
+        ...u,
+        company_name: companyData?.name || '-',
+      };
+    });
 
     return NextResponse.json(formattedUsers);
   } catch (error) {

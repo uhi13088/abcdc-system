@@ -52,8 +52,9 @@ export async function GET() {
       .eq('status', 'ACTIVE');
 
     const planCounts: Record<string, number> = { free: 0, starter: 0, pro: 0, enterprise: 0 };
-    (subscriptions || []).forEach(s => {
-      const tier = s.subscription_plans?.tier?.toLowerCase() || 'free';
+    (subscriptions || []).forEach((s: any) => {
+      const planData = Array.isArray(s.subscription_plans) ? s.subscription_plans[0] : s.subscription_plans;
+      const tier = planData?.tier?.toLowerCase() || 'free';
       planCounts[tier] = (planCounts[tier] || 0) + 1;
     });
 

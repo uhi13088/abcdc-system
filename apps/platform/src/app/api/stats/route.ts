@@ -83,12 +83,15 @@ export async function GET() {
         action: '신규 가입',
         time: c.created_at,
       })),
-      ...(recentUsers || []).map(u => ({
-        id: `user-${u.id}`,
-        company: u.companies?.name || '알 수 없음',
-        action: `${u.name} 사용자 추가`,
-        time: u.created_at,
-      })),
+      ...(recentUsers || []).map((u: any) => {
+        const companyData = Array.isArray(u.companies) ? u.companies[0] : u.companies;
+        return {
+          id: `user-${u.id}`,
+          company: companyData?.name || '알 수 없음',
+          action: `${u.name} 사용자 추가`,
+          time: u.created_at,
+        };
+      }),
     ]
       .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
       .slice(0, 5)
