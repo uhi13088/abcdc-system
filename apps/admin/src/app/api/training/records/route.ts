@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const category = searchParams.get('category');
 
-    let query = supabase
+    let query = adminClient
       .from('training_records')
       .select(`
         *,
@@ -73,17 +74,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is admin
-    const { data: userData } = await supabase
+    // Check if user is admin using auth_id
+    const { data: userData } = await adminClient
       .from('users')
       .select('role')
-      .eq('id', user.id)
+      .eq('auth_id', user.id)
       .single();
 
     if (!userData || !['super_admin', 'company_admin', 'manager', 'store_manager'].includes(userData.role)) {
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get training info for expiry calculation
-    const { data: training } = await supabase
+    const { data: training } = await adminClient
       .from('trainings')
       .select('valid_months')
       .eq('id', training_id)
@@ -111,7 +113,7 @@ export async function POST(request: NextRequest) {
       expires_at = expiryDate.toISOString().split('T')[0];
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('training_records')
       .insert({
         user_id,

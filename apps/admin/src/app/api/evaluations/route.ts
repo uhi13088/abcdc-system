@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
     const period = searchParams.get('period');
     const status = searchParams.get('status');
 
-    let query = supabase
+    let query = adminClient
       .from('employee_evaluations')
       .select(`
         *,
@@ -82,17 +83,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get current user info
-    const { data: userData } = await supabase
+    // Get current user info using auth_id
+    const { data: userData } = await adminClient
       .from('users')
       .select('id, role')
-      .eq('id', user.id)
+      .eq('auth_id', user.id)
       .single();
 
     if (!userData || !['super_admin', 'company_admin', 'manager', 'store_manager'].includes(userData.role)) {
@@ -127,7 +129,7 @@ export async function POST(request: NextRequest) {
     const scores = categories ? Object.values(categories) as number[] : [3, 3, 3, 3, 3];
     const overallScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('employee_evaluations')
       .insert({
         user_id,
