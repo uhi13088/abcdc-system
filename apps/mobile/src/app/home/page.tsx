@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/bottom-nav';
 import { formatTime, formatDate } from '@/lib/utils';
-import { createClient } from '@/lib/supabase/client';
 
 interface UserProfile {
   id: string;
@@ -53,8 +52,6 @@ export default function HomePage() {
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStats>({ totalHours: 0, workDays: 0, lateCount: 0 });
   const [checkingIn, setCheckingIn] = useState(false);
 
-  const supabase = createClient();
-
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -62,119 +59,47 @@ export default function HomePage() {
 
   const fetchData = useCallback(async () => {
     try {
-      // Get current user
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        router.push('/auth/login');
-        return;
-      }
-
-      // Fetch user profile with store info (use auth_id, not id)
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id, name, company_id, brand_id, store_id, stores(id, name)')
-        .eq('auth_id', authUser.id)
-        .single();
-
-      if (userData) {
-        // Supabase returns relations as arrays, extract first element
-        const storeData = Array.isArray(userData.stores) ? userData.stores[0] : userData.stores;
-        setUser({
-          id: userData.id,
-          name: userData.name,
-          company_id: userData.company_id,
-          brand_id: userData.brand_id,
-          store_id: userData.store_id,
-          stores: storeData || null,
-        });
-      }
-
-      const today = new Date().toISOString().split('T')[0];
-      const userProfileId = userData?.id;
-
-      if (userProfileId) {
-        // Fetch today's schedule - using user profile id, not auth id
-        const { data: scheduleData } = await supabase
-          .from('schedules')
-          .select('start_time, end_time')
-          .eq('staff_id', userProfileId)
-          .eq('work_date', today)
-          .single();
-
-        if (scheduleData) {
-          // start_time and end_time are timestamps
-          const startTime = scheduleData.start_time ? new Date(scheduleData.start_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-';
-          const endTime = scheduleData.end_time ? new Date(scheduleData.end_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-';
-          setTodaySchedule({
-            start: startTime,
-            end: endTime,
-          });
+      // Fetch user profile via API
+      const userResponse = await fetch('/api/me');
+      if (!userResponse.ok) {
+        if (userResponse.status === 401) {
+          router.push('/auth/login');
+          return;
         }
+        throw new Error('Failed to fetch user');
+      }
+      const userData = await userResponse.json();
+      setUser(userData);
 
-        // Fetch today's attendance - using user profile id
-        const { data: attendanceData } = await supabase
-          .from('attendances')
-          .select('id, actual_check_in, actual_check_out, work_date, status')
-          .eq('staff_id', userProfileId)
-          .eq('work_date', today)
-          .single();
+      // Fetch all data in parallel via API routes
+      const [scheduleRes, attendanceRes, weeklyRes, noticesRes] = await Promise.all([
+        fetch('/api/schedules/today'),
+        fetch('/api/attendances/today'),
+        fetch('/api/attendances/weekly'),
+        fetch('/api/notices?limit=3'),
+      ]);
 
+      if (scheduleRes.ok) {
+        const scheduleData = await scheduleRes.json();
+        if (scheduleData) {
+          setTodaySchedule(scheduleData);
+        }
+      }
+
+      if (attendanceRes.ok) {
+        const attendanceData = await attendanceRes.json();
         if (attendanceData) {
           setTodayAttendance(attendanceData);
         }
-
-        // Calculate weekly stats
-        const weekStart = new Date();
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-        const weekStartStr = weekStart.toISOString().split('T')[0];
-
-        const { data: weekAttendance } = await supabase
-          .from('attendances')
-          .select('actual_check_in, actual_check_out, status, work_hours')
-          .eq('staff_id', userProfileId)
-          .gte('work_date', weekStartStr);
-
-        if (weekAttendance) {
-          let totalHours = 0;
-          let lateCount = 0;
-
-          weekAttendance.forEach((record) => {
-            // Use pre-calculated work_hours if available
-            if (record.work_hours) {
-              totalHours += Number(record.work_hours);
-            } else if (record.actual_check_in && record.actual_check_out) {
-              // Fallback: calculate from timestamps
-              const checkIn = new Date(record.actual_check_in);
-              const checkOut = new Date(record.actual_check_out);
-              totalHours += (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
-            }
-            if (record.status === 'LATE' || record.status === 'EARLY_LEAVE') {
-              lateCount++;
-            }
-          });
-
-          setWeeklyStats({
-            totalHours: Math.round(totalHours),
-            workDays: weekAttendance.filter(r => r.actual_check_in).length,
-            lateCount,
-          });
-        }
       }
 
-      // Fetch recent notices - filter by company_id if available
-      let noticesQuery = supabase
-        .from('notices')
-        .select('id, title, created_at')
-        .order('created_at', { ascending: false })
-        .limit(3);
-
-      if (userData?.company_id) {
-        noticesQuery = noticesQuery.eq('company_id', userData.company_id);
+      if (weeklyRes.ok) {
+        const weeklyData = await weeklyRes.json();
+        setWeeklyStats(weeklyData);
       }
 
-      const { data: noticesData } = await noticesQuery;
-
-      if (noticesData) {
+      if (noticesRes.ok) {
+        const noticesData = await noticesRes.json();
         setRecentNotices(noticesData);
       }
     } catch (error) {
@@ -182,7 +107,7 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, router]);
+  }, [router]);
 
   useEffect(() => {
     fetchData();
@@ -193,41 +118,18 @@ export default function HomePage() {
     setCheckingIn(true);
 
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const now = new Date().toISOString();
-
       if (!todayAttendance || !todayAttendance.actual_check_in) {
-        // Check in - create attendance record (use user.id which is the profile id)
-        const { data, error } = await supabase
-          .from('attendances')
-          .upsert({
-            staff_id: user.id,
-            company_id: user.company_id,
-            brand_id: user.brand_id,
-            store_id: user.store_id,
-            work_date: today,
-            actual_check_in: now,
-            status: 'NORMAL',
-            check_in_method: 'MANUAL',
-          })
-          .select()
-          .single();
-
-        if (!error && data) {
+        // Check in via API
+        const response = await fetch('/api/attendances/check-in', { method: 'POST' });
+        if (response.ok) {
+          const data = await response.json();
           setTodayAttendance(data);
         }
       } else if (!todayAttendance.actual_check_out) {
-        // Check out - update attendance record
-        const { data, error } = await supabase
-          .from('attendances')
-          .update({
-            actual_check_out: now,
-          })
-          .eq('id', todayAttendance.id)
-          .select()
-          .single();
-
-        if (!error && data) {
+        // Check out via API
+        const response = await fetch('/api/attendances/check-out', { method: 'POST' });
+        if (response.ok) {
+          const data = await response.json();
           setTodayAttendance(data);
         }
       }
