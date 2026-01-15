@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { Plus, Search, MoreVertical, Building2, Users, MapPin } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
