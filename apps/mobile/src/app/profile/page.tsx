@@ -37,31 +37,18 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        if (!authUser) {
-          router.push('/auth/login');
-          return;
+        // Fetch profile via API
+        const response = await fetch('/api/profile');
+        if (!response.ok) {
+          if (response.status === 401) {
+            router.push('/auth/login');
+            return;
+          }
+          throw new Error('Failed to fetch profile');
         }
 
-        const { data: userData } = await supabase
-          .from('users')
-          .select('id, name, phone, email, position, created_at, stores(id, name)')
-          .eq('id', authUser.id)
-          .single();
-
-        if (userData) {
-          // Supabase returns relations as arrays, extract first element
-          const storeData = Array.isArray(userData.stores) ? userData.stores[0] : userData.stores;
-          setProfile({
-            id: userData.id,
-            name: userData.name,
-            phone: userData.phone,
-            email: userData.email,
-            position: userData.position,
-            created_at: userData.created_at,
-            stores: storeData || null,
-          });
-        }
+        const userData = await response.json();
+        setProfile(userData);
       } catch (error) {
         console.error('Error fetching profile:', error);
       } finally {
@@ -70,7 +57,7 @@ export default function ProfilePage() {
     };
 
     fetchProfile();
-  }, [supabase, router]);
+  }, [router]);
 
   const menuItems = [
     { icon: FileText, label: '근로계약서', href: '/profile/contract' },

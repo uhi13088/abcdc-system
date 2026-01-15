@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/bottom-nav';
-import { createClient } from '@/lib/supabase/client';
 
 interface SalaryData {
   id: string;
@@ -38,26 +37,21 @@ export default function SalaryPage() {
   const [salary, setSalary] = useState<SalaryData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const supabase = createClient();
-
   const fetchSalary = useCallback(async () => {
     try {
       setLoading(true);
 
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        router.push('/auth/login');
-        return;
+      // Fetch salary via API
+      const response = await fetch(`/api/salaries?year=${selectedYear}&month=${selectedMonth}`);
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/auth/login');
+          return;
+        }
+        throw new Error('Failed to fetch salary');
       }
 
-      const { data: salaryData } = await supabase
-        .from('salaries')
-        .select('*')
-        .eq('staff_id', authUser.id)
-        .eq('year', selectedYear)
-        .eq('month', selectedMonth)
-        .single();
-
+      const salaryData = await response.json();
       setSalary(salaryData);
     } catch (error) {
       console.error('Failed to fetch salary:', error);
@@ -65,7 +59,7 @@ export default function SalaryPage() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, router, selectedYear, selectedMonth]);
+  }, [router, selectedYear, selectedMonth]);
 
   useEffect(() => {
     fetchSalary();

@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { Calendar } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/bottom-nav';
-import { createClient } from '@/lib/supabase/client';
 
 interface AttendanceRecord {
   id: string;
@@ -32,28 +31,22 @@ export default function AttendancePage() {
   const [summary, setSummary] = useState<MonthlySummary>({ workDays: 0, totalHours: 0, lateCount: 0 });
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
 
-  const supabase = createClient();
-
   const fetchRecords = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        router.push('/auth/login');
-        return;
+      const [year, month] = selectedMonth.split('-');
+
+      // Fetch attendance records via API
+      const response = await fetch(`/api/attendances/month?year=${year}&month=${month}`);
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/auth/login');
+          return;
+        }
+        throw new Error('Failed to fetch attendance');
       }
 
-      const [year, month] = selectedMonth.split('-');
-      const startDate = `${year}-${month}-01`;
-      const endDate = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
-
-      const { data: attendanceData } = await supabase
-        .from('attendances')
-        .select('id, work_date, actual_check_in, actual_check_out, status, work_hours')
-        .eq('staff_id', authUser.id)
-        .gte('work_date', startDate)
-        .lte('work_date', endDate)
-        .order('work_date', { ascending: false });
+      const attendanceData: AttendanceRecord[] = await response.json();
 
       if (attendanceData) {
         setRecords(attendanceData);
@@ -91,7 +84,7 @@ export default function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, router, selectedMonth]);
+  }, [router, selectedMonth]);
 
   useEffect(() => {
     // Generate available months (last 12 months)

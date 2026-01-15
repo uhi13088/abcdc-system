@@ -8,7 +8,6 @@ export async function GET() {
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
-    // Verify super_admin
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -24,54 +23,35 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Get companies with counts
-    const { data: companies, error } = await adminClient
-      .from('companies')
+    const { data: users, error } = await adminClient
+      .from('users')
       .select(`
-        *,
-        company_subscriptions(
-          subscription_plans(name, tier)
-        )
+        id,
+        name,
+        email,
+        role,
+        status,
+        last_login_at,
+        created_at,
+        company_id,
+        companies(id, name)
       `)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // Get counts for each company
-    const companiesWithCounts = await Promise.all(
-      (companies || []).map(async (company) => {
-        const [storesResult, usersResult] = await Promise.all([
-          adminClient
-            .from('stores')
-            .select('*', { count: 'exact', head: true })
-            .eq('company_id', company.id),
-          adminClient
-            .from('users')
-            .select('*', { count: 'exact', head: true })
-            .eq('company_id', company.id)
-            .neq('role', 'super_admin'),
-        ]);
+    const formattedUsers = (users || []).map((u: any) => {
+      const companyData = Array.isArray(u.companies) ? u.companies[0] : u.companies;
+      return {
+        ...u,
+        company_name: companyData?.name || '-',
+      };
+    });
 
-        // Get active subscription plan
-        const activeSub = company.company_subscriptions?.find((s: any) => s.subscription_plans);
-        const planName = activeSub?.subscription_plans?.tier?.toLowerCase() || 'free';
-
-        return {
-          ...company,
-          stores_count: storesResult.count || 0,
-          users_count: usersResult.count || 0,
-          plan: planName,
-        };
-      })
-    );
-
-    return NextResponse.json(companiesWithCounts);
+    return NextResponse.json(formattedUsers);
   } catch (error) {
-    console.error('Error fetching companies:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch companies' },
-      { status: 500 }
-    );
+    console.error('Error fetching users:', error);
+    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
   }
 }
 
@@ -80,7 +60,6 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
-    // Verify super_admin
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -99,14 +78,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const { data, error } = await adminClient
-      .from('companies')
+      .from('users')
       .insert([{
         name: body.name,
-        business_number: body.business_number,
-        owner_name: body.owner_name,
         email: body.email,
-        phone: body.phone,
-        address: body.address,
+        role: body.role,
+        company_id: body.company_id || null,
         status: 'ACTIVE',
       }])
       .select()
@@ -116,10 +93,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
-    console.error('Error creating company:', error);
-    return NextResponse.json(
-      { error: 'Failed to create company' },
-      { status: 500 }
-    );
+    console.error('Error creating user:', error);
+    return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
   }
 }

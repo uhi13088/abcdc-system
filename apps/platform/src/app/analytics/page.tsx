@@ -1,42 +1,60 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Users, Building2, Calendar } from 'lucide-react';
 import { formatNumber, formatCurrency } from '@/lib/utils';
 
+interface AnalyticsData {
+  metrics: {
+    newCompanies: number;
+    newUsers: number;
+    mau: number;
+    monthlyRevenue: number;
+  };
+  companyGrowth: Array<{ month: string; count: number }>;
+  planDistribution: Array<{ plan: string; count: number; percentage: number }>;
+  topCompanies: Array<{ name: string; users: number; stores: number; revenue: number }>;
+}
+
 export default function AnalyticsPage() {
   const [period, setPeriod] = useState('month');
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<AnalyticsData | null>(null);
 
-  const metrics = [
-    { name: '신규 가입 회사', value: 12, change: '+20%', icon: Building2 },
-    { name: '신규 사용자', value: 156, change: '+35%', icon: Users },
-    { name: 'MAU', value: 892, change: '+12%', icon: TrendingUp },
-    { name: '월 매출', value: 24500000, isCurrency: true, change: '+18%', icon: BarChart3 },
-  ];
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        const response = await fetch(`/api/analytics?period=${period}`);
+        if (response.ok) {
+          setData(await response.json());
+        }
+      } catch (error) {
+        console.error('Failed to fetch analytics:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAnalytics();
+  }, [period]);
 
-  const companyGrowth = [
-    { month: '1월', count: 35 },
-    { month: '2월', count: 38 },
-    { month: '3월', count: 41 },
-    { month: '4월', count: 43 },
-    { month: '5월', count: 45 },
-    { month: '6월', count: 48 },
-  ];
+  const metrics = data ? [
+    { name: '신규 가입 회사', value: data.metrics.newCompanies, change: '-', icon: Building2 },
+    { name: '신규 사용자', value: data.metrics.newUsers, change: '-', icon: Users },
+    { name: 'MAU', value: data.metrics.mau, change: '-', icon: TrendingUp },
+    { name: '월 매출', value: data.metrics.monthlyRevenue, isCurrency: true, change: '-', icon: BarChart3 },
+  ] : [];
 
-  const planDistribution = [
-    { plan: 'Free', count: 15, percentage: 31 },
-    { plan: 'Basic', count: 18, percentage: 38 },
-    { plan: 'Premium', count: 10, percentage: 21 },
-    { plan: 'Enterprise', count: 5, percentage: 10 },
-  ];
+  const companyGrowth = data?.companyGrowth || [];
+  const planDistribution = data?.planDistribution || [];
+  const topCompanies = data?.topCompanies || [];
 
-  const topCompanies = [
-    { name: '카페모카 프랜차이즈', users: 156, stores: 35, revenue: 8500000 },
-    { name: '맛있는 치킨', users: 48, stores: 12, revenue: 3200000 },
-    { name: '맛집 프랜차이즈', users: 32, stores: 8, revenue: 2100000 },
-    { name: '행복한 베이커리', users: 20, stores: 5, revenue: 1500000 },
-    { name: '든든한 식당', users: 5, stores: 1, revenue: 0 },
-  ];
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

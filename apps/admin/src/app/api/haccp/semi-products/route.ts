@@ -114,11 +114,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user info
+    // Get user info using auth_id
     const { data: userData } = await supabase
       .from('users')
       .select('id, company_id, store_id, role')
-      .eq('id', user.id)
+      .eq('auth_id', user.id)
       .single();
 
     if (!userData || !['super_admin', 'company_admin', 'manager', 'store_manager'].includes(userData.role)) {

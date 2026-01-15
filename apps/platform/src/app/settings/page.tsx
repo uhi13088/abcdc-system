@@ -1,27 +1,86 @@
 'use client';
 
-import { useState } from 'react';
-import { Save, Bell, Shield, Database, Mail, Globe, Server } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Save, Bell, Shield, Database, Mail, Globe, Server, Check } from 'lucide-react';
+
+const defaultSettings = {
+  platformName: 'ABC Staff System',
+  supportEmail: 'support@abcstaff.com',
+  maxUsersPerCompany: 100,
+  maxStoresPerCompany: 50,
+  enableRegistration: true,
+  requireEmailVerification: true,
+  enableTwoFactor: false,
+  maintenanceMode: false,
+  backupEnabled: true,
+  backupFrequency: 'daily',
+  emailNotifications: true,
+  slackNotifications: false,
+};
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState({
-    platformName: 'ABC Staff System',
-    supportEmail: 'support@abcstaff.com',
-    maxUsersPerCompany: 100,
-    maxStoresPerCompany: 50,
-    enableRegistration: true,
-    requireEmailVerification: true,
-    enableTwoFactor: false,
-    maintenanceMode: false,
-    backupEnabled: true,
-    backupFrequency: 'daily',
-    emailNotifications: true,
-    slackNotifications: false,
-  });
+  const [settings, setSettings] = useState(defaultSettings);
+  const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const handleSave = () => {
-    alert('설정이 저장되었습니다.');
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+          const data = await response.json();
+          if (data && Object.keys(data).length > 0) {
+            setSettings({
+              platformName: data.platform_name || defaultSettings.platformName,
+              supportEmail: data.support_email || defaultSettings.supportEmail,
+              maxUsersPerCompany: data.max_users_per_company ?? defaultSettings.maxUsersPerCompany,
+              maxStoresPerCompany: data.max_stores_per_company ?? defaultSettings.maxStoresPerCompany,
+              enableRegistration: data.enable_registration ?? defaultSettings.enableRegistration,
+              requireEmailVerification: data.require_email_verification ?? defaultSettings.requireEmailVerification,
+              enableTwoFactor: data.enable_two_factor ?? defaultSettings.enableTwoFactor,
+              maintenanceMode: data.maintenance_mode ?? defaultSettings.maintenanceMode,
+              backupEnabled: data.backup_enabled ?? defaultSettings.backupEnabled,
+              backupFrequency: data.backup_frequency || defaultSettings.backupFrequency,
+              emailNotifications: data.email_notifications ?? defaultSettings.emailNotifications,
+              slackNotifications: data.slack_notifications ?? defaultSettings.slackNotifications,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch settings:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      });
+      if (response.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      } else {
+        alert('설정 저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      alert('설정 저장에 실패했습니다.');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -32,10 +91,12 @@ export default function SettingsPage() {
         </div>
         <button
           onClick={handleSave}
-          className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-700"
+          className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+            saved ? 'bg-green-600 text-white' : 'bg-primary text-white hover:bg-primary-700'
+          }`}
         >
-          <Save className="w-5 h-5 mr-2" />
-          저장
+          {saved ? <Check className="w-5 h-5 mr-2" /> : <Save className="w-5 h-5 mr-2" />}
+          {saved ? '저장됨' : '저장'}
         </button>
       </div>
 

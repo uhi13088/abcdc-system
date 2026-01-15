@@ -45,54 +45,25 @@ export default function LaborLawPage() {
 
   const fetchVersions = async () => {
     try {
-      // Demo data
-      setVersions([
-        {
-          id: '1',
-          version: '2026.01',
-          effectiveDate: '2026-01-01',
-          minimumWageHourly: 10030,
-          overtimeRate: 1.5,
-          nightRate: 0.5,
-          holidayRate: 1.5,
-          nationalPensionRate: 4.5,
-          healthInsuranceRate: 3.545,
-          longTermCareRate: 12.81,
-          employmentInsuranceRate: 0.9,
-          status: 'ACTIVE',
-          createdAt: '2025-12-01',
-        },
-        {
-          id: '2',
-          version: '2026.07',
-          effectiveDate: '2026-07-01',
-          minimumWageHourly: 10350,
-          overtimeRate: 1.5,
-          nightRate: 0.5,
-          holidayRate: 1.5,
-          nationalPensionRate: 4.5,
-          healthInsuranceRate: 3.595,
-          longTermCareRate: 12.95,
-          employmentInsuranceRate: 0.9,
-          status: 'VERIFIED',
-          createdAt: '2026-01-05',
-        },
-        {
-          id: '3',
-          version: '2025.01',
-          effectiveDate: '2025-01-01',
-          minimumWageHourly: 9860,
-          overtimeRate: 1.5,
-          nightRate: 0.5,
-          holidayRate: 1.5,
-          nationalPensionRate: 4.5,
-          healthInsuranceRate: 3.495,
-          longTermCareRate: 12.27,
-          employmentInsuranceRate: 0.9,
-          status: 'ARCHIVED',
-          createdAt: '2024-12-01',
-        },
-      ]);
+      const response = await fetch('/api/labor-law');
+      if (response.ok) {
+        const data = await response.json();
+        setVersions(data.map((v: any) => ({
+          id: v.id,
+          version: v.version,
+          effectiveDate: v.effective_date,
+          minimumWageHourly: v.minimum_wage_hourly,
+          overtimeRate: v.overtime_rate,
+          nightRate: v.night_rate,
+          holidayRate: v.holiday_rate,
+          nationalPensionRate: v.national_pension_rate,
+          healthInsuranceRate: v.health_insurance_rate,
+          longTermCareRate: v.long_term_care_rate,
+          employmentInsuranceRate: v.employment_insurance_rate,
+          status: v.status,
+          createdAt: v.created_at,
+        })));
+      }
     } catch (error) {
       console.error('Failed to fetch labor law versions:', error);
     } finally {
@@ -118,22 +89,72 @@ export default function LaborLawPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // API call would go here
-    setIsCreateOpen(false);
-    setEditingVersion(null);
-    alert(editingVersion ? '버전이 수정되었습니다.' : '새 버전이 추가되었습니다.');
+    try {
+      const url = editingVersion ? `/api/labor-law/${editingVersion.id}` : '/api/labor-law';
+      const method = editingVersion ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        setIsCreateOpen(false);
+        setEditingVersion(null);
+        fetchVersions();
+      } else {
+        alert('저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to save:', error);
+      alert('저장에 실패했습니다.');
+    }
   };
 
   const handleActivate = async (id: string) => {
     if (!confirm('이 버전을 활성화하시겠습니까? 현재 활성 버전은 만료됩니다.')) return;
-    // API call would go here
-    alert('버전이 활성화되었습니다.');
+    try {
+      // Archive current active version
+      const currentActive = versions.find(v => v.status === 'ACTIVE');
+      if (currentActive) {
+        await fetch(`/api/labor-law/${currentActive.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...currentActive, status: 'ARCHIVED' }),
+        });
+      }
+
+      // Activate selected version
+      const toActivate = versions.find(v => v.id === id);
+      if (toActivate) {
+        await fetch(`/api/labor-law/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...toActivate, status: 'ACTIVE' }),
+        });
+      }
+
+      fetchVersions();
+    } catch (error) {
+      console.error('Failed to activate:', error);
+      alert('활성화에 실패했습니다.');
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('이 버전을 삭제하시겠습니까?')) return;
-    // API call would go here
-    setVersions(versions.filter(v => v.id !== id));
+    try {
+      const response = await fetch(`/api/labor-law/${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        fetchVersions();
+      } else {
+        alert('삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to delete:', error);
+      alert('삭제에 실패했습니다.');
+    }
   };
 
   const activeVersion = versions.find(v => v.status === 'ACTIVE');

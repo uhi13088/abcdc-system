@@ -4,13 +4,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/bottom-nav';
-import { createClient } from '@/lib/supabase/client';
 
 interface ScheduleItem {
   id: string;
   work_date: string;
-  start_time: string | null;  // timestamp
-  end_time: string | null;    // timestamp
+  start_time: string | null;
+  end_time: string | null;
   status: string | null;
   break_minutes: number | null;
 }
@@ -28,7 +27,7 @@ export default function SchedulePage() {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     const now = new Date();
     const dayOfWeek = now.getDay();
-    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Start from Monday
+    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     const monday = new Date(now);
     monday.setDate(now.getDate() + diff);
     monday.setHours(0, 0, 0, 0);
@@ -37,18 +36,11 @@ export default function SchedulePage() {
   const [weekSchedules, setWeekSchedules] = useState<WeekSchedule[]>([]);
   const [weeklySummary, setWeeklySummary] = useState({ totalHours: 0, workDays: 0 });
 
-  const supabase = createClient();
   const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
 
   const fetchSchedules = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        router.push('/auth/login');
-        return;
-      }
-
       // Calculate week date range
       const weekEnd = new Date(currentWeekStart);
       weekEnd.setDate(weekEnd.getDate() + 6);
@@ -56,12 +48,17 @@ export default function SchedulePage() {
       const startStr = currentWeekStart.toISOString().split('T')[0];
       const endStr = weekEnd.toISOString().split('T')[0];
 
-      const { data: schedulesData } = await supabase
-        .from('schedules')
-        .select('id, work_date, start_time, end_time, status, break_minutes')
-        .eq('staff_id', authUser.id)
-        .gte('work_date', startStr)
-        .lte('work_date', endStr);
+      // Fetch schedules via API
+      const response = await fetch(`/api/schedules/week?start=${startStr}&end=${endStr}`);
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push('/auth/login');
+          return;
+        }
+        throw new Error('Failed to fetch schedules');
+      }
+
+      const schedulesData: ScheduleItem[] = await response.json();
 
       // Build week schedule array
       const today = new Date();
@@ -105,7 +102,7 @@ export default function SchedulePage() {
     } finally {
       setLoading(false);
     }
-  }, [supabase, router, currentWeekStart]);
+  }, [router, currentWeekStart]);
 
   useEffect(() => {
     fetchSchedules();

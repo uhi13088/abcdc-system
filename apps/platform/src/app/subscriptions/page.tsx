@@ -46,121 +46,36 @@ export default function SubscriptionsPage() {
 
   const fetchData = async () => {
     try {
-      // Demo data - Plans
-      setPlans([
-        {
-          id: '1',
-          name: 'FREE',
-          displayName: '무료',
-          priceMonthly: 0,
-          priceYearly: 0,
-          maxEmployees: 10,
-          maxStores: 1,
-          features: ['QR 출퇴근', '기본 급여 계산'],
+      const response = await fetch('/api/subscriptions');
+      if (response.ok) {
+        const data = await response.json();
+        // Transform API data to match component interface
+        setPlans((data.plans || []).map((p: any) => ({
+          id: p.id,
+          name: p.tier?.toUpperCase() || p.name,
+          displayName: p.name,
+          priceMonthly: p.price || 0,
+          priceYearly: (p.price || 0) * 12 * 0.8, // 20% discount for yearly
+          maxEmployees: p.max_employees || 10,
+          maxStores: p.max_stores || 1,
+          features: p.features || [],
           active: true,
-          subscriberCount: 125,
-        },
-        {
-          id: '2',
-          name: 'STARTER',
-          displayName: '스타터',
-          priceMonthly: 39000,
-          priceYearly: 374400,
-          maxEmployees: 50,
-          maxStores: 3,
-          features: ['QR 출퇴근', '스케줄 관리', '계약서 관리', '급여명세서'],
-          active: true,
-          subscriberCount: 84,
-        },
-        {
-          id: '3',
-          name: 'PRO',
-          displayName: '프로',
-          priceMonthly: 99000,
-          priceYearly: 950400,
-          maxEmployees: 200,
-          maxStores: -1,
-          features: ['전체 기능', 'Toss POS 연동', '오픈뱅킹', 'AI 분류', '손익계산서'],
-          active: true,
-          subscriberCount: 42,
-        },
-        {
-          id: '4',
-          name: 'ENTERPRISE',
-          displayName: '엔터프라이즈',
-          priceMonthly: 0,
-          priceYearly: 0,
-          maxEmployees: -1,
-          maxStores: -1,
-          features: ['모든 기능', '전담 지원', '커스텀 개발', 'SLA 보장'],
-          active: true,
-          subscriberCount: 8,
-        },
-      ]);
+          subscriberCount: p.subscriber_count || 0,
+        })));
 
-      // Demo data - Subscriptions
-      setSubscriptions([
-        {
-          id: '1',
-          companyId: 'c1',
-          companyName: '맛있는 치킨',
-          planId: '3',
-          planName: '프로',
-          status: 'ACTIVE',
-          billingCycle: 'YEARLY',
-          currentPeriodEnd: '2026-12-31',
-          amount: 950400,
-          cancelAtPeriodEnd: false,
-        },
-        {
-          id: '2',
-          companyId: 'c2',
-          companyName: '행복한 베이커리',
-          planId: '2',
-          planName: '스타터',
-          status: 'ACTIVE',
-          billingCycle: 'MONTHLY',
-          currentPeriodEnd: '2026-02-15',
-          amount: 39000,
-          cancelAtPeriodEnd: false,
-        },
-        {
-          id: '3',
-          companyId: 'c3',
-          companyName: '카페모카 프랜차이즈',
-          planId: '4',
-          planName: '엔터프라이즈',
-          status: 'ACTIVE',
-          billingCycle: 'YEARLY',
-          currentPeriodEnd: '2027-03-15',
-          amount: 3000000,
-          cancelAtPeriodEnd: false,
-        },
-        {
-          id: '4',
-          companyId: 'c4',
-          companyName: '든든한 식당',
-          planId: '2',
-          planName: '스타터',
-          status: 'PAST_DUE',
-          billingCycle: 'MONTHLY',
-          currentPeriodEnd: '2026-01-05',
-          amount: 39000,
-          cancelAtPeriodEnd: false,
-        },
-        {
-          id: '5',
-          companyId: 'c5',
-          companyName: '서울 김밥',
-          planId: '1',
-          planName: '무료',
-          status: 'ACTIVE',
-          billingCycle: 'MONTHLY',
-          currentPeriodEnd: '2099-12-31',
-          amount: 0,
-          cancelAtPeriodEnd: false,
-        },
-      ]);
+        setSubscriptions((data.subscriptions || []).map((s: any) => ({
+          id: s.id,
+          companyId: s.company_id,
+          companyName: s.companies?.name || '알 수 없음',
+          planId: s.plan_id,
+          planName: s.subscription_plans?.name || '무료',
+          status: s.status || 'ACTIVE',
+          billingCycle: s.billing_cycle || 'MONTHLY',
+          currentPeriodEnd: s.current_period_end || '2099-12-31',
+          amount: s.subscription_plans?.price || 0,
+          cancelAtPeriodEnd: s.cancel_at_period_end || false,
+        })));
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -410,11 +325,12 @@ export default function SubscriptionsPage() {
             <div className="px-6 py-4 border-b">
               <h2 className="text-xl font-bold">플랜 수정: {editingPlan.displayName}</h2>
             </div>
-            <div className="p-6 space-y-4">
+            <form id="planEditForm" className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">표시 이름</label>
                 <input
                   type="text"
+                  name="displayName"
                   defaultValue={editingPlan.displayName}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
@@ -424,6 +340,7 @@ export default function SubscriptionsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">월간 가격</label>
                   <input
                     type="number"
+                    name="priceMonthly"
                     defaultValue={editingPlan.priceMonthly}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
@@ -432,6 +349,7 @@ export default function SubscriptionsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">연간 가격</label>
                   <input
                     type="number"
+                    name="priceYearly"
                     defaultValue={editingPlan.priceYearly}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
@@ -442,6 +360,7 @@ export default function SubscriptionsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">최대 직원 수</label>
                   <input
                     type="number"
+                    name="maxEmployees"
                     defaultValue={editingPlan.maxEmployees}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
@@ -451,6 +370,7 @@ export default function SubscriptionsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">최대 매장 수</label>
                   <input
                     type="number"
+                    name="maxStores"
                     defaultValue={editingPlan.maxStores}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
@@ -461,12 +381,13 @@ export default function SubscriptionsPage() {
                 <input
                   type="checkbox"
                   id="active"
+                  name="active"
                   defaultChecked={editingPlan.active}
                   className="w-4 h-4 text-blue-600 rounded"
                 />
                 <label htmlFor="active" className="text-sm text-gray-700">활성화</label>
               </div>
-            </div>
+            </form>
             <div className="px-6 py-4 border-t flex justify-end gap-3">
               <button
                 onClick={() => {
@@ -478,10 +399,35 @@ export default function SubscriptionsPage() {
                 취소
               </button>
               <button
-                onClick={() => {
-                  setIsEditPlanOpen(false);
-                  setEditingPlan(null);
-                  alert('플랜이 수정되었습니다.');
+                onClick={async () => {
+                  try {
+                    const form = document.getElementById('planEditForm') as HTMLFormElement;
+                    const formData = new FormData(form);
+
+                    const response = await fetch(`/api/subscriptions/${editingPlan?.id}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        displayName: formData.get('displayName') || editingPlan?.displayName,
+                        priceMonthly: Number(formData.get('priceMonthly')) || editingPlan?.priceMonthly,
+                        priceYearly: Number(formData.get('priceYearly')) || editingPlan?.priceYearly,
+                        maxEmployees: Number(formData.get('maxEmployees')) || editingPlan?.maxEmployees,
+                        maxStores: Number(formData.get('maxStores')) || editingPlan?.maxStores,
+                        features: editingPlan?.features || [],
+                      }),
+                    });
+
+                    if (response.ok) {
+                      setIsEditPlanOpen(false);
+                      setEditingPlan(null);
+                      fetchData();
+                    } else {
+                      alert('저장에 실패했습니다.');
+                    }
+                  } catch (error) {
+                    console.error('Failed to save:', error);
+                    alert('저장에 실패했습니다.');
+                  }
                 }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >

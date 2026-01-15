@@ -1,35 +1,150 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Layers, Building2, MapPin } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Plus, Search, Layers, Building2, MapPin, Edit, Trash2, X } from 'lucide-react';
 
 interface Brand {
   id: string;
   name: string;
+  company_id: string;
   company_name: string;
   category: string;
+  description?: string;
   stores_count: number;
-  status: 'active' | 'inactive';
+  status: 'ACTIVE' | 'INACTIVE';
 }
 
+interface Company {
+  id: string;
+  name: string;
+}
+
+const initialFormData = {
+  name: '',
+  company_id: '',
+  category: '',
+  description: '',
+};
+
 export default function BrandsPage() {
+  const searchParams = useSearchParams();
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
+  const [formData, setFormData] = useState(initialFormData);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    setBrands([
-      { id: '1', name: '황금올리브', company_name: '맛있는 치킨', category: '치킨', stores_count: 8, status: 'active' },
-      { id: '2', name: '크리스피', company_name: '맛있는 치킨', category: '치킨', stores_count: 4, status: 'active' },
-      { id: '3', name: '해피브레드', company_name: '행복한 베이커리', category: '베이커리', stores_count: 3, status: 'active' },
-      { id: '4', name: '달콤케이크', company_name: '행복한 베이커리', category: '베이커리', stores_count: 2, status: 'active' },
-      { id: '5', name: '카페모카 오리지널', company_name: '카페모카 프랜차이즈', category: '카페', stores_count: 20, status: 'active' },
-      { id: '6', name: '카페모카 프리미엄', company_name: '카페모카 프랜차이즈', category: '카페', stores_count: 15, status: 'active' },
-      { id: '7', name: '든든한밥상', company_name: '든든한 식당', category: '한식', stores_count: 1, status: 'inactive' },
-      { id: '8', name: '맛집1호점', company_name: '맛집 프랜차이즈', category: '분식', stores_count: 8, status: 'active' },
-    ]);
-    setLoading(false);
-  }, []);
+    fetchBrands();
+    fetchCompanies();
+    if (searchParams.get('new') === 'true') {
+      setShowModal(true);
+    }
+  }, [searchParams]);
+
+  const fetchBrands = async () => {
+    try {
+      const response = await fetch('/api/brands');
+      if (response.ok) {
+        const data = await response.json();
+        setBrands(data.map((b: any) => ({
+          id: b.id,
+          name: b.name,
+          company_id: b.company_id,
+          company_name: b.company_name || '알 수 없음',
+          category: b.category || '미분류',
+          description: b.description,
+          stores_count: b.stores_count || 0,
+          status: b.status || 'ACTIVE',
+        })));
+      }
+    } catch (error) {
+      console.error('Failed to fetch brands:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCompanies = async () => {
+    try {
+      const response = await fetch('/api/companies');
+      if (response.ok) {
+        const data = await response.json();
+        setCompanies(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch companies:', error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSubmitting(true);
+
+    try {
+      const url = editingBrand ? `/api/brands/${editingBrand.id}` : '/api/brands';
+      const method = editingBrand ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        setShowModal(false);
+        setEditingBrand(null);
+        setFormData(initialFormData);
+        fetchBrands();
+      } else {
+        const data = await response.json();
+        setError(data.error || '저장에 실패했습니다.');
+      }
+    } catch (err) {
+      setError('저장에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEdit = (brand: Brand) => {
+    setEditingBrand(brand);
+    setFormData({
+      name: brand.name,
+      company_id: brand.company_id || '',
+      category: brand.category || '',
+      description: brand.description || '',
+    });
+    setShowModal(true);
+  };
+
+  const handleDelete = async (brand: Brand) => {
+    if (!confirm(`"${brand.name}" 브랜드를 비활성화하시겠습니까?`)) return;
+
+    try {
+      const response = await fetch(`/api/brands/${brand.id}`, { method: 'DELETE' });
+      if (response.ok) {
+        fetchBrands();
+      } else {
+        alert('비활성화에 실패했습니다.');
+      }
+    } catch (err) {
+      alert('비활성화에 실패했습니다.');
+    }
+  };
+
+  const openNewModal = () => {
+    setEditingBrand(null);
+    setFormData(initialFormData);
+    setError('');
+    setShowModal(true);
+  };
 
   const filteredBrands = brands.filter(
     (brand) =>
@@ -53,7 +168,10 @@ export default function BrandsPage() {
           <h1 className="text-2xl font-bold text-gray-900">브랜드 관리</h1>
           <p className="text-gray-600">모든 회사의 브랜드를 관리합니다</p>
         </div>
-        <button className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-700">
+        <button
+          onClick={openNewModal}
+          className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-700"
+        >
           <Plus className="w-5 h-5 mr-2" />
           브랜드 등록
         </button>
@@ -83,11 +201,20 @@ export default function BrandsPage() {
                   <p className="text-sm text-gray-500">{brand.category}</p>
                 </div>
               </div>
-              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                brand.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-              }`}>
-                {brand.status === 'active' ? '활성' : '비활성'}
-              </span>
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={() => handleEdit(brand)}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                >
+                  <Edit className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleDelete(brand)}
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
               <div className="flex items-center justify-between text-sm">
@@ -101,9 +228,107 @@ export default function BrandsPage() {
                 </span>
               </div>
             </div>
+            <div className="mt-2">
+              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                brand.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+              }`}>
+                {brand.status === 'ACTIVE' ? '활성' : '비활성'}
+              </span>
+            </div>
           </div>
         ))}
+        {filteredBrands.length === 0 && (
+          <div className="col-span-full py-12 text-center text-gray-500">
+            {searchTerm ? '검색 결과가 없습니다.' : '등록된 브랜드가 없습니다.'}
+          </div>
+        )}
       </div>
+
+      {/* Add/Edit Brand Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">
+                {editingBrand ? '브랜드 수정' : '새 브랜드 등록'}
+              </h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-md text-sm">{error}</div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  브랜드명 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  회사 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  value={formData.company_id}
+                  onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">회사 선택</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>{company.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
+                <input
+                  type="text"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  placeholder="예: 치킨, 카페, 베이커리..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">설명</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                >
+                  {submitting ? '저장 중...' : editingBrand ? '수정' : '등록'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

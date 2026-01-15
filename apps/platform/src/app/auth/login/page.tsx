@@ -29,14 +29,14 @@ export default function LoginPage() {
 
       // Check if user is super_admin
       const { data: profile, error: profileError } = await supabase
-        .from('profiles')
+        .from('users')
         .select('role')
-        .eq('id', authData.user.id)
+        .eq('auth_id', authData.user.id)
         .single();
 
       if (profileError) throw profileError;
 
-      if (profile.role !== 'super_admin') {
+      if (profile?.role !== 'super_admin') {
         await supabase.auth.signOut();
         throw new Error('접근 권한이 없습니다. Super Admin만 접근할 수 있습니다.');
       }
