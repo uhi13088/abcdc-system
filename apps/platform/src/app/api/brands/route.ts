@@ -8,7 +8,6 @@ export async function GET() {
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
-    // Verify super_admin
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -24,52 +23,37 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Get companies with counts
-    const { data: companies, error } = await adminClient
-      .from('companies')
+    const { data: brands, error } = await adminClient
+      .from('brands')
       .select(`
         *,
-        company_subscriptions(
-          subscription_plans(name, tier)
-        )
+        companies(id, name)
       `)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // Get counts for each company
-    const companiesWithCounts = await Promise.all(
-      (companies || []).map(async (company) => {
-        const [storesResult, usersResult] = await Promise.all([
-          adminClient
-            .from('stores')
-            .select('*', { count: 'exact', head: true })
-            .eq('company_id', company.id),
-          adminClient
-            .from('users')
-            .select('*', { count: 'exact', head: true })
-            .eq('company_id', company.id)
-            .neq('role', 'super_admin'),
-        ]);
-
-        // Get active subscription plan
-        const activeSub = company.company_subscriptions?.find((s: any) => s.subscription_plans);
-        const planName = activeSub?.subscription_plans?.tier?.toLowerCase() || 'free';
+    // Get store counts
+    const brandsWithCounts = await Promise.all(
+      (brands || []).map(async (brand) => {
+        const { count } = await adminClient
+          .from('stores')
+          .select('*', { count: 'exact', head: true })
+          .eq('brand_id', brand.id);
 
         return {
-          ...company,
-          stores_count: storesResult.count || 0,
-          users_count: usersResult.count || 0,
-          plan: planName,
+          ...brand,
+          company_name: brand.companies?.name || '알 수 없음',
+          stores_count: count || 0,
         };
       })
     );
 
-    return NextResponse.json(companiesWithCounts);
+    return NextResponse.json(brandsWithCounts);
   } catch (error) {
-    console.error('Error fetching companies:', error);
+    console.error('Error fetching brands:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch companies' },
+      { error: 'Failed to fetch brands' },
       { status: 500 }
     );
   }
@@ -80,7 +64,6 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
-    // Verify super_admin
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -99,14 +82,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const { data, error } = await adminClient
-      .from('companies')
+      .from('brands')
       .insert([{
         name: body.name,
-        business_number: body.business_number,
-        owner_name: body.owner_name,
-        email: body.email,
-        phone: body.phone,
-        address: body.address,
+        company_id: body.company_id,
+        category: body.category,
+        description: body.description,
         status: 'ACTIVE',
       }])
       .select()
@@ -116,9 +97,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
-    console.error('Error creating company:', error);
+    console.error('Error creating brand:', error);
     return NextResponse.json(
-      { error: 'Failed to create company' },
+      { error: 'Failed to create brand' },
       { status: 500 }
     );
   }

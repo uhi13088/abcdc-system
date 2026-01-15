@@ -45,54 +45,25 @@ export default function LaborLawPage() {
 
   const fetchVersions = async () => {
     try {
-      // Demo data
-      setVersions([
-        {
-          id: '1',
-          version: '2026.01',
-          effectiveDate: '2026-01-01',
-          minimumWageHourly: 10030,
-          overtimeRate: 1.5,
-          nightRate: 0.5,
-          holidayRate: 1.5,
-          nationalPensionRate: 4.5,
-          healthInsuranceRate: 3.545,
-          longTermCareRate: 12.81,
-          employmentInsuranceRate: 0.9,
-          status: 'ACTIVE',
-          createdAt: '2025-12-01',
-        },
-        {
-          id: '2',
-          version: '2026.07',
-          effectiveDate: '2026-07-01',
-          minimumWageHourly: 10350,
-          overtimeRate: 1.5,
-          nightRate: 0.5,
-          holidayRate: 1.5,
-          nationalPensionRate: 4.5,
-          healthInsuranceRate: 3.595,
-          longTermCareRate: 12.95,
-          employmentInsuranceRate: 0.9,
-          status: 'VERIFIED',
-          createdAt: '2026-01-05',
-        },
-        {
-          id: '3',
-          version: '2025.01',
-          effectiveDate: '2025-01-01',
-          minimumWageHourly: 9860,
-          overtimeRate: 1.5,
-          nightRate: 0.5,
-          holidayRate: 1.5,
-          nationalPensionRate: 4.5,
-          healthInsuranceRate: 3.495,
-          longTermCareRate: 12.27,
-          employmentInsuranceRate: 0.9,
-          status: 'ARCHIVED',
-          createdAt: '2024-12-01',
-        },
-      ]);
+      const response = await fetch('/api/labor-law');
+      if (response.ok) {
+        const data = await response.json();
+        setVersions(data.map((v: any) => ({
+          id: v.id,
+          version: v.version,
+          effectiveDate: v.effective_date,
+          minimumWageHourly: v.minimum_wage_hourly,
+          overtimeRate: v.overtime_rate,
+          nightRate: v.night_rate,
+          holidayRate: v.holiday_rate,
+          nationalPensionRate: v.national_pension_rate,
+          healthInsuranceRate: v.health_insurance_rate,
+          longTermCareRate: v.long_term_care_rate,
+          employmentInsuranceRate: v.employment_insurance_rate,
+          status: v.status,
+          createdAt: v.created_at,
+        })));
+      }
     } catch (error) {
       console.error('Failed to fetch labor law versions:', error);
     } finally {

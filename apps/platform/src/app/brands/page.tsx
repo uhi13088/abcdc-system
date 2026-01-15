@@ -18,17 +18,27 @@ export default function BrandsPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    setBrands([
-      { id: '1', name: '황금올리브', company_name: '맛있는 치킨', category: '치킨', stores_count: 8, status: 'active' },
-      { id: '2', name: '크리스피', company_name: '맛있는 치킨', category: '치킨', stores_count: 4, status: 'active' },
-      { id: '3', name: '해피브레드', company_name: '행복한 베이커리', category: '베이커리', stores_count: 3, status: 'active' },
-      { id: '4', name: '달콤케이크', company_name: '행복한 베이커리', category: '베이커리', stores_count: 2, status: 'active' },
-      { id: '5', name: '카페모카 오리지널', company_name: '카페모카 프랜차이즈', category: '카페', stores_count: 20, status: 'active' },
-      { id: '6', name: '카페모카 프리미엄', company_name: '카페모카 프랜차이즈', category: '카페', stores_count: 15, status: 'active' },
-      { id: '7', name: '든든한밥상', company_name: '든든한 식당', category: '한식', stores_count: 1, status: 'inactive' },
-      { id: '8', name: '맛집1호점', company_name: '맛집 프랜차이즈', category: '분식', stores_count: 8, status: 'active' },
-    ]);
-    setLoading(false);
+    const fetchBrands = async () => {
+      try {
+        const response = await fetch('/api/brands');
+        if (response.ok) {
+          const data = await response.json();
+          setBrands(data.map((b: any) => ({
+            id: b.id,
+            name: b.name,
+            company_name: b.company_name || '알 수 없음',
+            category: b.category || '미분류',
+            stores_count: b.stores_count || 0,
+            status: b.status?.toLowerCase() === 'active' ? 'active' : 'inactive',
+          })));
+        }
+      } catch (error) {
+        console.error('Failed to fetch brands:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBrands();
   }, []);
 
   const filteredBrands = brands.filter(

@@ -1,93 +1,95 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Building2, Users, Layers, TrendingUp, Activity, Server } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Building2, Users, Layers, TrendingUp, Activity, Server, Store } from 'lucide-react';
 import { formatNumber } from '@/lib/utils';
 
 interface PlatformStats {
   totalCompanies: number;
   totalUsers: number;
   totalBrands: number;
+  totalStores: number;
   activeCompanies: number;
   monthlyActiveUsers: number;
   serverStatus: 'healthy' | 'warning' | 'error';
+  recentActivities: Array<{
+    id: string;
+    company: string;
+    action: string;
+    time: string;
+  }>;
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [stats, setStats] = useState<PlatformStats>({
     totalCompanies: 0,
     totalUsers: 0,
     totalBrands: 0,
+    totalStores: 0,
     activeCompanies: 0,
     monthlyActiveUsers: 0,
     serverStatus: 'healthy',
+    recentActivities: [],
   });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Demo data - in production, fetch from API
-    setStats({
-      totalCompanies: 48,
-      totalUsers: 1234,
-      totalBrands: 156,
-      activeCompanies: 42,
-      monthlyActiveUsers: 892,
-      serverStatus: 'healthy',
-    });
-    setLoading(false);
+    fetchStats();
   }, []);
+
+  const fetchStats = async () => {
+    try {
+      const response = await fetch('/api/stats');
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const statCards = [
     {
       name: '전체 회사',
       value: stats.totalCompanies,
       icon: Building2,
-      change: '+3',
-      changeType: 'positive' as const,
+      suffix: '개',
     },
     {
       name: '전체 사용자',
       value: stats.totalUsers,
       icon: Users,
-      change: '+28',
-      changeType: 'positive' as const,
+      suffix: '명',
     },
     {
       name: '전체 브랜드',
       value: stats.totalBrands,
       icon: Layers,
-      change: '+5',
-      changeType: 'positive' as const,
+      suffix: '개',
+    },
+    {
+      name: '전체 매장',
+      value: stats.totalStores,
+      icon: Store,
+      suffix: '개',
     },
     {
       name: '활성 회사',
       value: stats.activeCompanies,
       icon: Activity,
-      change: '87%',
-      changeType: 'neutral' as const,
+      suffix: '개',
     },
     {
       name: '월간 활성 사용자',
       value: stats.monthlyActiveUsers,
       icon: TrendingUp,
-      change: '+12%',
-      changeType: 'positive' as const,
+      suffix: '명',
     },
-    {
-      name: '서버 상태',
-      value: stats.serverStatus === 'healthy' ? '정상' : stats.serverStatus === 'warning' ? '주의' : '오류',
-      icon: Server,
-      change: '99.9%',
-      changeType: stats.serverStatus === 'healthy' ? 'positive' as const : 'negative' as const,
-    },
-  ];
-
-  const recentActivities = [
-    { id: 1, company: '맛있는 치킨', action: '신규 가입', time: '5분 전' },
-    { id: 2, company: '행복한 베이커리', action: '브랜드 추가', time: '15분 전' },
-    { id: 3, company: '카페모카', action: '사용자 10명 추가', time: '1시간 전' },
-    { id: 4, company: '든든한 식당', action: '플랜 업그레이드', time: '2시간 전' },
-    { id: 5, company: '맛집 프랜차이즈', action: '매장 5개 추가', time: '3시간 전' },
   ];
 
   if (loading) {
@@ -113,21 +115,12 @@ export default function DashboardPage() {
               <div>
                 <p className="text-sm font-medium text-gray-600">{stat.name}</p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">
-                  {typeof stat.value === 'number' ? formatNumber(stat.value) : stat.value}
+                  {formatNumber(stat.value)}<span className="text-base font-normal text-gray-500 ml-1">{stat.suffix}</span>
                 </p>
               </div>
               <div className="p-3 bg-primary/10 rounded-full">
                 <stat.icon className="w-6 h-6 text-primary" />
               </div>
-            </div>
-            <div className="mt-4">
-              <span className={`text-sm font-medium ${
-                stat.changeType === 'positive' ? 'text-green-600' :
-                stat.changeType === 'negative' ? 'text-red-600' : 'text-gray-600'
-              }`}>
-                {stat.change}
-              </span>
-              <span className="text-sm text-gray-500 ml-2">지난 달 대비</span>
             </div>
           </div>
         ))}
@@ -141,15 +134,21 @@ export default function DashboardPage() {
             <h2 className="text-lg font-semibold text-gray-900">최근 활동</h2>
           </div>
           <div className="divide-y divide-gray-200">
-            {recentActivities.map((activity) => (
-              <div key={activity.id} className="px-6 py-4 flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-gray-900">{activity.company}</p>
-                  <p className="text-sm text-gray-500">{activity.action}</p>
+            {stats.recentActivities.length > 0 ? (
+              stats.recentActivities.map((activity) => (
+                <div key={activity.id} className="px-6 py-4 flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">{activity.company}</p>
+                    <p className="text-sm text-gray-500">{activity.action}</p>
+                  </div>
+                  <span className="text-sm text-gray-400">{activity.time}</span>
                 </div>
-                <span className="text-sm text-gray-400">{activity.time}</span>
+              ))
+            ) : (
+              <div className="px-6 py-8 text-center text-gray-500">
+                최근 활동이 없습니다
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -159,17 +158,29 @@ export default function DashboardPage() {
             <h2 className="text-lg font-semibold text-gray-900">빠른 작업</h2>
           </div>
           <div className="p-6 space-y-4">
-            <button className="w-full py-3 px-4 bg-primary text-white rounded-lg hover:bg-primary-700 transition-colors">
+            <button
+              onClick={() => router.push('/companies?new=true')}
+              className="w-full py-3 px-4 bg-primary text-white rounded-lg hover:bg-primary-700 transition-colors"
+            >
               새 회사 등록
             </button>
-            <button className="w-full py-3 px-4 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-              시스템 공지 발송
+            <button
+              onClick={() => router.push('/brands?new=true')}
+              className="w-full py-3 px-4 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              새 브랜드 등록
             </button>
-            <button className="w-full py-3 px-4 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-              전체 리포트 다운로드
+            <button
+              onClick={() => router.push('/subscriptions')}
+              className="w-full py-3 px-4 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              구독 현황 보기
             </button>
-            <button className="w-full py-3 px-4 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-              데이터베이스 백업
+            <button
+              onClick={() => router.push('/analytics')}
+              className="w-full py-3 px-4 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              분석 리포트 보기
             </button>
           </div>
         </div>

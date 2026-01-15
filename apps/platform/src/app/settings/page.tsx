@@ -1,27 +1,53 @@
 'use client';
 
-import { useState } from 'react';
-import { Save, Bell, Shield, Database, Mail, Globe, Server } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Save, Bell, Shield, Database, Mail, Globe, Server, Check } from 'lucide-react';
+
+const defaultSettings = {
+  platformName: 'ABC Staff System',
+  supportEmail: 'support@abcstaff.com',
+  maxUsersPerCompany: 100,
+  maxStoresPerCompany: 50,
+  enableRegistration: true,
+  requireEmailVerification: true,
+  enableTwoFactor: false,
+  maintenanceMode: false,
+  backupEnabled: true,
+  backupFrequency: 'daily',
+  emailNotifications: true,
+  slackNotifications: false,
+};
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState({
-    platformName: 'ABC Staff System',
-    supportEmail: 'support@abcstaff.com',
-    maxUsersPerCompany: 100,
-    maxStoresPerCompany: 50,
-    enableRegistration: true,
-    requireEmailVerification: true,
-    enableTwoFactor: false,
-    maintenanceMode: false,
-    backupEnabled: true,
-    backupFrequency: 'daily',
-    emailNotifications: true,
-    slackNotifications: false,
-  });
+  const [settings, setSettings] = useState(defaultSettings);
+  const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('platform_settings');
+    if (stored) {
+      try {
+        setSettings({ ...defaultSettings, ...JSON.parse(stored) });
+      } catch {
+        setSettings(defaultSettings);
+      }
+    }
+    setLoading(false);
+  }, []);
 
   const handleSave = () => {
-    alert('설정이 저장되었습니다.');
+    localStorage.setItem('platform_settings', JSON.stringify(settings));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -32,10 +58,12 @@ export default function SettingsPage() {
         </div>
         <button
           onClick={handleSave}
-          className="flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-700"
+          className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+            saved ? 'bg-green-600 text-white' : 'bg-primary text-white hover:bg-primary-700'
+          }`}
         >
-          <Save className="w-5 h-5 mr-2" />
-          저장
+          {saved ? <Check className="w-5 h-5 mr-2" /> : <Save className="w-5 h-5 mr-2" />}
+          {saved ? '저장됨' : '저장'}
         </button>
       </div>
 
