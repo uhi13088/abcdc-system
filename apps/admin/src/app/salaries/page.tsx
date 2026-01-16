@@ -141,9 +141,62 @@ export default function SalariesPage() {
     }
   };
 
-  const handleExportExcel = () => {
-    // TODO: Implement Excel export
-    alert('엑셀 내보내기 기능은 준비 중입니다.');
+  const handleExportExcel = async () => {
+    if (salaries.length === 0) {
+      alert('내보낼 데이터가 없습니다.');
+      return;
+    }
+
+    try {
+      // Dynamically import xlsx to reduce bundle size
+      const XLSX = await import('xlsx');
+
+      // Prepare data for export
+      const exportData = salaries.map((salary) => ({
+        '직원명': salary.staff?.name || '',
+        '직책': salary.staff?.position || '',
+        '근무일수': salary.work_days,
+        '총근무시간': salary.total_hours?.toFixed(1) || '0',
+        '기본급': salary.base_salary || 0,
+        '연장수당': salary.overtime_pay || 0,
+        '야간수당': salary.night_pay || 0,
+        '총지급액': salary.total_gross_pay || 0,
+        '공제액': salary.total_deductions || 0,
+        '실지급액': salary.net_pay || 0,
+        '상태': statusMap[salary.status]?.label || salary.status,
+      }));
+
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 12 }, // 직원명
+        { wch: 10 }, // 직책
+        { wch: 10 }, // 근무일수
+        { wch: 12 }, // 총근무시간
+        { wch: 15 }, // 기본급
+        { wch: 15 }, // 연장수당
+        { wch: 15 }, // 야간수당
+        { wch: 15 }, // 총지급액
+        { wch: 15 }, // 공제액
+        { wch: 15 }, // 실지급액
+        { wch: 10 }, // 상태
+      ];
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '급여내역');
+
+      // Generate filename
+      const filename = `급여내역_${selectedYear}년${selectedMonth}월.xlsx`;
+
+      // Download file
+      XLSX.writeFile(wb, filename);
+    } catch (error) {
+      console.error('Excel export error:', error);
+      alert('엑셀 내보내기에 실패했습니다.');
+    }
   };
 
   // Summary stats (from API - includes all salaries for the month, not just current page)
