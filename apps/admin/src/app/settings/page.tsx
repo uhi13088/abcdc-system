@@ -123,50 +123,22 @@ export default function SettingsPage() {
           });
         }
 
-        // Fetch subscription data (실제 구독 현황)
-        const { data: subscriptionData } = await supabase
-          .from('company_subscriptions')
-          .select(`
-            *,
-            subscription_plans (
-              name,
-              tier,
-              price_monthly,
-              max_employees,
-              max_stores
-            )
-          `)
-          .eq('company_id', userData.company_id)
-          .eq('status', 'ACTIVE')
-          .maybeSingle();
-
         // Get current employee and store counts
         const { count: employeeCount } = await supabase
           .from('users')
           .select('id', { count: 'exact', head: true })
           .eq('company_id', userData.company_id)
-          .eq('is_active', true);
+          .eq('status', 'ACTIVE');
 
         const { count: storeCount } = await supabase
           .from('stores')
           .select('id', { count: 'exact', head: true })
           .eq('company_id', userData.company_id);
 
-        if (subscriptionData?.subscription_plans) {
-          const plan = subscriptionData.subscription_plans as any;
-          setSubscription({
-            planName: plan.name || 'FREE',
-            planTier: plan.tier || 'FREE',
-            price: plan.price_monthly || 0,
-            status: subscriptionData.status || 'ACTIVE',
-            currentPeriodEnd: subscriptionData.current_period_end,
-            maxEmployees: plan.max_employees,
-            maxStores: plan.max_stores,
-            currentEmployees: employeeCount || 0,
-            currentStores: storeCount || 0,
-          });
-        } else {
-          // No subscription - default to FREE
+        // TODO: company_subscriptions table needs to be created
+        // For now, use default FREE tier
+        {
+          // Default to FREE tier
           setSubscription({
             planName: 'FREE',
             planTier: 'FREE',
