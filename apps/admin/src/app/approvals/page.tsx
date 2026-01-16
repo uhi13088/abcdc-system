@@ -25,7 +25,7 @@ import {
   Card,
   CardContent,
 } from '@/components/ui';
-import { CheckSquare, Check, X, Eye, Clock, Calendar, DollarSign, ShoppingCart, UserMinus } from 'lucide-react';
+import { CheckSquare, Check, X, Eye, Clock, Calendar, DollarSign, ShoppingCart, UserMinus, RefreshCw, Trash2, FileX } from 'lucide-react';
 
 interface ApprovalRequest {
   id: string;
@@ -51,9 +51,12 @@ interface ApprovalRequest {
 const typeLabels: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
   LEAVE: { label: '휴가', icon: Calendar },
   OVERTIME: { label: '초과근무', icon: Clock },
+  SCHEDULE_CHANGE: { label: '근무조정', icon: RefreshCw },
   PURCHASE: { label: '구매', icon: ShoppingCart },
   EXPENSE: { label: '경비', icon: DollarSign },
+  DISPOSAL: { label: '폐기', icon: Trash2 },
   RESIGNATION: { label: '사직서', icon: UserMinus },
+  ABSENCE_EXCUSE: { label: '결근사유서', icon: FileX },
 };
 
 const statusMap: Record<string, { label: string; variant: 'default' | 'warning' | 'success' | 'danger' }> = {
@@ -142,13 +145,21 @@ export default function ApprovalsPage() {
   const formatDetails = (type: string, details: Record<string, unknown>) => {
     switch (type) {
       case 'LEAVE':
-        return `${details.leaveType} (${details.startDate} ~ ${details.endDate})`;
+        return `${details.leave_type_name || details.leaveType || '-'} (${details.start_date || details.startDate} ~ ${details.end_date || details.endDate})`;
       case 'OVERTIME':
-        return `${details.date} ${details.startTime} ~ ${details.endTime}`;
+        return `${details.overtime_date || details.date} ${details.overtime_hours || details.startTime}시간`;
+      case 'SCHEDULE_CHANGE':
+        return `${details.original_date || '-'} → ${details.requested_date || '-'}`;
       case 'PURCHASE':
         return `${details.itemName} (${(details.quantity as number) * (details.unitPrice as number)}원)`;
+      case 'EXPENSE':
+        return `${details.description || details.itemName || '-'} (${details.amount || '-'}원)`;
+      case 'DISPOSAL':
+        return `${details.itemName || '-'} (${details.reason || '-'})`;
       case 'RESIGNATION':
-        return `퇴사 예정일: ${details.resignationDate || '-'} / 사유: ${details.reason || '-'}`;
+        return `퇴사 예정일: ${details.resignationDate || '-'}`;
+      case 'ABSENCE_EXCUSE':
+        return `${details.absence_date || '-'} / 사유: ${details.reason || '-'}`;
       default:
         return JSON.stringify(details);
     }
@@ -169,11 +180,14 @@ export default function ApprovalsPage() {
                 { value: '', label: '전체 유형' },
                 { value: 'LEAVE', label: '휴가' },
                 { value: 'OVERTIME', label: '초과근무' },
+                { value: 'SCHEDULE_CHANGE', label: '근무조정' },
                 { value: 'PURCHASE', label: '구매' },
                 { value: 'EXPENSE', label: '경비' },
+                { value: 'DISPOSAL', label: '폐기' },
                 { value: 'RESIGNATION', label: '사직서' },
+                { value: 'ABSENCE_EXCUSE', label: '결근사유서' },
               ]}
-              className="w-32"
+              className="w-36"
             />
             <Select
               value={statusFilter}
