@@ -2,5 +2,15 @@
   "framework": "nextjs",
   "buildCommand": "next build",
   "installCommand": "cd ../.. && pnpm install",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "crons": [
+    {
+      "path": "/api/cron/work-reminder",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/attendance-anomaly-check",
+      "schedule": "*/30 * * * *"
+    }
+  ]
 }
