@@ -946,6 +946,43 @@ export default function SettingsPage() {
                   </Card>
                 </div>
 
+                {/* HACCP 애드온 */}
+                <div className="border-t pt-6 mb-6">
+                  <h4 className="font-medium mb-4">HACCP 애드온</h4>
+                  <Card className="border-2 border-green-200 bg-green-50/50">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-lg font-semibold text-green-700">🏭 HACCP 관리 시스템</span>
+                            <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">애드온</span>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-3">
+                            식품 제조 공장을 위한 HACCP 관리 기능을 추가합니다.
+                          </p>
+                          <ul className="text-sm text-gray-600 space-y-1 mb-4">
+                            <li>✓ HACCP 전용 모바일 앱</li>
+                            <li>✓ 9개 핵심 모듈 (일일 위생 점검, CCP 모니터링 등)</li>
+                            <li>✓ IoT 센서 자동 연동</li>
+                            <li>✓ HACCP 심사 준비 리포트</li>
+                          </ul>
+                          <p className="text-lg font-bold text-green-700">
+                            +₩99,000<span className="text-sm font-normal text-gray-500">/월</span>
+                          </p>
+                        </div>
+                        <div className="ml-4">
+                          <Button
+                            variant="outline"
+                            className="border-green-500 text-green-700 hover:bg-green-100"
+                          >
+                            애드온 추가
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
                 <div className="border-t pt-6">
                   <h4 className="font-medium mb-2 text-red-600">구독 취소</h4>
                   <p className="text-sm text-gray-500 mb-4">
