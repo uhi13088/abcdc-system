@@ -24,7 +24,10 @@ export async function GET(request: NextRequest) {
     }
 
     const startDate = month + '-01';
-    const endDate = month + '-31';
+    // Calculate the actual last day of the month
+    const [year, monthNum] = month.split('-').map(Number);
+    const lastDayOfMonth = new Date(year, monthNum, 0).getDate();
+    const endDate = month + '-' + String(lastDayOfMonth).padStart(2, '0');
 
     const { data, error } = await supabase
       .from('daily_sales')

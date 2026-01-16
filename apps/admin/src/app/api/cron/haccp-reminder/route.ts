@@ -3,7 +3,7 @@
  * 일일/주간/월간 점검 알림 발송
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
 import { pushNotificationService } from '@abc/shared/server';
@@ -33,7 +33,13 @@ const SHIFT_NAMES: Record<number, string> = {
   22: '야간',
 };
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Verify cron secret
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const supabase = getSupabaseClient();
   try {
     const now = new Date();

@@ -65,22 +65,24 @@ export default function RequestPage() {
         return;
       }
 
-      // Fetch user info including contract for leave days
+      // Fetch user info including contract for leave days (query by auth_id, not id)
       const { data: userData } = await supabase
         .from('users')
         .select('id, name, role, company_id, brand_id, store_id')
-        .eq('id', authUser.id)
+        .eq('auth_id', authUser.id)
         .single();
 
       if (userData) {
         setUserInfo(userData);
       }
 
-      // Fetch user's remaining annual leave from active contract
+      // Fetch user's remaining annual leave from active contract (use userData.id as staff_id)
+      if (!userData) return;
+
       const { data: contractData } = await supabase
         .from('contracts')
         .select('annual_leave_days')
-        .eq('staff_id', authUser.id)
+        .eq('staff_id', userData.id)
         .in('status', ['SIGNED', 'ACTIVE'])
         .order('created_at', { ascending: false })
         .limit(1)
@@ -92,7 +94,7 @@ export default function RequestPage() {
         const { data: usedLeave } = await supabase
           .from('approval_requests')
           .select('details')
-          .eq('requester_id', authUser.id)
+          .eq('requester_id', userData.id)
           .eq('type', 'LEAVE')
           .eq('final_status', 'APPROVED');
 
@@ -163,11 +165,12 @@ export default function RequestPage() {
         status: 'PENDING',
       }];
 
+      // Use userInfo.id (staff_id) not authUser.id (auth_id)
       const { error } = await supabase
         .from('approval_requests')
         .insert({
           type: requestType,
-          requester_id: authUser.id,
+          requester_id: userInfo.id,
           requester_name: userInfo.name,
           requester_role: userInfo.role,
           company_id: userInfo.company_id,

@@ -277,12 +277,12 @@ async function notifyManagersOfAnomalies(
   }
 
   for (const [storeId, storeAnomalies] of byStore) {
-    // 해당 매장의 관리자 조회
+    // 해당 매장의 관리자 조회 (use uppercase role names)
     const { data: managers } = await supabase
       .from('users')
       .select('id, name, email')
-      .or(`store_id.eq.${storeId},role.eq.company_admin,role.eq.manager`)
-      .in('role', ['store_manager', 'manager', 'company_admin']);
+      .or(`store_id.eq.${storeId},role.eq.COMPANY_ADMIN,role.eq.STORE_MANAGER`)
+      .in('role', ['STORE_MANAGER', 'COMPANY_ADMIN', 'HACCP_MANAGER']);
 
     if (!managers || managers.length === 0) continue;
 

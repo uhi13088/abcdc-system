@@ -53,11 +53,11 @@ export default function QRScanPage() {
         return;
       }
 
-      // Fetch user's store info
+      // Fetch user's store info (query by auth_id, not id)
       const { data: userData } = await supabase
         .from('users')
         .select('id, company_id, brand_id, store_id, stores(id, name)')
-        .eq('id', authUser.id)
+        .eq('auth_id', authUser.id)
         .single();
 
       if (userData) {
@@ -72,17 +72,19 @@ export default function QRScanPage() {
         });
       }
 
-      // Fetch today's attendance
+      // Fetch today's attendance (use userData.id as staff_id)
       const today = new Date().toISOString().split('T')[0];
-      const { data: attendanceData } = await supabase
-        .from('attendances')
-        .select('id, actual_check_in, actual_check_out')
-        .eq('staff_id', authUser.id)
-        .eq('work_date', today)
-        .single();
+      if (userData) {
+        const { data: attendanceData } = await supabase
+          .from('attendances')
+          .select('id, actual_check_in, actual_check_out')
+          .eq('staff_id', userData.id)
+          .eq('work_date', today)
+          .single();
 
-      if (attendanceData) {
-        setTodayAttendance(attendanceData);
+        if (attendanceData) {
+          setTodayAttendance(attendanceData);
+        }
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
@@ -189,11 +191,11 @@ export default function QRScanPage() {
           isCheckOut: true,
         });
       } else if (!todayAttendance?.actual_check_in) {
-        // Check in
+        // Check in (use userInfo.id which is staff_id, not authUser.id which is auth_id)
         const { error } = await supabase
           .from('attendances')
           .upsert({
-            staff_id: authUser.id,
+            staff_id: userInfo.id,
             company_id: userInfo.company_id,
             brand_id: userInfo.brand_id,
             store_id: userInfo.store_id,

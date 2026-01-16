@@ -4,7 +4,7 @@
  * Schedule: every 5 minutes
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 function getSupabaseClient() {
@@ -17,7 +17,13 @@ function getSupabaseClient() {
 // Offline threshold: 5 minutes
 const OFFLINE_THRESHOLD_MS = 5 * 60 * 1000;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Verify cron secret
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const supabase = getSupabaseClient();
   console.log('[Cron] Starting sensor health check...');
 
