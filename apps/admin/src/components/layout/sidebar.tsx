@@ -102,7 +102,7 @@ function SidebarComponent() {
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Logo */}
-      <div className="flex items-center h-16 px-4 border-b border-gray-200">
+      <Link href="/dashboard" className="flex items-center h-16 px-4 border-b border-gray-200 hover:bg-gray-50 transition-colors">
         <div className="flex items-center justify-center w-8 h-8 min-w-[32px] min-h-[32px] bg-emerald-500 rounded-lg text-white font-bold text-sm flex-shrink-0">
           A
         </div>
@@ -114,7 +114,7 @@ function SidebarComponent() {
         >
           ABC Staff
         </span>
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav className="flex-1 py-4 space-y-1 overflow-y-auto overflow-x-hidden scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>

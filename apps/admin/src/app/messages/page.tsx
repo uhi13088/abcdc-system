@@ -23,6 +23,14 @@ interface Message {
   created_at: string;
 }
 
+interface CompanyMember {
+  id: string;
+  name: string;
+  role: string;
+  position: string | null;
+  stores?: { name: string } | null;
+}
+
 export default function MessagesPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,6 +38,8 @@ export default function MessagesPage() {
   const [showComposeModal, setShowComposeModal] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [companyMembers, setCompanyMembers] = useState<CompanyMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
   const [formData, setFormData] = useState({
     recipient_id: '',
     subject: '',
@@ -38,7 +48,23 @@ export default function MessagesPage() {
 
   useEffect(() => {
     fetchMessages();
+    fetchCompanyMembers();
   }, [activeTab]);
+
+  const fetchCompanyMembers = async () => {
+    try {
+      setLoadingMembers(true);
+      const response = await fetch('/api/users?limit=1000&status=ACTIVE');
+      if (response.ok) {
+        const result = await response.json();
+        setCompanyMembers(result.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch company members:', error);
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
 
   const fetchMessages = async () => {
     try {
@@ -222,14 +248,23 @@ export default function MessagesPage() {
             <form onSubmit={handleSend} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">받는 사람</label>
-                <input
-                  type="text"
+                <select
                   value={formData.recipient_id}
                   onChange={(e) => setFormData({ ...formData, recipient_id: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="직원 ID 또는 이름"
+                  className="w-full px-3 py-2 border rounded-lg bg-white"
                   required
-                />
+                >
+                  <option value="">받는 사람 선택</option>
+                  {loadingMembers ? (
+                    <option disabled>불러오는 중...</option>
+                  ) : (
+                    companyMembers.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.name} ({member.position || member.role}){member.stores?.name ? ` - ${member.stores.name}` : ''}
+                      </option>
+                    ))
+                  )}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">제목</label>
