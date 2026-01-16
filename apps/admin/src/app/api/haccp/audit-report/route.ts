@@ -1,356 +1,165 @@
 /**
  * HACCP 심사 준비 리포트 API
- * GET /api/haccp/audit-report - 심사용 종합 리포트 생성
+ * GET /api/haccp/audit-report - 심사 대비 종합 리포트 생성
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { format, parseISO, differenceInDays } from 'date-fns';
+import { createClient as createServerClient } from '@/lib/supabase/server';
+import { subMonths, format } from 'date-fns';
 
-export const dynamic = 'force-dynamic';
-
-function getSupabaseClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-  );
+interface AuditSection {
+  name: string;
+  score: number;
+  maxScore: number;
+  status: 'PASS' | 'WARNING' | 'FAIL';
+  items: AuditItem[];
+  recommendations: string[];
 }
 
-interface AuditReportSummary {
-  period: {
-    startDate: string;
-    endDate: string;
-    totalDays: number;
-  };
-  dailyHygieneChecks: {
-    totalRequired: number;
-    totalCompleted: number;
-    completionRate: number;
-    missedDates: string[];
-  };
-  ccpMonitoring: {
-    totalRecords: number;
-    passCount: number;
-    failCount: number;
-    passRate: number;
-    failureDetails: {
-      date: string;
-      ccpName: string;
-      value: number;
-      limit: string;
-    }[];
-  };
-  correctiveActions: {
-    total: number;
-    closed: number;
-    open: number;
-    averageClosureTime: number;
-    byStatus: Record<string, number>;
-  };
-  materialInspections: {
-    total: number;
-    passed: number;
-    rejected: number;
-    rejectionRate: number;
-  };
-  productionRecords: {
-    totalBatches: number;
-    totalQuantity: number;
-    averageDefectRate: number;
-  };
-  ccpVerifications: {
-    totalRequired: number;
-    completed: number;
-    completionRate: number;
-  };
-  trainingRecords: {
-    totalSessions: number;
-    totalAttendees: number;
-    topics: string[];
-  };
+interface AuditItem {
+  requirement: string;
+  status: 'COMPLIANT' | 'PARTIAL' | 'NON_COMPLIANT' | 'NOT_APPLICABLE';
+  evidence: string | null;
+  notes: string | null;
 }
 
 export async function GET(request: NextRequest) {
-  const supabase = getSupabaseClient();
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
+    const supabase = await createServerClient();
+    const { searchParams } = new URL(request.url);
+    const months = parseInt(searchParams.get('months') || '3');
+
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { data: userData } = await supabase
+    const { data: userProfile } = await supabase
       .from('users')
-      .select('company_id, role')
-      .eq('auth_id', user.id)
+      .select('company_id')
+      .eq('auth_id', userData.user.id)
       .single();
 
-    if (!userData) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!userProfile?.company_id) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 권한 확인
-    if (!['COMPANY_ADMIN', 'HACCP_MANAGER', 'ADMIN'].includes(userData.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const companyId = userProfile.company_id;
+    const today = new Date();
+    const periodStart = subMonths(today, months);
+    const periodStartStr = format(periodStart, 'yyyy-MM-dd');
 
-    const searchParams = request.nextUrl.searchParams;
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
+    const sections: AuditSection[] = [];
 
-    if (!startDate || !endDate) {
-      return NextResponse.json(
-        { error: 'startDate and endDate are required' },
-        { status: 400 }
-      );
-    }
+    // 1. 선행요건 관리 (위생 점검)
+    sections.push(await evaluateHygieneSection(supabase, companyId, periodStartStr));
+    // 2. CCP 모니터링
+    sections.push(await evaluateCCPSection(supabase, companyId, periodStartStr));
+    // 3. 원료/자재 관리
+    sections.push(await evaluateMaterialSection(supabase, companyId, periodStartStr));
+    // 4. 입고 검수
+    sections.push(await evaluateReceivingSection(supabase, companyId, periodStartStr));
+    // 5. 생산 기록
+    sections.push(await evaluateProductionSection(supabase, companyId, periodStartStr));
+    // 6. 개선 조치 관리
+    sections.push(await evaluateCorrectiveSection(supabase, companyId, periodStartStr));
+    // 7. 교육/훈련
+    sections.push(await evaluateTrainingSection(supabase, companyId, periodStartStr));
 
-    const companyId = userData.company_id;
-    const totalDays = differenceInDays(parseISO(endDate), parseISO(startDate)) + 1;
+    // 종합 점수 계산
+    const totalScore = sections.reduce((sum, s) => sum + s.score, 0);
+    const totalMaxScore = sections.reduce((sum, s) => sum + s.maxScore, 0);
+    const overallPercentage = Math.round((totalScore / totalMaxScore) * 100);
 
-    // 1. 일일 위생 점검 통계
-    const dailyHygieneChecks = await getDailyHygieneStats(companyId, startDate, endDate, totalDays);
+    let overallStatus: 'EXCELLENT' | 'GOOD' | 'NEEDS_IMPROVEMENT' | 'CRITICAL';
+    if (overallPercentage >= 90) overallStatus = 'EXCELLENT';
+    else if (overallPercentage >= 75) overallStatus = 'GOOD';
+    else if (overallPercentage >= 60) overallStatus = 'NEEDS_IMPROVEMENT';
+    else overallStatus = 'CRITICAL';
 
-    // 2. CCP 모니터링 통계
-    const ccpMonitoring = await getCCPMonitoringStats(companyId, startDate, endDate);
+    const allRecommendations = sections.flatMap((s) => s.recommendations);
+    const priorityActions = sections
+      .filter((s) => s.status === 'FAIL')
+      .map((s) => `${s.name}: 즉시 개선 필요 (현재 ${Math.round((s.score / s.maxScore) * 100)}%)`);
 
-    // 3. 개선조치 통계
-    const correctiveActions = await getCorrectiveActionStats(companyId, startDate, endDate);
-
-    // 4. 입고 검사 통계
-    const materialInspections = await getMaterialInspectionStats(companyId, startDate, endDate);
-
-    // 5. 생산 기록 통계
-    const productionRecords = await getProductionStats(companyId, startDate, endDate);
-
-    // 6. CCP 검증 통계
-    const ccpVerifications = await getCCPVerificationStats(companyId, startDate, endDate);
-
-    // 7. 교육 기록 통계
-    const trainingRecords = await getTrainingStats(companyId, startDate, endDate);
-
-    const report: AuditReportSummary = {
-      period: {
-        startDate,
-        endDate,
-        totalDays,
-      },
-      dailyHygieneChecks,
-      ccpMonitoring,
-      correctiveActions,
-      materialInspections,
-      productionRecords,
-      ccpVerifications,
-      trainingRecords,
-    };
-
-    return NextResponse.json(report);
+    return NextResponse.json({
+      report: { generatedAt: today.toISOString(), periodStart: periodStartStr, periodEnd: format(today, 'yyyy-MM-dd'), companyId },
+      summary: { totalScore, totalMaxScore, percentage: overallPercentage, status: overallStatus, statusLabel: { EXCELLENT: '우수', GOOD: '양호', NEEDS_IMPROVEMENT: '개선 필요', CRITICAL: '심각' }[overallStatus] },
+      sections,
+      recommendations: { priority: priorityActions, general: allRecommendations },
+      readiness: { isReady: overallPercentage >= 75 && priorityActions.length === 0, message: overallPercentage >= 75 && priorityActions.length === 0 ? 'HACCP 심사 준비가 완료되었습니다.' : '심사 전 개선이 필요한 항목이 있습니다.' },
+    });
   } catch (error) {
     console.error('Audit report error:', error);
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-async function getDailyHygieneStats(
-  companyId: string,
-  startDate: string,
-  endDate: string,
-  totalDays: number
-) {
-  const supabase = getSupabaseClient();
-  const { data: checks } = await supabase
-    .from('haccp_check_status')
-    .select('check_date, status')
-    .eq('company_id', companyId)
-    .eq('check_type', 'DAILY_HYGIENE')
-    .gte('check_date', startDate)
-    .lte('check_date', endDate);
-
-  const completed = (checks || []).filter(c => c.status === 'COMPLETED').length;
-  const totalRequired = totalDays * 3; // 3 shifts per day
-  const missedDates = (checks || [])
-    .filter(c => c.status !== 'COMPLETED')
-    .map(c => c.check_date);
-
-  return {
-    totalRequired,
-    totalCompleted: completed,
-    completionRate: totalRequired > 0 ? (completed / totalRequired) * 100 : 0,
-    missedDates: [...new Set(missedDates)],
-  };
+async function evaluateHygieneSection(supabase: any, companyId: string, periodStart: string): Promise<AuditSection> {
+  const { count: totalChecks } = await supabase.from('haccp_hygiene_records').select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('check_date', periodStart);
+  const { count: passedChecks } = await supabase.from('haccp_hygiene_records').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('result', 'PASS').gte('check_date', periodStart);
+  const rate = totalChecks ? Math.round((passedChecks || 0) / totalChecks * 100) : 0;
+  const score = Math.min(20, Math.round((rate / 100) * 20));
+  const items: AuditItem[] = [{ requirement: '일일 위생 점검 실시', status: (totalChecks || 0) >= 30 ? 'COMPLIANT' : (totalChecks || 0) >= 15 ? 'PARTIAL' : 'NON_COMPLIANT', evidence: `${totalChecks}건 기록`, notes: null }, { requirement: '위생 점검 합격률 90% 이상', status: rate >= 90 ? 'COMPLIANT' : rate >= 70 ? 'PARTIAL' : 'NON_COMPLIANT', evidence: `합격률 ${rate}%`, notes: null }];
+  const recommendations: string[] = [];
+  if ((totalChecks || 0) < 30) recommendations.push('위생 점검 빈도를 높여주세요.');
+  if (rate < 90) recommendations.push('위생 점검 불합격 항목을 개선해주세요.');
+  return { name: '선행요건 관리 (위생)', score, maxScore: 20, status: score >= 16 ? 'PASS' : score >= 10 ? 'WARNING' : 'FAIL', items, recommendations };
 }
 
-async function getCCPMonitoringStats(companyId: string, startDate: string, endDate: string) {
-  const supabase = getSupabaseClient();
-  const { data: records } = await supabase
-    .from('ccp_records')
-    .select('*, ccp:ccp_definitions(process, critical_limit)')
-    .eq('company_id', companyId)
-    .gte('record_date', startDate)
-    .lte('record_date', endDate);
-
-  const total = (records || []).length;
-  const passed = (records || []).filter(r => r.measurement?.result === 'PASS').length;
-  const failed = total - passed;
-
-  const failureDetails = (records || [])
-    .filter(r => r.measurement?.result !== 'PASS')
-    .map(r => ({
-      date: r.record_date,
-      ccpName: r.ccp?.process || 'Unknown',
-      value: r.measurement?.value || 0,
-      limit: r.ccp?.critical_limit
-        ? `${r.ccp.critical_limit.min || ''}~${r.ccp.critical_limit.max || ''}${r.ccp.critical_limit.unit || ''}`
-        : '',
-    }));
-
-  return {
-    totalRecords: total,
-    passCount: passed,
-    failCount: failed,
-    passRate: total > 0 ? (passed / total) * 100 : 0,
-    failureDetails,
-  };
+async function evaluateCCPSection(supabase: any, companyId: string, periodStart: string): Promise<AuditSection> {
+  const { count: totalRecords } = await supabase.from('haccp_ccp_records').select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('recorded_at', periodStart);
+  const { count: deviations } = await supabase.from('haccp_ccp_records').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('has_deviation', true).gte('recorded_at', periodStart);
+  const deviationRate = totalRecords ? Math.round(((deviations || 0) / totalRecords) * 100) : 0;
+  const score = Math.min(25, Math.round(((100 - deviationRate) / 100) * 25));
+  const items: AuditItem[] = [{ requirement: 'CCP 모니터링 기록 유지', status: (totalRecords || 0) >= 50 ? 'COMPLIANT' : 'PARTIAL', evidence: `${totalRecords}건 기록`, notes: null }, { requirement: 'CCP 이탈 5% 미만', status: deviationRate < 5 ? 'COMPLIANT' : deviationRate < 10 ? 'PARTIAL' : 'NON_COMPLIANT', evidence: `이탈률 ${deviationRate}%`, notes: null }];
+  const recommendations: string[] = [];
+  if (deviationRate >= 5) recommendations.push('CCP 이탈률을 낮추기 위한 개선 조치가 필요합니다.');
+  return { name: 'CCP 모니터링', score, maxScore: 25, status: score >= 20 ? 'PASS' : score >= 12 ? 'WARNING' : 'FAIL', items, recommendations };
 }
 
-async function getCorrectiveActionStats(companyId: string, startDate: string, endDate: string) {
-  const supabase = getSupabaseClient();
-  const { data: actions } = await supabase
-    .from('corrective_actions')
-    .select('*')
-    .eq('company_id', companyId)
-    .gte('issue_date', startDate)
-    .lte('issue_date', endDate);
-
-  const total = (actions || []).length;
-  const closed = (actions || []).filter(a => a.status === 'CLOSED').length;
-  const open = total - closed;
-
-  // 평균 종결 시간 계산
-  const closedActions = (actions || []).filter(a => a.closed_at);
-  const avgClosureTime = closedActions.length > 0
-    ? closedActions.reduce((sum, a) => {
-        const issueDate = new Date(a.issue_date);
-        const closedDate = new Date(a.closed_at);
-        return sum + differenceInDays(closedDate, issueDate);
-      }, 0) / closedActions.length
-    : 0;
-
-  // 상태별 집계
-  const byStatus: Record<string, number> = {};
-  for (const action of actions || []) {
-    byStatus[action.status] = (byStatus[action.status] || 0) + 1;
-  }
-
-  return {
-    total,
-    closed,
-    open,
-    averageClosureTime: Math.round(avgClosureTime * 10) / 10,
-    byStatus,
-  };
+async function evaluateMaterialSection(supabase: any, companyId: string, periodStart: string): Promise<AuditSection> {
+  const { data: materials } = await supabase.from('haccp_materials').select('id, current_stock, min_stock_level, expiry_date').eq('company_id', companyId).eq('is_active', true);
+  const totalMaterials = materials?.length || 0;
+  const lowStock = materials?.filter((m: any) => m.current_stock <= m.min_stock_level).length || 0;
+  const expired = materials?.filter((m: any) => m.expiry_date && new Date(m.expiry_date) < new Date()).length || 0;
+  const score = totalMaterials > 0 ? Math.min(15, Math.round(((totalMaterials - lowStock - expired) / totalMaterials) * 15)) : 15;
+  const items: AuditItem[] = [{ requirement: '원자재 재고 관리', status: lowStock === 0 ? 'COMPLIANT' : lowStock <= 3 ? 'PARTIAL' : 'NON_COMPLIANT', evidence: `재고 부족 ${lowStock}건`, notes: null }, { requirement: '유통기한 관리', status: expired === 0 ? 'COMPLIANT' : 'NON_COMPLIANT', evidence: `유통기한 초과 ${expired}건`, notes: null }];
+  const recommendations: string[] = [];
+  if (lowStock > 0) recommendations.push(`${lowStock}개 원자재의 재고가 부족합니다. 발주가 필요합니다.`);
+  if (expired > 0) recommendations.push(`${expired}개 원자재의 유통기한이 초과되었습니다. 즉시 폐기 처리가 필요합니다.`);
+  return { name: '원료/자재 관리', score, maxScore: 15, status: score >= 12 ? 'PASS' : score >= 8 ? 'WARNING' : 'FAIL', items, recommendations };
 }
 
-async function getMaterialInspectionStats(companyId: string, startDate: string, endDate: string) {
-  const supabase = getSupabaseClient();
-  const { data: inspections } = await supabase
-    .from('material_inspections')
-    .select('result')
-    .eq('company_id', companyId)
-    .gte('inspection_date', startDate)
-    .lte('inspection_date', endDate);
-
-  const total = (inspections || []).length;
-  const passed = (inspections || []).filter(i => i.result === 'PASS').length;
-  const rejected = total - passed;
-
-  return {
-    total,
-    passed,
-    rejected,
-    rejectionRate: total > 0 ? (rejected / total) * 100 : 0,
-  };
+async function evaluateReceivingSection(supabase: any, companyId: string, periodStart: string): Promise<AuditSection> {
+  const { count: totalInspections } = await supabase.from('haccp_receiving_inspections').select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('inspection_date', periodStart);
+  const { count: passedInspections } = await supabase.from('haccp_receiving_inspections').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('result', 'PASS').gte('inspection_date', periodStart);
+  const rate = totalInspections ? Math.round((passedInspections || 0) / totalInspections * 100) : 0;
+  const score = Math.min(10, Math.round((rate / 100) * 10));
+  return { name: '입고 검수', score, maxScore: 10, status: score >= 8 ? 'PASS' : score >= 5 ? 'WARNING' : 'FAIL', items: [{ requirement: '입고 검수 실시', status: (totalInspections || 0) >= 10 ? 'COMPLIANT' : 'PARTIAL', evidence: `${totalInspections}건 기록`, notes: null }], recommendations: [] };
 }
 
-async function getProductionStats(companyId: string, startDate: string, endDate: string) {
-  const supabase = getSupabaseClient();
-  const { data: records } = await supabase
-    .from('production_records')
-    .select('quantity, quality')
-    .eq('company_id', companyId)
-    .gte('production_date', startDate)
-    .lte('production_date', endDate);
-
-  const totalBatches = (records || []).length;
-  const totalQuantity = (records || []).reduce((sum, r) => sum + (r.quantity || 0), 0);
-  const defectRates = (records || [])
-    .map(r => r.quality?.defect_rate)
-    .filter(r => r !== undefined && r !== null);
-
-  const avgDefectRate = defectRates.length > 0
-    ? defectRates.reduce((a, b) => a + b, 0) / defectRates.length
-    : 0;
-
-  return {
-    totalBatches,
-    totalQuantity,
-    averageDefectRate: Math.round(avgDefectRate * 100) / 100,
-  };
+async function evaluateProductionSection(supabase: any, companyId: string, periodStart: string): Promise<AuditSection> {
+  const { count: totalProduction } = await supabase.from('haccp_production_records').select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('production_date', periodStart);
+  const score = (totalProduction || 0) >= 30 ? 15 : Math.min(15, Math.round(((totalProduction || 0) / 30) * 15));
+  return { name: '생산 기록', score, maxScore: 15, status: score >= 12 ? 'PASS' : score >= 8 ? 'WARNING' : 'FAIL', items: [{ requirement: '생산 기록 유지', status: (totalProduction || 0) >= 30 ? 'COMPLIANT' : 'PARTIAL', evidence: `${totalProduction}건 기록`, notes: null }], recommendations: [] };
 }
 
-async function getCCPVerificationStats(companyId: string, startDate: string, endDate: string) {
-  const supabase = getSupabaseClient();
-  // CCP 정의 수 조회
-  const { data: ccpDefs } = await supabase
-    .from('ccp_definitions')
-    .select('id')
-    .eq('company_id', companyId)
-    .eq('is_active', true);
-
-  // 검증 기록 조회
-  const { data: verifications } = await supabase
-    .from('ccp_verifications')
-    .select('ccp_id')
-    .eq('company_id', companyId)
-    .gte('verification_date', startDate)
-    .lte('verification_date', endDate);
-
-  const totalRequired = (ccpDefs || []).length;
-  const completedCCPIds = new Set((verifications || []).map(v => v.ccp_id));
-  const completed = completedCCPIds.size;
-
-  return {
-    totalRequired,
-    completed,
-    completionRate: totalRequired > 0 ? (completed / totalRequired) * 100 : 0,
-  };
+async function evaluateCorrectiveSection(supabase: any, companyId: string, periodStart: string): Promise<AuditSection> {
+  const { count: totalActions } = await supabase.from('haccp_corrective_actions').select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('created_at', periodStart);
+  const { count: completedActions } = await supabase.from('haccp_corrective_actions').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'COMPLETED').gte('created_at', periodStart);
+  const rate = totalActions ? Math.round((completedActions || 0) / totalActions * 100) : 100;
+  const score = Math.min(10, Math.round((rate / 100) * 10));
+  const pendingActions = (totalActions || 0) - (completedActions || 0);
+  const recommendations: string[] = [];
+  if (pendingActions > 0) recommendations.push(`${pendingActions}건의 개선 조치가 미완료 상태입니다.`);
+  return { name: '개선 조치 관리', score, maxScore: 10, status: score >= 8 ? 'PASS' : score >= 5 ? 'WARNING' : 'FAIL', items: [{ requirement: '개선 조치 완료율', status: rate >= 90 ? 'COMPLIANT' : rate >= 70 ? 'PARTIAL' : 'NON_COMPLIANT', evidence: `완료율 ${rate}%`, notes: null }], recommendations };
 }
 
-async function getTrainingStats(companyId: string, startDate: string, endDate: string) {
-  const supabase = getSupabaseClient();
-  const { data: trainings } = await supabase
-    .from('trainings')
-    .select('title, attendee_count')
-    .eq('company_id', companyId)
-    .gte('training_date', startDate)
-    .lte('training_date', endDate);
-
-  const totalSessions = (trainings || []).length;
-  const totalAttendees = (trainings || []).reduce((sum, t) => sum + (t.attendee_count || 0), 0);
-  const topics = [...new Set((trainings || []).map(t => t.title))];
-
-  return {
-    totalSessions,
-    totalAttendees,
-    topics,
-  };
+async function evaluateTrainingSection(supabase: any, companyId: string, periodStart: string): Promise<AuditSection> {
+  const { count: totalTraining } = await supabase.from('training_completions').select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('completed_at', periodStart);
+  const score = (totalTraining || 0) >= 10 ? 5 : Math.min(5, Math.round(((totalTraining || 0) / 10) * 5));
+  return { name: '교육/훈련', score, maxScore: 5, status: score >= 4 ? 'PASS' : score >= 2 ? 'WARNING' : 'FAIL', items: [{ requirement: '직원 교육 실시', status: (totalTraining || 0) >= 10 ? 'COMPLIANT' : 'PARTIAL', evidence: `${totalTraining}건 완료`, notes: null }], recommendations: (totalTraining || 0) < 10 ? ['직원 교육을 더 실시해주세요.'] : [] };
 }
+
+export const dynamic = 'force-dynamic';

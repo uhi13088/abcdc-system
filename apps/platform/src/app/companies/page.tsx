@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Plus, Search, MoreVertical, Building2, Users, MapPin, Edit, Trash2, X } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
@@ -41,6 +41,14 @@ const initialFormData: FormData = {
 };
 
 export default function CompaniesPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
+      <CompaniesContent />
+    </Suspense>
+  );
+}
+
+function CompaniesContent() {
   const searchParams = useSearchParams();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);

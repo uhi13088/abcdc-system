@@ -1,1 +1,47 @@
-{"name":"ABC Staff Mobile","short_name":"ABC Staff","description":"Employee mobile application","start_url":"/","display":"standalone","background_color":"#ffffff","theme_color":"#3b82f6","icons":[{"src":"/favicon.ico","sizes":"64x64","type":"image/x-icon"}]}
+{
+  "name": "ABC Staff Mobile",
+  "short_name": "ABC Staff",
+  "description": "Employee mobile application for attendance, schedules, and more",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait",
+  "scope": "/",
+  "categories": ["business", "productivity"],
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "출근하기",
+      "short_name": "출근",
+      "description": "출근 기록하기",
+      "url": "/home?action=checkin"
+    },
+    {
+      "name": "스케줄 확인",
+      "short_name": "스케줄",
+      "description": "주간 스케줄 확인",
+      "url": "/schedule"
+    }
+  ],
+  "prefer_related_applications": false
+}

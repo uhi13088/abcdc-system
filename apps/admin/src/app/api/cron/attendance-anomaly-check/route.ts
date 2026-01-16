@@ -1,7 +1,7 @@
 /**
  * 출퇴근 이상 감지 Cron Job
  * 미출근, 미퇴근, 이상 출퇴근 패턴 감지 및 관리자 알림
- * Vercel Cron: 매 30분마다 실행 (*/30 * * * *)
+ * Vercel Cron: 매 30분마다 실행
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -306,7 +306,7 @@ async function notifyManagersOfAnomalies(
             await pushNotificationService.send(tokenRecord.fcm_token, {
               title: '⚠️ 출퇴근 이상 감지',
               body: `${storeName}에서 ${highSeverity.length}건의 출퇴근 이상이 감지되었습니다.`,
-              category: 'ATTENDANCE_ANOMALY',
+              category: 'SCHEDULE',
               priority: 'HIGH',
               deepLink: '/attendance/anomalies',
             });

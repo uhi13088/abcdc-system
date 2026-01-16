@@ -136,8 +136,8 @@ export async function POST(
             await pushNotificationService.send(tokenRecord.fcm_token, {
               title: '🚨 긴급 근무 요청',
               body: `${shift.stores?.name || '매장'}에서 ${workDate} ${startTime}~${endTime} 근무자를 찾고 있습니다.${bonusText}`,
-              category: 'EMERGENCY_SHIFT',
-              priority: 'URGENT',
+              category: 'EMERGENCY',
+              priority: 'HIGH',
               deepLink: `/emergency-shifts/${shiftId}`,
               actions: [
                 { id: 'APPLY', title: '지원하기' },
