@@ -37,19 +37,55 @@ function calculateWorkHours(
   const overtimeHours = Math.max(0, workHours - 8);
 
   // 야간근로 시간 계산 (22:00 ~ 06:00)
+  // 정확한 야간 시간 계산 로직
   let nightHours = 0;
-  const checkInHour = checkIn.getHours();
-  const checkOutHour = checkOut.getHours();
 
-  // 간단한 야간근로 계산 (정확한 계산은 더 복잡함)
-  if (checkOutHour >= 22 || checkOutHour < 6) {
-    // 퇴근이 야간 시간대
-    const nightEnd = checkOutHour < 6 ? checkOutHour + 6 : Math.max(0, checkOutHour - 22);
-    nightHours = nightEnd;
+  // Create date objects for night period boundaries on the same day
+  const checkInDate = new Date(checkIn);
+  const checkOutDate = new Date(checkOut);
+
+  // Define night periods (22:00-24:00 and 00:00-06:00)
+  // For the check-in day
+  const nightStart1 = new Date(checkInDate);
+  nightStart1.setHours(22, 0, 0, 0);
+  const nightEnd1 = new Date(checkInDate);
+  nightEnd1.setHours(24, 0, 0, 0); // Midnight
+
+  const nightStart2 = new Date(checkInDate);
+  nightStart2.setHours(0, 0, 0, 0);
+  const nightEnd2 = new Date(checkInDate);
+  nightEnd2.setHours(6, 0, 0, 0);
+
+  // Calculate overlap with early morning period (00:00-06:00)
+  if (checkInDate < nightEnd2) {
+    const overlapStart = checkInDate > nightStart2 ? checkInDate : nightStart2;
+    const overlapEnd = checkOutDate < nightEnd2 ? checkOutDate : nightEnd2;
+    if (overlapEnd > overlapStart) {
+      nightHours += differenceInHours(overlapEnd, overlapStart);
+    }
   }
-  if (checkInHour < 6) {
-    // 출근이 새벽
-    nightHours += 6 - checkInHour;
+
+  // Calculate overlap with evening period (22:00-24:00)
+  if (checkOutDate > nightStart1) {
+    const overlapStart = checkInDate > nightStart1 ? checkInDate : nightStart1;
+    const overlapEnd = checkOutDate < nightEnd1 ? checkOutDate : nightEnd1;
+    if (overlapEnd > overlapStart) {
+      nightHours += differenceInHours(overlapEnd, overlapStart);
+    }
+  }
+
+  // If checkout is next day early morning
+  if (checkOutDate.getDate() > checkInDate.getDate()) {
+    const nextDayNightEnd = new Date(checkOutDate);
+    nextDayNightEnd.setHours(6, 0, 0, 0);
+    const nextDayMidnight = new Date(checkOutDate);
+    nextDayMidnight.setHours(0, 0, 0, 0);
+
+    if (checkOutDate <= nextDayNightEnd) {
+      nightHours += differenceInHours(checkOutDate, nextDayMidnight);
+    } else if (checkOutDate > nextDayNightEnd) {
+      nightHours += 6; // Full early morning period
+    }
   }
 
   return {

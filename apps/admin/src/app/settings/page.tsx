@@ -73,6 +73,19 @@ export default function SettingsPage() {
     },
   });
 
+  // Subscription settings (실제 데이터)
+  const [subscription, setSubscription] = useState<{
+    planName: string;
+    planTier: string;
+    price: number;
+    status: string;
+    currentPeriodEnd: string | null;
+    maxEmployees: number | null;
+    maxStores: number | null;
+    currentEmployees: number;
+    currentStores: number;
+  } | null>(null);
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -107,6 +120,63 @@ export default function SettingsPage() {
             ceoName: companyData.ceo_name || '',
             address: companyData.address || '',
             phone: companyData.phone || '',
+          });
+        }
+
+        // Fetch subscription data (실제 구독 현황)
+        const { data: subscriptionData } = await supabase
+          .from('company_subscriptions')
+          .select(`
+            *,
+            subscription_plans (
+              name,
+              tier,
+              price_monthly,
+              max_employees,
+              max_stores
+            )
+          `)
+          .eq('company_id', userData.company_id)
+          .eq('status', 'ACTIVE')
+          .maybeSingle();
+
+        // Get current employee and store counts
+        const { count: employeeCount } = await supabase
+          .from('users')
+          .select('id', { count: 'exact', head: true })
+          .eq('company_id', userData.company_id)
+          .eq('is_active', true);
+
+        const { count: storeCount } = await supabase
+          .from('stores')
+          .select('id', { count: 'exact', head: true })
+          .eq('company_id', userData.company_id);
+
+        if (subscriptionData?.subscription_plans) {
+          const plan = subscriptionData.subscription_plans as any;
+          setSubscription({
+            planName: plan.name || 'FREE',
+            planTier: plan.tier || 'FREE',
+            price: plan.price_monthly || 0,
+            status: subscriptionData.status || 'ACTIVE',
+            currentPeriodEnd: subscriptionData.current_period_end,
+            maxEmployees: plan.max_employees,
+            maxStores: plan.max_stores,
+            currentEmployees: employeeCount || 0,
+            currentStores: storeCount || 0,
+          });
+        } else {
+          // No subscription - default to FREE
+          setSubscription({
+            planName: 'FREE',
+            planTier: 'FREE',
+            price: 0,
+            status: 'ACTIVE',
+            currentPeriodEnd: null,
+            maxEmployees: 5,
+            maxStores: 1,
+            currentEmployees: employeeCount || 0,
+            currentStores: storeCount || 0,
           });
         }
       }
@@ -807,18 +877,39 @@ export default function SettingsPage() {
                 <div className="bg-gray-50 rounded-lg p-6 mb-6">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-lg font-semibold">PRO 플랜</h3>
-                      <p className="text-sm text-gray-500">월 99,000원</p>
+                      <h3 className="text-lg font-semibold">{subscription?.planName || 'FREE'} 플랜</h3>
+                      <p className="text-sm text-gray-500">
+                        {subscription?.price ? `월 ${subscription.price.toLocaleString()}원` : '무료'}
+                      </p>
                     </div>
-                    <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                      활성
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      subscription?.status === 'ACTIVE'
+                        ? 'bg-green-100 text-green-800'
+                        : subscription?.status === 'EXPIRED'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {subscription?.status === 'ACTIVE' ? '활성' :
+                       subscription?.status === 'EXPIRED' ? '만료' :
+                       subscription?.status || '활성'}
                     </span>
                   </div>
                   <div className="space-y-2 text-sm mb-4">
-                    <p>다음 결제일: 2025년 2월 1일</p>
-                    <p>직원 수 제한: 무제한</p>
-                    <p>매장 수 제한: 무제한</p>
+                    <p>다음 결제일: {subscription?.currentPeriodEnd
+                      ? new Date(subscription.currentPeriodEnd).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+                      : '-'}</p>
+                    <p>직원 수: {subscription?.currentEmployees || 0}명 / {subscription?.maxEmployees ? `${subscription.maxEmployees}명` : '무제한'}</p>
+                    <p>매장 수: {subscription?.currentStores || 0}개 / {subscription?.maxStores ? `${subscription.maxStores}개` : '무제한'}</p>
                   </div>
+                  {/* 사용량 경고 */}
+                  {subscription?.maxEmployees && subscription.currentEmployees >= subscription.maxEmployees * 0.9 && (
+                    <Alert className="mb-4 bg-yellow-50 border-yellow-200">
+                      <Info className="h-4 w-4 text-yellow-600" />
+                      <p className="text-sm text-yellow-800">
+                        직원 수가 제한의 90%에 도달했습니다. 업그레이드를 고려해 주세요.
+                      </p>
+                    </Alert>
+                  )}
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm">
                       결제 수단 변경
@@ -831,33 +922,49 @@ export default function SettingsPage() {
 
                 <h4 className="font-medium mb-4">플랜 선택</h4>
                 <div className="grid grid-cols-3 gap-4 mb-6">
-                  <Card className="border-2 hover:border-gray-300 cursor-pointer transition-colors">
+                  <Card className={`border-2 cursor-pointer transition-colors ${subscription?.planTier === 'FREE' ? 'border-primary' : 'hover:border-gray-300'}`}>
                     <CardContent className="pt-6 text-center">
-                      <h4 className="font-semibold">FREE</h4>
+                      <h4 className={`font-semibold ${subscription?.planTier === 'FREE' ? 'text-primary' : ''}`}>FREE</h4>
                       <p className="text-2xl font-bold mt-2">무료</p>
                       <p className="text-sm text-gray-500 mt-1">최대 5명</p>
-                      <Button variant="outline" size="sm" className="mt-4 w-full">
-                        다운그레이드
+                      <Button
+                        variant={subscription?.planTier === 'FREE' ? 'default' : 'outline'}
+                        size="sm"
+                        className="mt-4 w-full"
+                        disabled={subscription?.planTier === 'FREE'}
+                      >
+                        {subscription?.planTier === 'FREE' ? '현재 플랜' : '다운그레이드'}
                       </Button>
                     </CardContent>
                   </Card>
-                  <Card className="border-2 hover:border-gray-300 cursor-pointer transition-colors">
+                  <Card className={`border-2 cursor-pointer transition-colors ${subscription?.planTier === 'STARTER' ? 'border-primary' : 'hover:border-gray-300'}`}>
                     <CardContent className="pt-6 text-center">
-                      <h4 className="font-semibold">STARTER</h4>
+                      <h4 className={`font-semibold ${subscription?.planTier === 'STARTER' ? 'text-primary' : ''}`}>STARTER</h4>
                       <p className="text-2xl font-bold mt-2">₩39,000</p>
                       <p className="text-sm text-gray-500 mt-1">최대 20명</p>
-                      <Button variant="outline" size="sm" className="mt-4 w-full">
-                        다운그레이드
+                      <Button
+                        variant={subscription?.planTier === 'STARTER' ? 'default' : 'outline'}
+                        size="sm"
+                        className="mt-4 w-full"
+                        disabled={subscription?.planTier === 'STARTER'}
+                      >
+                        {subscription?.planTier === 'STARTER' ? '현재 플랜' :
+                         subscription?.planTier === 'PRO' ? '다운그레이드' : '업그레이드'}
                       </Button>
                     </CardContent>
                   </Card>
-                  <Card className="border-2 border-primary">
+                  <Card className={`border-2 cursor-pointer transition-colors ${subscription?.planTier === 'PRO' ? 'border-primary' : 'hover:border-gray-300'}`}>
                     <CardContent className="pt-6 text-center">
-                      <h4 className="font-semibold text-primary">PRO</h4>
+                      <h4 className={`font-semibold ${subscription?.planTier === 'PRO' ? 'text-primary' : ''}`}>PRO</h4>
                       <p className="text-2xl font-bold mt-2">₩99,000</p>
                       <p className="text-sm text-gray-500 mt-1">무제한</p>
-                      <Button size="sm" className="mt-4 w-full" disabled>
-                        현재 플랜
+                      <Button
+                        variant={subscription?.planTier === 'PRO' ? 'default' : 'outline'}
+                        size="sm"
+                        className="mt-4 w-full"
+                        disabled={subscription?.planTier === 'PRO'}
+                      >
+                        {subscription?.planTier === 'PRO' ? '현재 플랜' : '업그레이드'}
                       </Button>
                     </CardContent>
                   </Card>
@@ -867,10 +974,10 @@ export default function SettingsPage() {
                   <h4 className="font-medium mb-2 text-red-600">구독 취소</h4>
                   <p className="text-sm text-gray-500 mb-4">
                     구독을 취소하면 다음 결제일부터 FREE 플랜으로 전환됩니다.
-                    현재 결제 기간이 끝날 때까지 PRO 기능을 계속 사용할 수 있습니다.
+                    현재 결제 기간이 끝날 때까지 {subscription?.planTier || 'PRO'} 기능을 계속 사용할 수 있습니다.
                   </p>
-                  <Button variant="destructive" size="sm">
-                    구독 취소
+                  <Button variant="destructive" size="sm" disabled={subscription?.planTier === 'FREE'}>
+                    {subscription?.planTier === 'FREE' ? '무료 플랜 사용중' : '구독 취소'}
                   </Button>
                 </div>
               </CardContent>

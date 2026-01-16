@@ -3,7 +3,7 @@
  * 매시간 실행하여 연결된 모든 토스 POS 데이터 동기화
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { format, subDays } from 'date-fns';
 import { tossPOSService } from '@/lib/services/toss-pos.service';
@@ -17,7 +17,13 @@ function getSupabaseClient() {
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Verify cron secret
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const supabase = getSupabaseClient();
   try {
     console.log('[Cron] Starting Toss POS sync...');

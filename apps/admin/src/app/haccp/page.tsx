@@ -19,11 +19,22 @@ import {
 
 interface DashboardStats {
   todayHygieneChecks: number;
+  totalHygieneChecks: number;
   pendingCcpRecords: number;
   lowStockMaterials: number;
   pendingInspections: number;
   todayProduction: number;
   ccpDeviations: number;
+}
+
+interface RecentActivity {
+  type: string;
+  id: string;
+  date: string;
+  result?: string;
+  name?: string;
+  status?: string;
+  user?: string;
 }
 
 const haccpModules = [
@@ -109,25 +120,41 @@ const haccpModules = [
 export default function HACCPDashboard() {
   const [stats, setStats] = useState<DashboardStats>({
     todayHygieneChecks: 0,
+    totalHygieneChecks: 3,
     pendingCcpRecords: 0,
     lowStockMaterials: 0,
     pendingInspections: 0,
     todayProduction: 0,
     ccpDeviations: 0,
   });
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // TODO: Fetch actual stats from API
-    setLoading(false);
-    setStats({
-      todayHygieneChecks: 3,
-      pendingCcpRecords: 5,
-      lowStockMaterials: 2,
-      pendingInspections: 1,
-      todayProduction: 8,
-      ccpDeviations: 0,
-    });
+    const fetchStats = async () => {
+      try {
+        const response = await fetch('/api/haccp/dashboard');
+        if (response.ok) {
+          const data = await response.json();
+          setStats({
+            todayHygieneChecks: data.todayHygieneChecks,
+            totalHygieneChecks: data.totalHygieneChecks || 3,
+            pendingCcpRecords: data.pendingCcpRecords,
+            lowStockMaterials: data.lowStockMaterials,
+            pendingInspections: data.pendingInspections,
+            todayProduction: data.todayProduction,
+            ccpDeviations: data.ccpDeviations,
+          });
+          setRecentActivities(data.recentActivities || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch HACCP stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
   }, []);
 
   return (
@@ -146,7 +173,7 @@ export default function HACCPDashboard() {
             <ClipboardCheck className="w-4 h-4 text-cyan-500" />
             <span className="text-xs text-gray-500">오늘 위생점검</span>
           </div>
-          <p className="text-2xl font-bold">{stats.todayHygieneChecks}/3</p>
+          <p className="text-2xl font-bold">{stats.todayHygieneChecks}/{stats.totalHygieneChecks}</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">

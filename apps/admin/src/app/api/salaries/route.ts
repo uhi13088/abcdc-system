@@ -75,8 +75,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         data: [],
         pagination: { page, limit, total: 0, totalPages: 0 },
+        summary: { totalGross: 0, totalDeductions: 0, totalNet: 0 },
       });
     }
+
+    // Fetch summary totals for ALL salaries matching the filter (not just current page)
+    let summaryQuery = supabase
+      .from('salaries')
+      .select('total_gross_pay, total_deductions, net_pay');
+
+    if (userData.role === 'super_admin') {
+      // Can see all
+    } else if (['company_admin', 'manager'].includes(userData.role)) {
+      summaryQuery = summaryQuery.eq('company_id', userData.company_id);
+    } else {
+      summaryQuery = summaryQuery.eq('staff_id', user.id);
+    }
+
+    if (staffId) summaryQuery = summaryQuery.eq('staff_id', staffId);
+    if (year) summaryQuery = summaryQuery.eq('year', parseInt(year));
+    if (month) summaryQuery = summaryQuery.eq('month', parseInt(month));
+    if (status) summaryQuery = summaryQuery.eq('status', status);
+
+    const { data: allSalaries } = await summaryQuery;
+
+    const summary = (allSalaries || []).reduce(
+      (acc, s) => ({
+        totalGross: acc.totalGross + (s.total_gross_pay || 0),
+        totalDeductions: acc.totalDeductions + (s.total_deductions || 0),
+        totalNet: acc.totalNet + (s.net_pay || 0),
+      }),
+      { totalGross: 0, totalDeductions: 0, totalNet: 0 }
+    );
 
     return NextResponse.json({
       data: data || [],
@@ -86,6 +116,7 @@ export async function GET(request: NextRequest) {
         total: count || 0,
         totalPages: Math.ceil((count || 0) / limit),
       },
+      summary,
     });
   } catch (error) {
     console.error('Salaries API catch error:', error);

@@ -50,7 +50,6 @@ export default function HomePage() {
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
   const [recentNotices, setRecentNotices] = useState<Notice[]>([]);
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStats>({ totalHours: 0, workDays: 0, lateCount: 0 });
-  const [checkingIn, setCheckingIn] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -113,33 +112,6 @@ export default function HomePage() {
     fetchData();
   }, [fetchData]);
 
-  const handleCheckInOut = async () => {
-    if (checkingIn || !user) return;
-    setCheckingIn(true);
-
-    try {
-      if (!todayAttendance || !todayAttendance.actual_check_in) {
-        // Check in via API
-        const response = await fetch('/api/attendances/check-in', { method: 'POST' });
-        if (response.ok) {
-          const data = await response.json();
-          setTodayAttendance(data);
-        }
-      } else if (!todayAttendance.actual_check_out) {
-        // Check out via API
-        const response = await fetch('/api/attendances/check-out', { method: 'POST' });
-        if (response.ok) {
-          const data = await response.json();
-          setTodayAttendance(data);
-        }
-      }
-    } catch (error) {
-      console.error('Error checking in/out:', error);
-    } finally {
-      setCheckingIn(false);
-    }
-  };
-
   const isCheckedIn = Boolean(todayAttendance?.actual_check_in && !todayAttendance?.actual_check_out);
   const isWorkComplete = Boolean(todayAttendance?.actual_check_in && todayAttendance?.actual_check_out);
 
@@ -190,19 +162,25 @@ export default function HomePage() {
       {/* Quick Actions */}
       <div className="p-4 -mt-6">
         <div className="bg-white rounded-2xl shadow-sm p-4">
-          <button
-            onClick={handleCheckInOut}
-            disabled={checkingIn || isWorkComplete}
-            className={`w-full py-4 rounded-xl font-bold text-lg transition-colors disabled:opacity-50 ${
-              isWorkComplete
-                ? 'bg-gray-400 text-white'
-                : isCheckedIn
-                ? 'bg-red-500 text-white'
-                : 'bg-primary text-white'
-            }`}
-          >
-            {checkingIn ? '처리 중...' : isWorkComplete ? '근무 완료' : isCheckedIn ? '퇴근하기' : '출근하기'}
-          </button>
+          {isWorkComplete ? (
+            <button
+              disabled
+              className="w-full py-4 rounded-xl font-bold text-lg bg-gray-400 text-white opacity-50"
+            >
+              근무 완료
+            </button>
+          ) : (
+            <Link
+              href="/qr-scan"
+              className={`w-full py-4 rounded-xl font-bold text-lg transition-colors block text-center ${
+                isCheckedIn
+                  ? 'bg-red-500 text-white'
+                  : 'bg-primary text-white'
+              }`}
+            >
+              {isCheckedIn ? '퇴근하기' : '출근하기'}
+            </Link>
+          )}
           {todayAttendance?.actual_check_in && (
             <p className="text-center text-sm text-gray-500 mt-2">
               출근 시간: {formatCheckTime(todayAttendance.actual_check_in)}

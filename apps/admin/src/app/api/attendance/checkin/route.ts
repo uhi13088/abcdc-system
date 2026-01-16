@@ -66,6 +66,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       qrToken,
+      beaconId,  // 비콘 ID 추가
       latitude,
       longitude,
       deviceInfo,
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
     const userId = userData.id;
 
     let storeId: string;
+    let checkInMethod: 'QR' | 'BEACON' | 'GEOFENCE' = 'GEOFENCE';
 
     // QR 토큰이 있으면 검증
     if (qrToken) {
@@ -89,8 +91,26 @@ export async function POST(request: NextRequest) {
       }
 
       storeId = qrResult.storeId;
+      checkInMethod = 'QR';
+    } else if (beaconId) {
+      // 비콘 ID로 매장 검증
+      const { data: beaconStore, error: beaconError } = await supabase
+        .from('stores')
+        .select('id, name, beacon_id')
+        .eq('beacon_id', beaconId)
+        .single();
+
+      if (beaconError || !beaconStore) {
+        return NextResponse.json(
+          { error: '유효하지 않은 비콘입니다.' },
+          { status: 400 }
+        );
+      }
+
+      storeId = beaconStore.id;
+      checkInMethod = 'BEACON';
     } else {
-      // QR 없이 위치 기반 출근 (위치 필수)
+      // QR, 비콘 없이 위치 기반 출근 (위치 필수)
       if (!latitude || !longitude) {
         return NextResponse.json(
           { error: '위치 정보가 필요합니다.' },
@@ -107,6 +127,7 @@ export async function POST(request: NextRequest) {
       }
 
       storeId = userData.store_id;
+      checkInMethod = 'GEOFENCE';
     }
 
     // 매장 정보 조회
@@ -200,7 +221,7 @@ export async function POST(request: NextRequest) {
       actual_check_in: now.toISOString(),
       check_in_lat: latitude,
       check_in_lng: longitude,
-      check_in_method: qrToken ? 'QR' : 'GEOFENCE',
+      check_in_method: checkInMethod,
       status,
     };
 

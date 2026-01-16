@@ -59,6 +59,7 @@ export default function SalariesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [message, setMessage] = useState('');
+  const [summary, setSummary] = useState({ totalGross: 0, totalDeductions: 0, totalNet: 0 });
 
   const fetchSalaries = async () => {
     setLoading(true);
@@ -77,6 +78,9 @@ export default function SalariesPage() {
       if (response.ok) {
         setSalaries(result.data);
         setTotalPages(result.pagination.totalPages);
+        if (result.summary) {
+          setSummary(result.summary);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch salaries:', error);
@@ -142,10 +146,8 @@ export default function SalariesPage() {
     alert('엑셀 내보내기 기능은 준비 중입니다.');
   };
 
-  // Summary stats
-  const totalGross = salaries.reduce((sum, s) => sum + (s.total_gross_pay || 0), 0);
-  const totalDeductions = salaries.reduce((sum, s) => sum + (s.total_deductions || 0), 0);
-  const totalNet = salaries.reduce((sum, s) => sum + (s.net_pay || 0), 0);
+  // Summary stats (from API - includes all salaries for the month, not just current page)
+  const { totalGross, totalDeductions, totalNet } = summary;
 
   return (
     <div>

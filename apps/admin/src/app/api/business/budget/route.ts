@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         company_id: userProfile.company_id,
         created_by: userProfile.id,
         actual_amount: 0,
-        variance: body.planned_amount,
+        variance: 0, // Variance starts at 0, calculated as (planned - actual)
         ...body,
       })
       .select()
