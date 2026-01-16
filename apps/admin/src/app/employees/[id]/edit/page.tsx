@@ -17,7 +17,8 @@ import {
   PageLoading,
   ButtonLoading,
 } from '@/components/ui';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Factory } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 interface Store {
   id: string;
@@ -66,6 +67,7 @@ export default function EditEmployeePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [stores, setStores] = useState<Store[]>([]);
+  const [haccpAddonEnabled, setHaccpAddonEnabled] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -79,12 +81,38 @@ export default function EditEmployeePage() {
     bankName: '',
     bankAccount: '',
     accountHolder: '',
+    haccpAccess: false,
   });
 
   useEffect(() => {
     fetchEmployee();
     fetchStores();
+    checkHaccpAddon();
   }, [employeeId]);
+
+  const checkHaccpAddon = async () => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: userData } = await supabase
+      .from('users')
+      .select('company_id')
+      .eq('auth_id', user.id)
+      .single();
+
+    if (!userData?.company_id) return;
+
+    const { data: subscription } = await supabase
+      .from('company_subscriptions')
+      .select('haccp_addon_enabled')
+      .eq('company_id', userData.company_id)
+      .single();
+
+    if (subscription?.haccp_addon_enabled) {
+      setHaccpAddonEnabled(true);
+    }
+  };
 
   const fetchEmployee = async () => {
     try {
@@ -103,6 +131,7 @@ export default function EditEmployeePage() {
           bankName: data.bank_name || '',
           bankAccount: data.bank_account || '',
           accountHolder: data.account_holder || '',
+          haccpAccess: data.haccp_access || false,
         });
       } else {
         setError('직원 정보를 불러올 수 없습니다.');
@@ -304,6 +333,37 @@ export default function EditEmployeePage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* HACCP 접근 권한 - 애드온 활성화 시에만 표시 */}
+          {haccpAddonEnabled && (
+            <Card className="mt-6 border-green-200 bg-green-50/30">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-green-700">
+                  <Factory className="h-5 w-5" />
+                  HACCP 접근 권한
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">HACCP 앱 접근 허용</p>
+                    <p className="text-sm text-gray-500">
+                      이 직원이 HACCP 관리 앱에 접근할 수 있도록 허용합니다.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.haccpAccess}
+                      onChange={(e) => setFormData({ ...formData, haccpAccess: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <div className="mt-6 flex justify-end gap-4">
             <Button variant="outline" onClick={() => router.back()}>

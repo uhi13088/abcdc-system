@@ -89,6 +89,7 @@ export async function PUT(
     if (body.bankName) updateData.bank_name = body.bankName;
     if (body.bankAccount) updateData.bank_account = body.bankAccount;
     if (body.accountHolder) updateData.account_holder = body.accountHolder;
+    if (typeof body.haccpAccess === 'boolean') updateData.haccp_access = body.haccpAccess;
 
     const { data, error } = await adminClient
       .from('users')
