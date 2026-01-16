@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import {
   Button,
@@ -25,6 +26,9 @@ import {
 import { createClient } from '@/lib/supabase/client';
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'company';
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [testingConnection, setTestingConnection] = useState<string | null>(null);
@@ -322,7 +326,7 @@ export default function SettingsPage() {
           </Alert>
         )}
 
-        <Tabs defaultValue="company">
+        <Tabs defaultValue={initialTab} key={initialTab}>
           <TabsList className="mb-6 flex-wrap">
             <TabsTrigger value="company">
               <Building2 className="h-4 w-4 mr-2" />
