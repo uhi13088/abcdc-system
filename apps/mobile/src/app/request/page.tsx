@@ -83,10 +83,10 @@ export default function RequestPage() {
         .from('contracts')
         .select('annual_leave_days')
         .eq('staff_id', userData.id)
-        .in('status', ['SIGNED', 'ACTIVE'])
+        .eq('status', 'SIGNED')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (contractData?.annual_leave_days) {
         // Calculate used leave days from approved leave requests
