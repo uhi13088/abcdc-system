@@ -52,7 +52,7 @@ export function Sidebar() {
       onMouseLeave={() => setIsExpanded(false)}
     >
       {/* Logo */}
-      <div className="flex items-center h-16 px-4 border-b border-gray-200 overflow-hidden">
+      <Link href="/dashboard" className="flex items-center h-16 px-4 border-b border-gray-200 overflow-hidden hover:bg-gray-50 transition-colors">
         <Shield className="w-6 h-6 text-primary flex-shrink-0" />
         <span
           className={cn(
@@ -62,7 +62,7 @@ export function Sidebar() {
         >
           Platform Admin
         </span>
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto overflow-x-hidden">

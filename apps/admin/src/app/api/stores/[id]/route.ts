@@ -68,6 +68,9 @@ export async function PUT(
     if (body.earlyCheckinMinutes !== undefined) updateData.early_checkin_minutes = body.earlyCheckinMinutes;
     if (body.earlyCheckoutMinutes !== undefined) updateData.early_checkout_minutes = body.earlyCheckoutMinutes;
 
+    // HACCP 설정
+    if (typeof body.haccpEnabled === 'boolean') updateData.haccp_enabled = body.haccpEnabled;
+
     // Use admin client to bypass RLS
     const adminClient = createAdminClient();
     const { data, error } = await adminClient

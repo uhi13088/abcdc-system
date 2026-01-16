@@ -24,11 +24,8 @@ import {
   Label,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  Alert,
 } from '@/components/ui';
-import { CheckSquare, Check, X, Eye, Plus, Clock, Calendar, DollarSign, ShoppingCart } from 'lucide-react';
+import { CheckSquare, Check, X, Eye, Clock, Calendar, DollarSign, ShoppingCart, UserMinus, RefreshCw, Trash2, FileX } from 'lucide-react';
 
 interface ApprovalRequest {
   id: string;
@@ -54,8 +51,12 @@ interface ApprovalRequest {
 const typeLabels: Record<string, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
   LEAVE: { label: '휴가', icon: Calendar },
   OVERTIME: { label: '초과근무', icon: Clock },
+  SCHEDULE_CHANGE: { label: '근무조정', icon: RefreshCw },
   PURCHASE: { label: '구매', icon: ShoppingCart },
   EXPENSE: { label: '경비', icon: DollarSign },
+  DISPOSAL: { label: '폐기', icon: Trash2 },
+  RESIGNATION: { label: '사직서', icon: UserMinus },
+  ABSENCE_EXCUSE: { label: '결근사유서', icon: FileX },
 };
 
 const statusMap: Record<string, { label: string; variant: 'default' | 'warning' | 'success' | 'danger' }> = {
@@ -79,19 +80,6 @@ export default function ApprovalsPage() {
   const [comment, setComment] = useState('');
   const [processing, setProcessing] = useState(false);
 
-  // New request dialog
-  const [showNewDialog, setShowNewDialog] = useState(false);
-  const [newRequest, setNewRequest] = useState({
-    type: 'LEAVE',
-    details: {
-      startDate: '',
-      endDate: '',
-      leaveType: '연차',
-      reason: '',
-    },
-  });
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
 
   const fetchApprovals = async () => {
     setLoading(true);
@@ -149,31 +137,6 @@ export default function ApprovalsPage() {
     }
   };
 
-  const handleCreateRequest = async () => {
-    setError('');
-    setSubmitting(true);
-
-    try {
-      const response = await fetch('/api/approvals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newRequest),
-      });
-
-      if (response.ok) {
-        setShowNewDialog(false);
-        fetchApprovals();
-      } else {
-        const data = await response.json();
-        setError(data.error || '요청 생성에 실패했습니다.');
-      }
-    } catch (err) {
-      setError('요청 생성에 실패했습니다.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const openProcessDialog = (approval: ApprovalRequest) => {
     setSelectedApproval(approval);
     setShowProcessDialog(true);
@@ -182,11 +145,21 @@ export default function ApprovalsPage() {
   const formatDetails = (type: string, details: Record<string, unknown>) => {
     switch (type) {
       case 'LEAVE':
-        return `${details.leaveType} (${details.startDate} ~ ${details.endDate})`;
+        return `${details.leave_type_name || details.leaveType || '-'} (${details.start_date || details.startDate} ~ ${details.end_date || details.endDate})`;
       case 'OVERTIME':
-        return `${details.date} ${details.startTime} ~ ${details.endTime}`;
+        return `${details.overtime_date || details.date} ${details.overtime_hours || details.startTime}시간`;
+      case 'SCHEDULE_CHANGE':
+        return `${details.original_date || '-'} → ${details.requested_date || '-'}`;
       case 'PURCHASE':
         return `${details.itemName} (${(details.quantity as number) * (details.unitPrice as number)}원)`;
+      case 'EXPENSE':
+        return `${details.description || details.itemName || '-'} (${details.amount || '-'}원)`;
+      case 'DISPOSAL':
+        return `${details.itemName || '-'} (${details.reason || '-'})`;
+      case 'RESIGNATION':
+        return `퇴사 예정일: ${details.resignationDate || '-'}`;
+      case 'ABSENCE_EXCUSE':
+        return `${details.absence_date || '-'} / 사유: ${details.reason || '-'}`;
       default:
         return JSON.stringify(details);
     }
@@ -207,10 +180,14 @@ export default function ApprovalsPage() {
                 { value: '', label: '전체 유형' },
                 { value: 'LEAVE', label: '휴가' },
                 { value: 'OVERTIME', label: '초과근무' },
+                { value: 'SCHEDULE_CHANGE', label: '근무조정' },
                 { value: 'PURCHASE', label: '구매' },
                 { value: 'EXPENSE', label: '경비' },
+                { value: 'DISPOSAL', label: '폐기' },
+                { value: 'RESIGNATION', label: '사직서' },
+                { value: 'ABSENCE_EXCUSE', label: '결근사유서' },
               ]}
-              className="w-32"
+              className="w-36"
             />
             <Select
               value={statusFilter}
@@ -224,10 +201,6 @@ export default function ApprovalsPage() {
               className="w-32"
             />
           </div>
-          <Button onClick={() => setShowNewDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            새 요청
-          </Button>
         </div>
 
         {loading ? (
@@ -236,13 +209,7 @@ export default function ApprovalsPage() {
           <EmptyState
             icon={CheckSquare}
             title="승인 요청이 없습니다"
-            description="새로운 승인 요청을 생성해보세요."
-            action={
-              <Button onClick={() => setShowNewDialog(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                새 요청
-              </Button>
-            }
+            description="직원들의 승인 요청이 여기에 표시됩니다."
           />
         ) : (
           <>
@@ -417,117 +384,6 @@ export default function ApprovalsPage() {
             <Button onClick={() => handleProcess('APPROVED')} disabled={processing}>
               <Check className="h-4 w-4 mr-2" />
               승인
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* New Request Dialog */}
-      <Dialog open={showNewDialog} onOpenChange={setShowNewDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>승인 요청</DialogTitle>
-          </DialogHeader>
-
-          {error && (
-            <Alert variant="error" className="mb-4">
-              {error}
-            </Alert>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <Label>요청 유형</Label>
-              <Select
-                value={newRequest.type}
-                onChange={(e) =>
-                  setNewRequest({ ...newRequest, type: e.target.value })
-                }
-                options={[
-                  { value: 'LEAVE', label: '휴가' },
-                  { value: 'OVERTIME', label: '초과근무' },
-                  { value: 'PURCHASE', label: '구매' },
-                ]}
-                className="mt-1"
-              />
-            </div>
-
-            {newRequest.type === 'LEAVE' && (
-              <>
-                <div>
-                  <Label>휴가 유형</Label>
-                  <Select
-                    value={newRequest.details.leaveType as string}
-                    onChange={(e) =>
-                      setNewRequest({
-                        ...newRequest,
-                        details: { ...newRequest.details, leaveType: e.target.value },
-                      })
-                    }
-                    options={[
-                      { value: '연차', label: '연차' },
-                      { value: '반차(오전)', label: '반차(오전)' },
-                      { value: '반차(오후)', label: '반차(오후)' },
-                      { value: '병가', label: '병가' },
-                      { value: '경조사', label: '경조사' },
-                    ]}
-                    className="mt-1"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>시작일</Label>
-                    <input
-                      type="date"
-                      value={newRequest.details.startDate as string}
-                      onChange={(e) =>
-                        setNewRequest({
-                          ...newRequest,
-                          details: { ...newRequest.details, startDate: e.target.value },
-                        })
-                      }
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label>종료일</Label>
-                    <input
-                      type="date"
-                      value={newRequest.details.endDate as string}
-                      onChange={(e) =>
-                        setNewRequest({
-                          ...newRequest,
-                          details: { ...newRequest.details, endDate: e.target.value },
-                        })
-                      }
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label>사유</Label>
-                  <Textarea
-                    value={newRequest.details.reason as string}
-                    onChange={(e) =>
-                      setNewRequest({
-                        ...newRequest,
-                        details: { ...newRequest.details, reason: e.target.value },
-                      })
-                    }
-                    placeholder="휴가 사유를 입력하세요"
-                    className="mt-1"
-                  />
-                </div>
-              </>
-            )}
-          </div>
-
-          <DialogFooter className="mt-6">
-            <Button variant="outline" onClick={() => setShowNewDialog(false)}>
-              취소
-            </Button>
-            <Button onClick={handleCreateRequest} disabled={submitting}>
-              {submitting ? '요청 중...' : '요청'}
             </Button>
           </DialogFooter>
         </DialogContent>

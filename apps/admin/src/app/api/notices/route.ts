@@ -6,7 +6,19 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
     const { searchParams } = new URL(request.url);
-    const category = searchParams.get('category');
+    const is_important = searchParams.get('is_important');
+
+    // Get user info for company filtering
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('company_id, role')
+      .eq('auth_id', userData.user.id)
+      .single();
 
     let query = supabase
       .from('notices')
@@ -17,8 +29,13 @@ export async function GET(request: NextRequest) {
       .order('is_pinned', { ascending: false })
       .order('created_at', { ascending: false });
 
-    if (category) {
-      query = query.eq('category', category);
+    // Filter by company for non-super_admin
+    if (userProfile?.role !== 'super_admin' && userProfile?.company_id) {
+      query = query.eq('company_id', userProfile.company_id);
+    }
+
+    if (is_important === 'true') {
+      query = query.eq('is_important', true);
     }
 
     const { data, error } = await query;
@@ -46,7 +63,18 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerClient();
     const body = await request.json();
 
-    const { title, content, category = 'GENERAL', is_pinned = false } = body;
+    const {
+      title,
+      content,
+      is_important = false,
+      is_pinned = false,
+      target_roles,
+      attachments,
+      published_at,
+      expires_at,
+      brand_id,
+      store_id,
+    } = body;
 
     // Get user info
     const { data: userData } = await supabase.auth.getUser();
@@ -76,10 +104,15 @@ export async function POST(request: NextRequest) {
       .insert({
         title,
         content,
-        category,
+        is_important,
         is_pinned,
-        view_count: 0,
+        target_roles: target_roles || null,
+        attachments: attachments || null,
+        published_at: published_at || new Date().toISOString(),
+        expires_at: expires_at || null,
         company_id: userProfile.company_id,
+        brand_id: brand_id || null,
+        store_id: store_id || null,
         created_by: userProfile.id,
       })
       .select()

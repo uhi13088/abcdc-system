@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import {
   Button,
@@ -17,6 +18,7 @@ import {
   TabsContent,
   Alert,
   ButtonLoading,
+  PageLoading,
 } from '@/components/ui';
 import {
   Save, Building2, Bell, Shield, CreditCard, User, Link2,
@@ -24,7 +26,10 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
-export default function SettingsPage() {
+function SettingsContent() {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'company';
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [testingConnection, setTestingConnection] = useState<string | null>(null);
@@ -123,50 +128,22 @@ export default function SettingsPage() {
           });
         }
 
-        // Fetch subscription data (실제 구독 현황)
-        const { data: subscriptionData } = await supabase
-          .from('company_subscriptions')
-          .select(`
-            *,
-            subscription_plans (
-              name,
-              tier,
-              price_monthly,
-              max_employees,
-              max_stores
-            )
-          `)
-          .eq('company_id', userData.company_id)
-          .eq('status', 'ACTIVE')
-          .maybeSingle();
-
         // Get current employee and store counts
         const { count: employeeCount } = await supabase
           .from('users')
           .select('id', { count: 'exact', head: true })
           .eq('company_id', userData.company_id)
-          .eq('is_active', true);
+          .eq('status', 'ACTIVE');
 
         const { count: storeCount } = await supabase
           .from('stores')
           .select('id', { count: 'exact', head: true })
           .eq('company_id', userData.company_id);
 
-        if (subscriptionData?.subscription_plans) {
-          const plan = subscriptionData.subscription_plans as any;
-          setSubscription({
-            planName: plan.name || 'FREE',
-            planTier: plan.tier || 'FREE',
-            price: plan.price_monthly || 0,
-            status: subscriptionData.status || 'ACTIVE',
-            currentPeriodEnd: subscriptionData.current_period_end,
-            maxEmployees: plan.max_employees,
-            maxStores: plan.max_stores,
-            currentEmployees: employeeCount || 0,
-            currentStores: storeCount || 0,
-          });
-        } else {
-          // No subscription - default to FREE
+        // TODO: company_subscriptions table needs to be created
+        // For now, use default FREE tier
+        {
+          // Default to FREE tier
           setSubscription({
             planName: 'FREE',
             planTier: 'FREE',
@@ -350,7 +327,7 @@ export default function SettingsPage() {
           </Alert>
         )}
 
-        <Tabs defaultValue="company">
+        <Tabs defaultValue={initialTab} key={initialTab}>
           <TabsList className="mb-6 flex-wrap">
             <TabsTrigger value="company">
               <Building2 className="h-4 w-4 mr-2" />
@@ -970,6 +947,43 @@ export default function SettingsPage() {
                   </Card>
                 </div>
 
+                {/* HACCP 애드온 */}
+                <div className="border-t pt-6 mb-6">
+                  <h4 className="font-medium mb-4">HACCP 애드온</h4>
+                  <Card className="border-2 border-green-200 bg-green-50/50">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-lg font-semibold text-green-700">🏭 HACCP 관리 시스템</span>
+                            <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">애드온</span>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-3">
+                            식품 제조 공장을 위한 HACCP 관리 기능을 추가합니다.
+                          </p>
+                          <ul className="text-sm text-gray-600 space-y-1 mb-4">
+                            <li>✓ HACCP 전용 모바일 앱</li>
+                            <li>✓ 9개 핵심 모듈 (일일 위생 점검, CCP 모니터링 등)</li>
+                            <li>✓ IoT 센서 자동 연동</li>
+                            <li>✓ HACCP 심사 준비 리포트</li>
+                          </ul>
+                          <p className="text-lg font-bold text-green-700">
+                            +₩99,000<span className="text-sm font-normal text-gray-500">/월</span>
+                          </p>
+                        </div>
+                        <div className="ml-4">
+                          <Button
+                            variant="outline"
+                            className="border-green-500 text-green-700 hover:bg-green-100"
+                          >
+                            애드온 추가
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
                 <div className="border-t pt-6">
                   <h4 className="font-medium mb-2 text-red-600">구독 취소</h4>
                   <p className="text-sm text-gray-500 mb-4">
@@ -1026,5 +1040,13 @@ export default function SettingsPage() {
         </Tabs>
       </div>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <SettingsContent />
+    </Suspense>
   );
 }

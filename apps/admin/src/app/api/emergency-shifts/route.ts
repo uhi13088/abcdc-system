@@ -56,10 +56,12 @@ export async function POST(request: NextRequest) {
       work_date,
       start_time,
       end_time,
-      position,
-      required_count = 1,
+      positions, // JSONB array: [{role: string, count: number}]
+      reason,
+      description,
       hourly_rate,
       bonus,
+      benefits,
       deadline,
     } = body;
 
@@ -69,10 +71,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get company_id from user
+    // Get user profile
     const { data: userProfile } = await supabase
       .from('users')
-      .select('company_id, role')
+      .select('id, company_id, role')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -86,21 +88,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
+    // Get store info to get brand_id and validate company_id
+    const { data: storeData } = await supabase
+      .from('stores')
+      .select('id, company_id, brand_id')
+      .eq('id', store_id)
+      .single();
+
+    if (!storeData) {
+      return NextResponse.json({ error: 'Store not found' }, { status: 404 });
+    }
+
+    // Verify user has access to this store's company
+    if (userProfile.role !== 'super_admin' && storeData.company_id !== userProfile.company_id) {
+      return NextResponse.json({ error: 'Insufficient permissions for this store' }, { status: 403 });
+    }
+
     const { data, error } = await supabase
       .from('emergency_shifts')
       .insert({
         store_id,
+        company_id: storeData.company_id,
+        brand_id: storeData.brand_id,
         work_date,
         start_time,
         end_time,
-        position,
-        required_count,
+        positions: positions || [{ role: '직원', count: 1 }],
+        reason,
+        description,
         hourly_rate,
         bonus: bonus || 0,
+        benefits: benefits || [],
         deadline,
         status: 'OPEN',
         applicants: [],
-        invited_staff_ids: [],
+        created_by: userProfile.id,
       })
       .select()
       .single();

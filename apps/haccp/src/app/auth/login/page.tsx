@@ -42,7 +42,7 @@ export default function LoginPage() {
       }
 
       const supabase = await createClient();
-      const { error: authError } = await supabase.auth.signInWithPassword({
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -53,6 +53,58 @@ export default function LoginPage() {
             ? '이메일 또는 비밀번호가 올바르지 않습니다.'
             : authError.message
         );
+        setLoading(false);
+        return;
+      }
+
+      // Check HACCP access permission
+      const { data: userData } = await supabase
+        .from('users')
+        .select('company_id, store_id, haccp_access, role')
+        .eq('auth_id', authData.user.id)
+        .single();
+
+      if (!userData) {
+        setError('사용자 정보를 찾을 수 없습니다.');
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
+
+      // Check if company has HACCP add-on enabled
+      const { data: subscription } = await supabase
+        .from('company_subscriptions')
+        .select('haccp_addon_enabled')
+        .eq('company_id', userData.company_id)
+        .single();
+
+      if (!subscription?.haccp_addon_enabled) {
+        setError('HACCP 애드온이 활성화되지 않았습니다. 관리자에게 문의하세요.');
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
+
+      // Check if user has HACCP access
+      // Access granted if:
+      // 1. User is admin (super_admin, company_admin, manager)
+      // 2. User's store has haccp_enabled = true
+      // 3. User has individual haccp_access = true (override)
+      const isAdmin = ['super_admin', 'company_admin', 'manager'].includes(userData.role);
+
+      let hasStoreAccess = false;
+      if (userData.store_id) {
+        const { data: storeData } = await supabase
+          .from('stores')
+          .select('haccp_enabled')
+          .eq('id', userData.store_id)
+          .single();
+        hasStoreAccess = storeData?.haccp_enabled || false;
+      }
+
+      if (!isAdmin && !hasStoreAccess && !userData.haccp_access) {
+        setError('HACCP 앱 접근 권한이 없습니다. HACCP 매장에 배정되어 있어야 합니다.');
+        await supabase.auth.signOut();
         setLoading(false);
         return;
       }

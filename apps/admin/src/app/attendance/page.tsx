@@ -9,6 +9,12 @@ interface Attendance {
   id: string;
   staff_id: string;
   staff_name?: string;
+  staff?: {
+    id: string;
+    name: string;
+    email?: string;
+    position?: string;
+  };
   work_date: string;
   scheduled_check_in: string | null;
   scheduled_check_out: string | null;
@@ -183,7 +189,7 @@ export default function AttendancePage() {
                         {format(new Date(attendance.work_date), 'M/d (E)', { locale: ko })}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        {attendance.staff_name || '-'}
+                        {attendance.staff?.name || attendance.staff_name || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatTime(attendance.scheduled_check_in)}
@@ -256,7 +262,7 @@ export default function AttendancePage() {
                             statusInfo?.color || 'bg-gray-100'
                           }`}
                         >
-                          {a.staff_name?.split(' ')[0] || '직원'}
+                          {(a.staff?.name || a.staff_name)?.split(' ')[0] || '직원'}
                         </div>
                       );
                     })}

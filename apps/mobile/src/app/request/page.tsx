@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Calendar, Clock, FileText, Send, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, FileText, Send, CheckCircle, UserMinus } from 'lucide-react';
 import { BottomNav } from '@/components/bottom-nav';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
-type RequestType = 'LEAVE' | 'OVERTIME' | 'SCHEDULE_CHANGE';
+type RequestType = 'LEAVE' | 'OVERTIME' | 'SCHEDULE_CHANGE' | 'RESIGNATION';
 
 interface LeaveType {
   id: string;
@@ -55,6 +55,10 @@ export default function RequestPage() {
   const [requestedDate, setRequestedDate] = useState('');
   const [changeReason, setChangeReason] = useState('');
 
+  // Resignation state
+  const [resignationDate, setResignationDate] = useState('');
+  const [resignationReason, setResignationReason] = useState('');
+
   const supabase = createClient();
 
   const fetchUserInfo = useCallback(async () => {
@@ -83,10 +87,10 @@ export default function RequestPage() {
         .from('contracts')
         .select('annual_leave_days')
         .eq('staff_id', userData.id)
-        .in('status', ['SIGNED', 'ACTIVE'])
+        .eq('status', 'SIGNED')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (contractData?.annual_leave_days) {
         // Calculate used leave days from approved leave requests
@@ -155,6 +159,11 @@ export default function RequestPage() {
           requested_date: requestedDate,
           reason: changeReason,
         };
+      } else if (requestType === 'RESIGNATION') {
+        details = {
+          resignationDate: resignationDate,
+          reason: resignationReason,
+        };
       }
 
       // Create approval request with approval line (auto-approve for now, can be enhanced)
@@ -205,6 +214,8 @@ export default function RequestPage() {
         return overtimeDate && overtimeHours && overtimeReason;
       case 'SCHEDULE_CHANGE':
         return originalDate && requestedDate && changeReason;
+      case 'RESIGNATION':
+        return resignationDate && resignationReason;
       default:
         return false;
     }
@@ -222,6 +233,7 @@ export default function RequestPage() {
             {requestType === 'LEAVE' && '휴가 신청이 완료되었습니다.'}
             {requestType === 'OVERTIME' && '초과근무 신청이 완료되었습니다.'}
             {requestType === 'SCHEDULE_CHANGE' && '근무조정 신청이 완료되었습니다.'}
+            {requestType === 'RESIGNATION' && '사직서 제출이 완료되었습니다.'}
           </p>
           <p className="text-sm text-gray-400 mt-2">관리자 승인 후 확정됩니다.</p>
         </div>
@@ -267,6 +279,14 @@ export default function RequestPage() {
             }`}
           >
             근무조정
+          </button>
+          <button
+            onClick={() => setRequestType('RESIGNATION')}
+            className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
+              requestType === 'RESIGNATION' ? 'border-primary text-primary' : 'border-transparent text-gray-500'
+            }`}
+          >
+            사직서
           </button>
         </div>
       </div>
@@ -459,6 +479,58 @@ export default function RequestPage() {
               <p className="text-sm text-blue-700">
                 <strong>참고:</strong> 근무조정 신청은 최소 3일 전에 해주세요. 동료와 스케줄 교환이 필요한 경우 먼저
                 협의 후 신청해주세요.
+              </p>
+            </div>
+          </>
+        )}
+
+        {/* Resignation Request Form */}
+        {requestType === 'RESIGNATION' && (
+          <>
+            <div className="bg-red-50 rounded-2xl p-4">
+              <div className="flex items-center">
+                <UserMinus className="w-10 h-10 text-red-400 mr-3" />
+                <div>
+                  <p className="text-sm text-red-600 font-medium">사직서 제출</p>
+                  <p className="text-xs text-red-500">신중하게 결정해 주세요</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">퇴사 예정일</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input
+                    type="date"
+                    value={resignationDate}
+                    onChange={(e) => setResignationDate(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <label className="block text-sm font-medium text-gray-700 mb-2">퇴사 사유</label>
+              <div className="relative">
+                <FileText className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+                <textarea
+                  value={resignationReason}
+                  onChange={(e) => setResignationReason(e.target.value)}
+                  placeholder="퇴사 사유를 입력해주세요"
+                  rows={4}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Resignation Info */}
+            <div className="bg-amber-50 rounded-2xl p-4">
+              <p className="text-sm text-amber-700">
+                <strong>참고:</strong> 사직서는 최소 1개월 전에 제출해주세요. 사직 승인 후에는 취소가 어려울 수 있습니다.
+                퇴직금 및 정산에 대해서는 관리자에게 문의해주세요.
               </p>
             </div>
           </>

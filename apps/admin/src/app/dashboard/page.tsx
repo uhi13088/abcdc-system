@@ -59,40 +59,12 @@ async function getStats() {
       .eq('status', 'ACTIVE')
       .not('role', 'in', '("company_admin","super_admin")');
 
-    // Get company's subscription plan from database
-    const { data: subscription } = await supabase
-      .from('company_subscriptions')
-      .select(`
-        id,
-        subscription_plans (
-          id,
-          name,
-          tier,
-          max_employees,
-          max_stores
-        )
-      `)
-      .eq('company_id', companyId)
-      .eq('status', 'ACTIVE')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    // Get plan limits from subscription or use free tier defaults
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const subscriptionPlans = subscription?.subscription_plans as any;
-    const planData = subscriptionPlans ? {
-      id: subscriptionPlans.id,
-      name: subscriptionPlans.name,
-      tier: subscriptionPlans.tier,
-      max_employees: subscriptionPlans.max_employees,
-      max_stores: subscriptionPlans.max_stores,
-    } : null;
-
+    // TODO: company_subscriptions table needs to be created
+    // For now, use default free tier limits
     const currentPlan = {
-      name: planData?.name || 'Free',
-      maxEmployees: planData?.max_employees || 5,
-      maxStores: planData?.max_stores || 1,
+      name: 'Free',
+      maxEmployees: 999,
+      maxStores: 999,
     };
 
     // Get store count
