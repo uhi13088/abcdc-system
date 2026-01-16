@@ -45,24 +45,26 @@ export class ResignationService {
       const anonymizedId = `RESIGNED_${Date.now()}_${staffId.slice(0, 8)}`;
 
       // 3. 근무 기록 익명화 (기록은 보존, 개인정보만 제거)
-      const { count: attendanceCount } = await this.supabase
+      const { data: attendanceData } = await this.supabase
         .from('attendances')
         .update({
           staff_name_archived: employee.name, // 이름은 아카이브 필드에 보관
           notes: `[퇴직자] ${anonymizedId}`,
         })
         .eq('staff_id', staffId)
-        .select('*', { count: 'exact', head: true });
+        .select('id');
+      const attendanceCount = attendanceData?.length || 0;
 
       // 4. 급여 기록 익명화 (금액 기록은 보존)
-      const { count: salaryCount } = await this.supabase
+      const { data: salaryData } = await this.supabase
         .from('salaries')
         .update({
           staff_name_archived: employee.name,
           notes: `[퇴직자] ${anonymizedId}`,
         })
         .eq('staff_id', staffId)
-        .select('*', { count: 'exact', head: true });
+        .select('id');
+      const salaryCount = salaryData?.length || 0;
 
       // 5. 계약서 아카이브 (문서로 보존)
       const { data: contracts, count: contractCount } = await this.supabase

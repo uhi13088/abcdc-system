@@ -306,7 +306,7 @@ async function notifyManagersOfAnomalies(
             await pushNotificationService.send(tokenRecord.fcm_token, {
               title: '⚠️ 출퇴근 이상 감지',
               body: `${storeName}에서 ${highSeverity.length}건의 출퇴근 이상이 감지되었습니다.`,
-              category: 'ATTENDANCE_ANOMALY',
+              category: 'SCHEDULE',
               priority: 'HIGH',
               deepLink: '/attendance/anomalies',
             });

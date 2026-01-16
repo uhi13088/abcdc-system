@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
             await pushNotificationService.send(tokenRecord.fcm_token, {
               title: '출근 알림',
               body: `${store?.name || '매장'} 출근 시간 30분 전입니다. (${timeDisplay})`,
-              category: 'ATTENDANCE',
+              category: 'SCHEDULE',
               deepLink: '/qr-scan',
               actions: [
                 { id: 'CHECKIN', title: '출근하기' },
