@@ -182,14 +182,22 @@ export async function GET(request: NextRequest) {
     const { count: activeUsers } = await activeUsersQuery;
 
     // FCM 토큰 수 (활성 세션 대리)
-    let sessionsQuery = adminClient
-      .from('user_fcm_tokens')
-      .select('id', { count: 'exact', head: true })
-      .eq('is_active', true);
+    let activeSessions = 0;
     if (companyId) {
-      sessionsQuery = adminClient.rpc('count_active_fcm_tokens_by_company', { p_company_id: companyId });
+      // 회사별 조회는 user join으로 처리
+      const { count } = await adminClient
+        .from('user_fcm_tokens')
+        .select('id, users!inner(company_id)', { count: 'exact', head: true })
+        .eq('is_active', true)
+        .eq('users.company_id', companyId);
+      activeSessions = count || 0;
+    } else {
+      const { count } = await adminClient
+        .from('user_fcm_tokens')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_active', true);
+      activeSessions = count || 0;
     }
-    const { count: activeSessions } = await sessionsQuery;
 
     // 스토리지 사용량 추정 (행 수 * 평균 바이트)
     const estimatedStorage =
