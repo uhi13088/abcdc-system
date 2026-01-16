@@ -1,7 +1,7 @@
 /**
  * 출근 알림 Cron Job
  * 출근 30분 전에 직원에게 푸시 알림 발송
- * Vercel Cron: 매 10분마다 실행 (*/10 * * * *)
+ * Vercel Cron: 매 10분마다 실행
  */
 
 import { NextRequest, NextResponse } from 'next/server';
