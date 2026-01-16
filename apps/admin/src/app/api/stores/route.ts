@@ -170,6 +170,7 @@ export async function POST(request: NextRequest) {
         early_checkin_minutes: validation.data.earlyCheckinMinutes,
         early_checkout_minutes: validation.data.earlyCheckoutMinutes,
         default_hourly_rate: validation.data.defaultHourlyRate || null,
+        haccp_enabled: body.haccpEnabled || false,
       })
       .select()
       .single();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/layout/header';
@@ -27,7 +27,8 @@ import {
   Card,
   CardContent,
 } from '@/components/ui';
-import { Building2, Plus, Edit, Trash2, MapPin, Phone, QrCode, Users } from 'lucide-react';
+import { Building2, Plus, Edit, Trash2, MapPin, Phone, QrCode, Users, Factory } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 interface Store {
   id: string;
@@ -56,6 +57,8 @@ interface Store {
   // 운영시간
   opening_time: string;
   closing_time: string;
+  // HACCP
+  haccp_enabled: boolean;
 }
 
 interface Brand {
@@ -84,6 +87,35 @@ function StoresPageContent() {
   const searchParams = useSearchParams();
   const initialBrandId = searchParams.get('brandId') || '';
   const [brandFilter, setBrandFilter] = useState(initialBrandId);
+  const [haccpAddonEnabled, setHaccpAddonEnabled] = useState(false);
+
+  // Check if company has HACCP add-on
+  useEffect(() => {
+    async function checkHaccpAddon() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('company_id')
+        .eq('auth_id', user.id)
+        .single();
+
+      if (!userData?.company_id) return;
+
+      const { data: subscription } = await supabase
+        .from('company_subscriptions')
+        .select('haccp_addon_enabled')
+        .eq('company_id', userData.company_id)
+        .single();
+
+      if (subscription?.haccp_addon_enabled) {
+        setHaccpAddonEnabled(true);
+      }
+    }
+    checkHaccpAddon();
+  }, []);
 
   // React Query - data fetching with caching
   const { data: brands = [] } = useQuery({
@@ -108,6 +140,7 @@ function StoresPageContent() {
     phone: '',
     allowedRadius: 100,
     defaultHourlyRate: 9860,
+    haccpEnabled: false,
   });
   const [error, setError] = useState('');
 
@@ -133,6 +166,7 @@ function StoresPageContent() {
     allowanceHoliday: false,
     openingTime: '09:00',
     closingTime: '22:00',
+    haccpEnabled: false,
   });
 
   // Mutations
@@ -164,6 +198,7 @@ function StoresPageContent() {
         phone: '',
         allowedRadius: 100,
         defaultHourlyRate: 9860,
+        haccpEnabled: false,
       });
       setError('');
     },
@@ -249,6 +284,7 @@ function StoresPageContent() {
       allowanceHoliday: store.allowance_holiday || false,
       openingTime: store.opening_time?.substring(0, 5) || '09:00',
       closingTime: store.closing_time?.substring(0, 5) || '22:00',
+      haccpEnabled: store.haccp_enabled || false,
     });
     setError('');
     setShowEditDialog(true);
@@ -510,6 +546,29 @@ function StoresPageContent() {
                 />
               </div>
             </div>
+
+            {/* HACCP 설정 - 애드온 활성화 시에만 표시 */}
+            {haccpAddonEnabled && (
+              <div className="border-t pt-4 mt-4">
+                <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Factory className="h-5 w-5 text-green-600" />
+                    <div>
+                      <p className="font-medium text-green-700">HACCP 매장</p>
+                      <p className="text-sm text-green-600">
+                        이 매장의 모든 직원에게 HACCP 앱 접근 권한을 부여합니다
+                      </p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={newStore.haccpEnabled}
+                    onChange={(e) => setNewStore({ ...newStore, haccpEnabled: e.target.checked })}
+                    className="h-5 w-5 text-green-600 rounded"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="mt-6">
@@ -724,6 +783,33 @@ function StoresPageContent() {
                 </div>
               </div>
             </div>
+
+            {/* HACCP 설정 - 애드온 활성화 시에만 표시 */}
+            {haccpAddonEnabled && (
+              <div className="border-t pt-6 space-y-4">
+                <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                  <Factory className="h-5 w-5 text-green-600" />
+                  HACCP 설정
+                </h4>
+                <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div>
+                    <p className="font-medium text-green-700">HACCP 매장으로 지정</p>
+                    <p className="text-sm text-green-600">
+                      이 매장의 모든 직원에게 HACCP 앱 접근 권한이 자동 부여됩니다
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editForm.haccpEnabled}
+                      onChange={(e) => setEditForm({ ...editForm, haccpEnabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                  </label>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="mt-6">
