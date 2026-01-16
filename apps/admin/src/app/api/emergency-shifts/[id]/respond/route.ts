@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
-import { PushNotificationService } from '@shared/services/push-notification.service';
+import { pushNotificationService } from '@abc/shared/server';
 import { format } from 'date-fns';
 
 export async function POST(
@@ -72,7 +72,6 @@ export async function POST(
       return NextResponse.json({ error: '이미 응답한 긴급 근무입니다.' }, { status: 400 });
     }
 
-    const pushService = new PushNotificationService();
     const workDate = format(new Date(shift.work_date), 'M월 d일');
 
     if (response === 'ACCEPT') {
@@ -146,7 +145,7 @@ export async function POST(
           .eq('is_active', true);
 
         if (fcmTokens && fcmTokens.length > 0) {
-          await pushService.sendToMultiple(
+          await pushNotificationService.sendToMultiple(
             fcmTokens.map((t) => t.fcm_token),
             {
               title: '✅ 긴급 근무 수락',

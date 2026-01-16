@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
-import { PushNotificationService } from '@shared/services/push-notification.service';
+import { pushNotificationService } from '@abc/shared/server';
 import { subHours } from 'date-fns';
 
 export async function GET(request: NextRequest) {
@@ -19,7 +19,6 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = createAdminClient();
-    const pushService = new PushNotificationService();
     const now = new Date();
     const hours24Ago = subHours(now, 24);
     const hours48Ago = subHours(now, 48);
@@ -85,7 +84,7 @@ export async function GET(request: NextRequest) {
             .eq('is_active', true);
 
           if (fcmTokens && fcmTokens.length > 0) {
-            await pushService.sendToMultiple(
+            await pushNotificationService.sendToMultiple(
               fcmTokens.map((t) => t.fcm_token),
               {
                 title: '⚠️ 장기 미처리 승인 요청',
@@ -117,7 +116,7 @@ export async function GET(request: NextRequest) {
             .eq('is_active', true);
 
           if (fcmTokens && fcmTokens.length > 0) {
-            await pushService.sendToMultiple(
+            await pushNotificationService.sendToMultiple(
               fcmTokens.map((t) => t.fcm_token),
               {
                 title: '⏰ 승인 대기 리마인더',

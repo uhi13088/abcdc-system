@@ -1,7 +1,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { ResignationService } from '@/lib/services/resignation.service';
-import { PushNotificationService } from '@shared/services/push-notification.service';
+import { pushNotificationService } from '@abc/shared/server';
 
 // POST /api/approvals/[id]/process - 승인/거부 처리
 export async function POST(
@@ -139,7 +139,6 @@ export async function POST(
 
       // Send push notification
       try {
-        const pushService = new PushNotificationService();
         const { data: fcmTokens } = await adminClient
           .from('user_fcm_tokens')
           .select('fcm_token')
@@ -147,7 +146,7 @@ export async function POST(
           .eq('is_active', true);
 
         if (fcmTokens && fcmTokens.length > 0) {
-          await pushService.sendToMultiple(
+          await pushNotificationService.sendToMultiple(
             fcmTokens.map((t) => t.fcm_token),
             {
               title: finalStatus === 'APPROVED' ? '✅ 승인 완료' : '❌ 승인 거부',
