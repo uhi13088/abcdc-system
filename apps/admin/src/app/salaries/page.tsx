@@ -142,8 +142,48 @@ export default function SalariesPage() {
   };
 
   const handleExportExcel = () => {
-    // TODO: Implement Excel export
-    alert('엑셀 내보내기 기능은 준비 중입니다.');
+    if (salaries.length === 0) {
+      alert('내보낼 데이터가 없습니다.');
+      return;
+    }
+
+    try {
+      // CSV header
+      const headers = ['직원명', '직책', '근무일수', '총근무시간', '기본급', '연장수당', '야간수당', '총지급액', '공제액', '실지급액', '상태'];
+
+      // CSV rows
+      const rows = salaries.map((salary) => [
+        salary.staff?.name || '',
+        salary.staff?.position || '',
+        salary.work_days,
+        salary.total_hours?.toFixed(1) || '0',
+        salary.base_salary || 0,
+        salary.overtime_pay || 0,
+        salary.night_pay || 0,
+        salary.total_gross_pay || 0,
+        salary.total_deductions || 0,
+        salary.net_pay || 0,
+        statusMap[salary.status]?.label || salary.status,
+      ]);
+
+      // Build CSV content with BOM for Excel Korean support
+      const BOM = '\uFEFF';
+      const csvContent = BOM + [headers, ...rows].map(row => row.join(',')).join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `급여내역_${selectedYear}년${selectedMonth}월.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('내보내기에 실패했습니다.');
+    }
   };
 
   // Summary stats (from API - includes all salaries for the month, not just current page)

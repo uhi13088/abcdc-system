@@ -72,7 +72,8 @@ export default function QRScanPage() {
         });
       }
 
-      // Fetch today's attendance (use userData.id as staff_id)
+      // Fetch today's most recent attendance (use userData.id as staff_id)
+      // Get the latest record to support multiple check-ins per day
       const today = new Date().toISOString().split('T')[0];
       if (userData) {
         const { data: attendanceData } = await supabase
@@ -80,7 +81,9 @@ export default function QRScanPage() {
           .select('id, actual_check_in, actual_check_out')
           .eq('staff_id', userData.id)
           .eq('work_date', today)
-          .single();
+          .order('actual_check_in', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
         if (attendanceData) {
           setTodayAttendance(attendanceData);
@@ -219,14 +222,49 @@ export default function QRScanPage() {
           storeName: userInfo.stores?.name || '매장',
           isCheckOut: false,
         });
-      } else {
-        // Already checked in and out
-        setResult({
-          success: false,
-          message: '오늘 이미 출퇴근 처리가 완료되었습니다.',
+
+        // Update local state for immediate UI feedback
+        setTodayAttendance({
+          id: '',
+          actual_check_in: now,
+          actual_check_out: null,
         });
-        setStatus('error');
-        return;
+      } else {
+        // Already checked in and out - allow re-check-in (create new attendance record)
+        const { error } = await supabase
+          .from('attendances')
+          .insert({
+            staff_id: userInfo.id,
+            company_id: userInfo.company_id,
+            brand_id: userInfo.brand_id,
+            store_id: userInfo.store_id,
+            work_date: today,
+            actual_check_in: now,
+            status: 'NORMAL',
+            check_in_method: 'QR',
+            check_in_lat: location?.lat,
+            check_in_lng: location?.lng,
+          });
+
+        if (error) {
+          throw error;
+        }
+
+        setResult({
+          success: true,
+          message: '재출근이 완료되었습니다.',
+          checkInTime: timeDisplay,
+          isLate: false,
+          storeName: userInfo.stores?.name || '매장',
+          isCheckOut: false,
+        });
+
+        // Update local state for immediate UI feedback
+        setTodayAttendance({
+          id: '',
+          actual_check_in: now,
+          actual_check_out: null,
+        });
       }
 
       setStatus('success');
@@ -324,7 +362,7 @@ export default function QRScanPage() {
 
   const getButtonText = () => {
     if (todayAttendance?.actual_check_in && todayAttendance?.actual_check_out) {
-      return '근무 완료';
+      return '재출근하기';
     }
     if (todayAttendance?.actual_check_in) {
       return '퇴근하기';
@@ -332,7 +370,15 @@ export default function QRScanPage() {
     return '출근하기';
   };
 
-  const isWorkComplete = Boolean(todayAttendance?.actual_check_in && todayAttendance?.actual_check_out);
+  const getButtonColor = () => {
+    if (todayAttendance?.actual_check_in && todayAttendance?.actual_check_out) {
+      return 'bg-blue-500 text-white'; // Re-check-in
+    }
+    if (todayAttendance?.actual_check_in) {
+      return 'bg-red-500 text-white'; // Check-out
+    }
+    return 'bg-primary text-white'; // Check-in
+  };
 
   return (
     <div className="fixed inset-0 bg-black">
@@ -395,14 +441,7 @@ export default function QRScanPage() {
           <div className="absolute bottom-16 left-0 right-0 flex justify-center safe-bottom">
             <button
               onClick={handleCheckInOut}
-              disabled={isWorkComplete}
-              className={`px-8 py-4 font-semibold rounded-full shadow-lg ${
-                isWorkComplete
-                  ? 'bg-gray-400 text-white'
-                  : todayAttendance?.actual_check_in
-                  ? 'bg-red-500 text-white'
-                  : 'bg-primary text-white'
-              }`}
+              className={`px-8 py-4 font-semibold rounded-full shadow-lg ${getButtonColor()}`}
             >
               {getButtonText()}
             </button>

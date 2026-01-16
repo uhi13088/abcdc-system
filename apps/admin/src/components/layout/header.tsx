@@ -33,13 +33,16 @@ export function Header({ title }: HeaderProps) {
       setUserName(userData.name || '');
 
       // Check if company has HACCP add-on enabled
-      const { data: subscription } = await supabase
+      // Use maybeSingle() to handle case where no subscription exists
+      const { data: subscription, error } = await supabase
         .from('company_subscriptions')
         .select('haccp_addon_enabled')
         .eq('company_id', userData.company_id)
-        .single();
+        .maybeSingle();
 
-      if (subscription?.haccp_addon_enabled) {
+      // Only enable HACCP if subscription exists and add-on is enabled
+      // Silently ignore errors (table may not exist or no data)
+      if (!error && subscription?.haccp_addon_enabled) {
         setHaccpEnabled(true);
       }
     }

@@ -114,6 +114,8 @@ export default function HomePage() {
 
   const isCheckedIn = Boolean(todayAttendance?.actual_check_in && !todayAttendance?.actual_check_out);
   const isWorkComplete = Boolean(todayAttendance?.actual_check_in && todayAttendance?.actual_check_out);
+  // Allow re-check-in after completing a shift
+  const canReCheckIn = isWorkComplete;
 
   const formatNoticeDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -163,12 +165,12 @@ export default function HomePage() {
       <div className="p-4 -mt-6">
         <div className="bg-white rounded-2xl shadow-sm p-4">
           {isWorkComplete ? (
-            <button
-              disabled
-              className="w-full py-4 rounded-xl font-bold text-lg bg-gray-400 text-white opacity-50"
+            <Link
+              href="/qr-scan"
+              className="w-full py-4 rounded-xl font-bold text-lg transition-colors block text-center bg-blue-500 text-white"
             >
-              근무 완료
-            </button>
+              재출근하기
+            </Link>
           ) : (
             <Link
               href="/qr-scan"

@@ -36,8 +36,21 @@ export default function ContractPage() {
         return;
       }
 
+      // First get user's staff_id from users table (authUser.id is auth_id, not staff_id)
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_id', authUser.id)
+        .single();
+
+      if (!userData) {
+        setLoading(false);
+        return;
+      }
+
       // Fetch the most recent active contract for this user
-      const { data: contractData } = await supabase
+      // Use maybeSingle() to avoid error when no contract exists
+      const { data: contractData, error } = await supabase
         .from('contracts')
         .select(`
           id,
@@ -54,11 +67,18 @@ export default function ContractPage() {
           work_hours_per_week,
           stores(name)
         `)
-        .eq('staff_id', authUser.id)
-        .in('status', ['ACTIVE', 'SIGNED'])
+        .eq('staff_id', userData.id)
+        .in('status', ['SIGNED', 'SENT'])
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      // Silently handle errors (no contract is a valid state)
+      if (error) {
+        console.error('Contract fetch error:', error);
+        setLoading(false);
+        return;
+      }
 
       if (contractData) {
         // Supabase returns relations as arrays, extract first element
