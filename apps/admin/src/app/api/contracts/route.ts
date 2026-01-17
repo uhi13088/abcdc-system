@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     const { data: userData } = await supabase
       .from('users')
-      .select('id, role, company_id')
+      .select('id, role, company_id, store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -124,6 +124,30 @@ export async function POST(request: NextRequest) {
         { error: validation.error.errors[0].message },
         { status: 400 }
       );
+    }
+
+    // Role-based permission check for contract creation
+    // super_admin: can create contracts for any company
+    // company_admin, manager: can only create contracts for their own company
+    // store_manager: can only create contracts for their own store
+    if (userData?.role !== 'super_admin') {
+      if (userData?.role === 'store_manager') {
+        // store_manager can only create contracts for their own store
+        if (validation.data.storeId !== userData.store_id) {
+          return NextResponse.json(
+            { error: '자신이 관리하는 매장의 계약서만 생성할 수 있습니다.' },
+            { status: 403 }
+          );
+        }
+      } else {
+        // company_admin, manager can only create contracts for their own company
+        if (validation.data.companyId !== userData?.company_id) {
+          return NextResponse.json(
+            { error: '자신의 회사 계약서만 생성할 수 있습니다.' },
+            { status: 403 }
+          );
+        }
+      }
     }
 
     // Generate contract number
@@ -162,6 +186,7 @@ export async function POST(request: NextRequest) {
       created_by: userData?.id,
     };
 
+    // Use regular client - RLS policies enforce role-based access control
     const { data, error } = await supabase
       .from('contracts')
       .insert(contractData)
