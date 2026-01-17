@@ -90,6 +90,7 @@ export async function PUT(
     if (body.bankAccount) updateData.bank_account = body.bankAccount;
     if (body.accountHolder) updateData.account_holder = body.accountHolder;
     if (typeof body.haccpAccess === 'boolean') updateData.haccp_access = body.haccpAccess;
+    if (typeof body.roastingAccess === 'boolean') updateData.roasting_access = body.roastingAccess;
 
     const { data, error } = await adminClient
       .from('users')

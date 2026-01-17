@@ -171,6 +171,7 @@ export async function POST(request: NextRequest) {
         early_checkout_minutes: validation.data.earlyCheckoutMinutes,
         default_hourly_rate: validation.data.defaultHourlyRate || null,
         haccp_enabled: body.haccpEnabled || false,
+        roasting_enabled: body.roastingEnabled || false,
       })
       .select()
       .single();

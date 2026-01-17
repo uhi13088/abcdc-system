@@ -22,7 +22,8 @@ import {
 } from '@/components/ui';
 import {
   Save, Building2, Bell, Shield, CreditCard, User, Link2,
-  RefreshCw, Check, X, ExternalLink, Database, Zap, Info
+  RefreshCw, Check, X, ExternalLink, Database, Zap, Info,
+  Factory, Coffee
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -89,6 +90,9 @@ function SettingsContent() {
     maxStores: number | null;
     currentEmployees: number;
     currentStores: number;
+    // 애드온
+    haccpAddonEnabled: boolean;
+    roastingAddonEnabled: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -140,22 +144,36 @@ function SettingsContent() {
           .select('id', { count: 'exact', head: true })
           .eq('company_id', userData.company_id);
 
-        // TODO: company_subscriptions table needs to be created
-        // For now, use default FREE tier
-        {
-          // Default to FREE tier
-          setSubscription({
-            planName: 'FREE',
-            planTier: 'FREE',
-            price: 0,
-            status: 'ACTIVE',
-            currentPeriodEnd: null,
-            maxEmployees: 5,
-            maxStores: 1,
-            currentEmployees: employeeCount || 0,
-            currentStores: storeCount || 0,
-          });
-        }
+        // Fetch subscription data including addons
+        const { data: subscriptionData } = await supabase
+          .from('company_subscriptions')
+          .select('plan_tier, status, current_period_end, haccp_addon_enabled, roasting_addon_enabled')
+          .eq('company_id', userData.company_id)
+          .single();
+
+        // Plan limits based on tier
+        const planLimits: Record<string, { maxEmployees: number | null; maxStores: number | null; price: number }> = {
+          FREE: { maxEmployees: 10, maxStores: 1, price: 0 },
+          STARTER: { maxEmployees: 50, maxStores: 3, price: 39000 },
+          PRO: { maxEmployees: 200, maxStores: null, price: 99000 },
+        };
+
+        const tier = subscriptionData?.plan_tier || 'FREE';
+        const limits = planLimits[tier] || planLimits.FREE;
+
+        setSubscription({
+          planName: tier,
+          planTier: tier,
+          price: limits.price,
+          status: subscriptionData?.status || 'ACTIVE',
+          currentPeriodEnd: subscriptionData?.current_period_end || null,
+          maxEmployees: limits.maxEmployees,
+          maxStores: limits.maxStores,
+          currentEmployees: employeeCount || 0,
+          currentStores: storeCount || 0,
+          haccpAddonEnabled: subscriptionData?.haccp_addon_enabled || false,
+          roastingAddonEnabled: subscriptionData?.roasting_addon_enabled || false,
+        });
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -982,6 +1000,75 @@ function SettingsContent() {
                       </div>
                     </CardContent>
                   </Card>
+                </div>
+
+                {/* 애드온 관리 */}
+                <div className="border-t pt-6">
+                  <h4 className="font-medium mb-4">애드온 서비스</h4>
+                  <p className="text-sm text-gray-500 mb-4">
+                    어떤 플랜에서도 필요한 애드온을 추가할 수 있습니다.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* HACCP 애드온 */}
+                    <Card className={`border-2 ${subscription?.haccpAddonEnabled ? 'border-green-500 bg-green-50' : ''}`}>
+                      <CardContent className="pt-6">
+                        <div className="flex items-start gap-4">
+                          <div className={`p-3 rounded-lg ${subscription?.haccpAddonEnabled ? 'bg-green-100' : 'bg-gray-100'}`}>
+                            <Factory className={`w-6 h-6 ${subscription?.haccpAddonEnabled ? 'text-green-600' : 'text-gray-500'}`} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <h5 className="font-semibold">HACCP 시스템</h5>
+                              {subscription?.haccpAddonEnabled && (
+                                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">활성</span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-500 mt-1">
+                              식품 위생 관리 - HACCP 인증 준비, 위생 점검, CCP 모니터링
+                            </p>
+                            <p className="text-lg font-bold mt-2">+₩99,000/월</p>
+                            <Button
+                              size="sm"
+                              variant={subscription?.haccpAddonEnabled ? 'outline' : 'default'}
+                              className="mt-3 w-full"
+                            >
+                              {subscription?.haccpAddonEnabled ? '관리' : '추가하기'}
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* 로스팅 애드온 */}
+                    <Card className={`border-2 ${subscription?.roastingAddonEnabled ? 'border-amber-500 bg-amber-50' : ''}`}>
+                      <CardContent className="pt-6">
+                        <div className="flex items-start gap-4">
+                          <div className={`p-3 rounded-lg ${subscription?.roastingAddonEnabled ? 'bg-amber-100' : 'bg-gray-100'}`}>
+                            <Coffee className={`w-6 h-6 ${subscription?.roastingAddonEnabled ? 'text-amber-600' : 'text-gray-500'}`} />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <h5 className="font-semibold">로스팅 시스템</h5>
+                              {subscription?.roastingAddonEnabled && (
+                                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">활성</span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-500 mt-1">
+                              커피 로스팅 관리 - 생두 재고, 배치 기록, 프로파일 관리
+                            </p>
+                            <p className="text-lg font-bold mt-2">+₩99,000/월</p>
+                            <Button
+                              size="sm"
+                              variant={subscription?.roastingAddonEnabled ? 'outline' : 'default'}
+                              className="mt-3 w-full"
+                            >
+                              {subscription?.roastingAddonEnabled ? '관리' : '추가하기'}
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </div>
 
                 <div className="border-t pt-6">

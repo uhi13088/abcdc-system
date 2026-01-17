@@ -59,6 +59,8 @@ interface Store {
   closing_time: string;
   // HACCP
   haccp_enabled: boolean;
+  // Roasting
+  roasting_enabled: boolean;
 }
 
 interface Brand {
@@ -88,10 +90,11 @@ function StoresPageContent() {
   const initialBrandId = searchParams.get('brandId') || '';
   const [brandFilter, setBrandFilter] = useState(initialBrandId);
   const [haccpAddonEnabled, setHaccpAddonEnabled] = useState(false);
+  const [roastingAddonEnabled, setRoastingAddonEnabled] = useState(false);
 
-  // Check if company has HACCP add-on
+  // Check if company has add-ons enabled
   useEffect(() => {
-    async function checkHaccpAddon() {
+    async function checkAddons() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -106,15 +109,18 @@ function StoresPageContent() {
 
       const { data: subscription } = await supabase
         .from('company_subscriptions')
-        .select('haccp_addon_enabled')
+        .select('haccp_addon_enabled, roasting_addon_enabled')
         .eq('company_id', userData.company_id)
         .single();
 
       if (subscription?.haccp_addon_enabled) {
         setHaccpAddonEnabled(true);
       }
+      if (subscription?.roasting_addon_enabled) {
+        setRoastingAddonEnabled(true);
+      }
     }
-    checkHaccpAddon();
+    checkAddons();
   }, []);
 
   // React Query - data fetching with caching
@@ -141,6 +147,7 @@ function StoresPageContent() {
     allowedRadius: 100,
     defaultHourlyRate: 9860,
     haccpEnabled: false,
+    roastingEnabled: false,
   });
   const [error, setError] = useState('');
 
@@ -167,6 +174,7 @@ function StoresPageContent() {
     openingTime: '09:00',
     closingTime: '22:00',
     haccpEnabled: false,
+    roastingEnabled: false,
   });
 
   // Mutations
@@ -199,6 +207,7 @@ function StoresPageContent() {
         allowedRadius: 100,
         defaultHourlyRate: 9860,
         haccpEnabled: false,
+        roastingEnabled: false,
       });
       setError('');
     },
@@ -285,6 +294,7 @@ function StoresPageContent() {
       openingTime: store.opening_time?.substring(0, 5) || '09:00',
       closingTime: store.closing_time?.substring(0, 5) || '22:00',
       haccpEnabled: store.haccp_enabled || false,
+      roastingEnabled: store.roasting_enabled || false,
     });
     setError('');
     setShowEditDialog(true);
@@ -569,6 +579,29 @@ function StoresPageContent() {
                 </div>
               </div>
             )}
+
+            {/* Roasting 설정 - 애드온 활성화 시에만 표시 */}
+            {roastingAddonEnabled && (
+              <div className={haccpAddonEnabled ? "pt-2" : "border-t pt-4 mt-4"}>
+                <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Factory className="h-5 w-5 text-amber-600" />
+                    <div>
+                      <p className="font-medium text-amber-700">로스팅 매장</p>
+                      <p className="text-sm text-amber-600">
+                        이 매장의 모든 직원에게 로스팅 앱 접근 권한을 부여합니다
+                      </p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={newStore.roastingEnabled}
+                    onChange={(e) => setNewStore({ ...newStore, roastingEnabled: e.target.checked })}
+                    className="h-5 w-5 text-amber-600 rounded"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="mt-6">
@@ -806,6 +839,33 @@ function StoresPageContent() {
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* Roasting 설정 - 애드온 활성화 시에만 표시 */}
+            {roastingAddonEnabled && (
+              <div className={haccpAddonEnabled ? "pt-4 space-y-4" : "border-t pt-6 space-y-4"}>
+                <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                  <Factory className="h-5 w-5 text-amber-600" />
+                  로스팅 설정
+                </h4>
+                <div className="flex items-center justify-between p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div>
+                    <p className="font-medium text-amber-700">로스팅 매장으로 지정</p>
+                    <p className="text-sm text-amber-600">
+                      이 매장의 모든 직원에게 로스팅 앱 접근 권한이 자동 부여됩니다
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editForm.roastingEnabled}
+                      onChange={(e) => setEditForm({ ...editForm, roastingEnabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
                   </label>
                 </div>
               </div>

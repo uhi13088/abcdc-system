@@ -403,6 +403,9 @@ importers:
 
   packages/shared:
     dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.39.0
+        version: 2.90.1
       exceljs:
         specifier: ^4.4.0
         version: 4.4.0
