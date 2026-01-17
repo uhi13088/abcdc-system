@@ -26,6 +26,11 @@ interface Staff {
   name: string;
   email: string;
   phone: string;
+  position: string | null;
+  department: string | null;
+  store_id: string | null;
+  default_hourly_rate: number | null;
+  stores: { id: string; name: string; brand_id: string; company_id: string; brands: { name: string } } | null;
 }
 
 interface Store {
@@ -123,10 +128,46 @@ export default function NewContractPage() {
   }, []);
 
   const fetchStaff = async () => {
-    const response = await fetch('/api/users?role=staff&status=ACTIVE');
+    const response = await fetch('/api/users?role=staff&status=ACTIVE&limit=100');
     if (response.ok) {
       const data = await response.json();
       setStaffList(data.data || data);
+    }
+  };
+
+  // 직원 선택 시 기존 정보로 프리필
+  const handleStaffChange = (staffId: string) => {
+    const staff = staffList.find((s) => s.id === staffId);
+    if (staff) {
+      const updates: Partial<typeof formData> = { staffId };
+
+      // 매장 정보 프리필
+      if (staff.store_id && staff.stores) {
+        updates.storeId = staff.store_id;
+        updates.brandId = staff.stores.brand_id;
+        updates.companyId = staff.stores.company_id;
+      }
+
+      // 직책 프리필
+      if (staff.position) {
+        updates.position = staff.position;
+      }
+
+      // 부서 프리필
+      if (staff.department) {
+        updates.department = staff.department;
+      }
+
+      // 시급 → 월급 변환 (주 40시간 기준)
+      if (staff.default_hourly_rate) {
+        updates.salaryConfig = {
+          ...formData.salaryConfig,
+          baseSalaryType: SalaryType.HOURLY,
+          baseSalaryAmount: staff.default_hourly_rate,
+        };
+      }
+
+      setFormData({ ...formData, ...updates });
     }
   };
 
@@ -259,7 +300,7 @@ export default function NewContractPage() {
               <Label required>직원 선택</Label>
               <Select
                 value={formData.staffId}
-                onChange={(e) => setFormData({ ...formData, staffId: e.target.value })}
+                onChange={(e) => handleStaffChange(e.target.value)}
                 options={[
                   { value: '', label: '직원을 선택하세요' },
                   ...staffList.map((s) => ({
@@ -270,17 +311,35 @@ export default function NewContractPage() {
                 className="mt-2"
               />
             </div>
-            {formData.staffId && (
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-500">선택된 직원</p>
-                <p className="font-medium">
-                  {staffList.find((s) => s.id === formData.staffId)?.name}
-                </p>
-                <p className="text-sm text-gray-500">
-                  {staffList.find((s) => s.id === formData.staffId)?.email}
-                </p>
-              </div>
-            )}
+            {formData.staffId && (() => {
+              const staff = staffList.find((s) => s.id === formData.staffId);
+              return staff ? (
+                <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+                  <div>
+                    <p className="text-sm text-gray-500">선택된 직원</p>
+                    <p className="font-medium">{staff.name}</p>
+                    <p className="text-sm text-gray-500">{staff.email}</p>
+                  </div>
+                  {(staff.store_id || staff.position || staff.default_hourly_rate) && (
+                    <div className="pt-2 border-t">
+                      <p className="text-xs text-blue-600 font-medium mb-1">자동 입력된 정보</p>
+                      {staff.stores && (
+                        <p className="text-sm">매장: {staff.stores.name}</p>
+                      )}
+                      {staff.position && (
+                        <p className="text-sm">직책: {staff.position}</p>
+                      )}
+                      {staff.department && (
+                        <p className="text-sm">부서: {staff.department}</p>
+                      )}
+                      {staff.default_hourly_rate && (
+                        <p className="text-sm">시급: {staff.default_hourly_rate.toLocaleString()}원</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : null;
+            })()}
           </div>
         );
 
