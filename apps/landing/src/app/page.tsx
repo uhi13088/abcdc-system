@@ -10,6 +10,8 @@ import {
   Star,
   Building2,
   Smartphone,
+  Factory,
+  Coffee,
 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -78,6 +80,37 @@ export default function LandingPage() {
       features: ['무제한 매장', '무제한 직원', '커스텀 기능', '전담 매니저', 'SLA 보장'],
       cta: '문의하기',
       highlighted: false,
+    },
+  ];
+
+  const addons = [
+    {
+      name: 'HACCP 애드온',
+      icon: Factory,
+      price: '99,000',
+      description: '식품 제조 공장을 위한 HACCP 관리',
+      features: [
+        'HACCP 전용 모바일 앱',
+        'CCP 모니터링 (9개 모듈)',
+        '온도 센서 IoT 연동',
+        'HACCP 심사 준비 리포트',
+        '개선조치 워크플로우',
+      ],
+      color: 'green',
+    },
+    {
+      name: '로스팅 애드온',
+      icon: Coffee,
+      price: '99,000',
+      description: '커피 로스터리를 위한 로스팅 관리',
+      features: [
+        '로스팅 전용 웹 대시보드',
+        '생두 재고 관리',
+        '로스팅 배치 기록',
+        '프로파일 관리',
+        '커핑 세션 기록',
+      ],
+      color: 'amber',
     },
   ];
 
@@ -284,6 +317,58 @@ export default function LandingPage() {
                 </button>
               </div>
             ))}
+          </div>
+
+          {/* Addon Section */}
+          <div className="mt-16">
+            <div className="text-center mb-12">
+              <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
+                전문 애드온
+              </h3>
+              <p className="text-gray-600">
+                어떤 요금제에도 추가할 수 있는 전문 기능 애드온
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+              {addons.map((addon) => (
+                <div
+                  key={addon.name}
+                  className={`rounded-xl p-8 border-2 ${
+                    addon.color === 'green'
+                      ? 'border-green-200 bg-green-50'
+                      : 'border-amber-200 bg-amber-50'
+                  }`}
+                >
+                  <div className="flex items-center mb-4">
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                      addon.color === 'green' ? 'bg-green-100' : 'bg-amber-100'
+                    }`}>
+                      <addon.icon className={`w-6 h-6 ${
+                        addon.color === 'green' ? 'text-green-600' : 'text-amber-600'
+                      }`} />
+                    </div>
+                    <div className="ml-4">
+                      <h4 className="text-xl font-semibold text-gray-900">{addon.name}</h4>
+                      <p className="text-sm text-gray-500">{addon.description}</p>
+                    </div>
+                  </div>
+                  <div className="mb-6">
+                    <span className="text-3xl font-bold text-gray-900">+₩{addon.price}</span>
+                    <span className="text-sm text-gray-500">/월</span>
+                  </div>
+                  <ul className="space-y-3">
+                    {addon.features.map((feature) => (
+                      <li key={feature} className="flex items-center text-sm text-gray-700">
+                        <CheckCircle className={`w-5 h-5 mr-2 ${
+                          addon.color === 'green' ? 'text-green-500' : 'text-amber-500'
+                        }`} />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
