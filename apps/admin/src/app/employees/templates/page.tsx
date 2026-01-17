@@ -15,7 +15,7 @@ import {
   Label,
   Alert,
 } from '@/components/ui';
-import { Plus, Edit, Trash2, FileText, Clock, DollarSign, ArrowLeft } from 'lucide-react';
+import { Plus, Edit, Trash2, FileText, Clock, ArrowLeft } from 'lucide-react';
 
 interface DaySchedule {
   startTime: string;
@@ -29,6 +29,7 @@ interface Template {
   description: string | null;
   role: string;
   position: string | null;
+  contract_type: string | null;
   salary_type: string;
   salary_amount: number;
   work_days: number[];
@@ -54,6 +55,13 @@ const salaryTypeLabels: Record<string, string> = {
   hourly: '시급',
   daily: '일급',
   monthly: '월급',
+};
+
+const contractTypeLabels: Record<string, string> = {
+  '정규직': '정규직',
+  '계약직': '계약직',
+  '아르바이트': '아르바이트',
+  '인턴': '인턴',
 };
 
 const dayLabels = ['일', '월', '화', '수', '목', '금', '토'];
@@ -87,6 +95,7 @@ export default function InvitationTemplatesPage() {
     description: '',
     role: 'staff',
     position: '',
+    contractType: '' as '' | '정규직' | '계약직' | '아르바이트' | '인턴',
     salaryType: 'hourly' as 'hourly' | 'daily' | 'monthly',
     salaryAmount: 0,
     workDays: [1, 2, 3, 4, 5],
@@ -123,6 +132,7 @@ export default function InvitationTemplatesPage() {
       description: '',
       role: 'staff',
       position: '',
+      contractType: '',
       salaryType: 'hourly',
       salaryAmount: 0,
       workDays: [1, 2, 3, 4, 5],
@@ -150,6 +160,7 @@ export default function InvitationTemplatesPage() {
       description: template.description || '',
       role: template.role,
       position: template.position || '',
+      contractType: (template.contract_type as '' | '정규직' | '계약직' | '아르바이트' | '인턴') || '',
       salaryType: template.salary_type as 'hourly' | 'daily' | 'monthly',
       salaryAmount: template.salary_amount,
       workDays: template.work_days,
@@ -179,6 +190,7 @@ export default function InvitationTemplatesPage() {
         description: formData.description,
         role: formData.role,
         position: formData.position,
+        contractType: formData.contractType || null,
         salaryType: formData.salaryType,
         salaryAmount: formData.salaryAmount,
         workDays: formData.workDays,
@@ -388,13 +400,18 @@ export default function InvitationTemplatesPage() {
                       <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-sm rounded">
                         {roleLabels[template.role] || template.role}
                       </span>
+                      {template.contract_type && (
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-sm rounded">
+                          {template.contract_type}
+                        </span>
+                      )}
                     </div>
                     {template.description && (
                       <p className="text-gray-500 text-sm mb-3">{template.description}</p>
                     )}
                     <div className="flex flex-wrap gap-4 text-sm text-gray-600">
                       <span className="flex items-center gap-1">
-                        <DollarSign className="h-4 w-4" />
+                        <span className="h-4 w-4 flex items-center justify-center font-medium">₩</span>
                         {formatSalary(template.salary_type, template.salary_amount)}
                       </span>
                       <span className="flex items-center gap-1">
@@ -476,6 +493,20 @@ export default function InvitationTemplatesPage() {
                     value={formData.position}
                     onChange={(e) => setFormData({ ...formData, position: e.target.value })}
                     placeholder="예: 홀서빙, 주방보조"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>계약 유형</Label>
+                  <Select
+                    value={formData.contractType}
+                    onChange={(e) => setFormData({ ...formData, contractType: e.target.value as '' | '정규직' | '계약직' | '아르바이트' | '인턴' })}
+                    options={[
+                      { value: '', label: '선택하세요' },
+                      ...Object.entries(contractTypeLabels).map(([value, label]) => ({ value, label })),
+                    ]}
                     className="mt-1"
                   />
                 </div>

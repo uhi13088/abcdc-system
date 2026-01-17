@@ -15,6 +15,7 @@ const UpdateTemplateSchema = z.object({
   description: z.string().optional(),
   role: z.string().optional(),
   position: z.string().optional(),
+  contractType: z.enum(['정규직', '계약직', '아르바이트', '인턴']).nullable().optional(),
   salaryType: z.enum(['hourly', 'daily', 'monthly']).optional(),
   salaryAmount: z.number().min(0).optional(),
   workDays: z.array(z.number().min(0).max(6)).optional(),
@@ -117,6 +118,7 @@ export async function PATCH(
     if (validation.data.description !== undefined) updateData.description = validation.data.description;
     if (validation.data.role !== undefined) updateData.role = validation.data.role;
     if (validation.data.position !== undefined) updateData.position = validation.data.position;
+    if (validation.data.contractType !== undefined) updateData.contract_type = validation.data.contractType;
     if (validation.data.salaryType !== undefined) updateData.salary_type = validation.data.salaryType;
     if (validation.data.salaryAmount !== undefined) updateData.salary_amount = validation.data.salaryAmount;
     if (validation.data.workDays !== undefined) updateData.work_days = validation.data.workDays;

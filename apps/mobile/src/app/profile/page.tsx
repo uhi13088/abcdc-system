@@ -11,6 +11,7 @@ import {
   Settings,
   LogOut,
   ChevronRight,
+  FolderOpen,
 } from 'lucide-react';
 import { BottomNav } from '@/components/bottom-nav';
 import { createClient } from '@/lib/supabase/client';
@@ -61,6 +62,7 @@ export default function ProfilePage() {
 
   const menuItems = [
     { icon: FileText, label: '근로계약서', href: '/profile/contract' },
+    { icon: FolderOpen, label: '서류 제출', href: '/profile/documents' },
     { icon: DollarSign, label: '급여 명세서', href: '/profile/salary' },
     { icon: Settings, label: '알림 설정', href: '/profile/settings' },
   ];

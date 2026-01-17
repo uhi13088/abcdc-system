@@ -133,6 +133,10 @@ export async function POST(
           phone: data.emergencyContact.phone,
           relationship: data.emergencyContact.relationship,
         },
+        // 관리자가 요청한 서류 목록 저장
+        required_documents: invitation.required_documents || [],
+        // 업로드된 서류 초기화
+        documents: {},
       })
       .select()
       .single();

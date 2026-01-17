@@ -28,6 +28,7 @@ interface Staff {
   phone: string;
   position: string | null;
   department: string | null;
+  contract_type: '정규직' | '계약직' | '아르바이트' | '인턴' | null;
   store_id: string | null;
   default_hourly_rate: number | null;
   stores: { id: string; name: string; brand_id: string; company_id: string; brands: { name: string } } | null;
@@ -156,6 +157,11 @@ export default function NewContractPage() {
       // 부서 프리필
       if (staff.department) {
         updates.department = staff.department;
+      }
+
+      // 계약 유형 프리필
+      if (staff.contract_type) {
+        updates.contractType = staff.contract_type as ContractType;
       }
 
       // 시급 → 월급 변환 (주 40시간 기준)
@@ -320,7 +326,7 @@ export default function NewContractPage() {
                     <p className="font-medium">{staff.name}</p>
                     <p className="text-sm text-gray-500">{staff.email}</p>
                   </div>
-                  {(staff.store_id || staff.position || staff.default_hourly_rate) && (
+                  {(staff.store_id || staff.position || staff.default_hourly_rate || staff.contract_type) && (
                     <div className="pt-2 border-t">
                       <p className="text-xs text-blue-600 font-medium mb-1">자동 입력된 정보</p>
                       {staff.stores && (
@@ -331,6 +337,9 @@ export default function NewContractPage() {
                       )}
                       {staff.department && (
                         <p className="text-sm">부서: {staff.department}</p>
+                      )}
+                      {staff.contract_type && (
+                        <p className="text-sm">계약유형: {staff.contract_type}</p>
                       )}
                       {staff.default_hourly_rate && (
                         <p className="text-sm">시급: {staff.default_hourly_rate.toLocaleString()}원</p>
