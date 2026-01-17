@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       .from('users')
       .select(`
         *,
-        stores(id, name),
+        stores(id, name, brand_id, company_id, brands(name)),
         brands(id, name),
         companies(id, name)
       `, { count: 'exact' })
