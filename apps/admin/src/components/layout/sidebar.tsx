@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, memo, useCallback } from 'react';
+import { useState, useEffect, memo, useCallback } from 'react';
 import {
   LayoutDashboard,
   Users,
@@ -22,6 +22,9 @@ import {
   ChevronRight,
   Package,
   Store,
+  Factory,
+  Coffee,
+  ExternalLink,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -74,6 +77,54 @@ function SidebarComponent() {
   const router = useRouter();
   const [expandedItems, setExpandedItems] = useState<string[]>(['직원 관리', '조직 관리']);
   const [isHovered, setIsHovered] = useState(false);
+  const [addonAccess, setAddonAccess] = useState({ haccp: false, roasting: false });
+
+  // Check addon access
+  useEffect(() => {
+    async function checkAddonAccess() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: userData } = await supabase
+          .from('users')
+          .select('company_id, store_id, haccp_access, roasting_access')
+          .eq('auth_id', user.id)
+          .single();
+
+        if (!userData) return;
+
+        // Check company subscription for addons
+        const { data: subscription } = await supabase
+          .from('company_subscriptions')
+          .select('haccp_addon_enabled, roasting_addon_enabled')
+          .eq('company_id', userData.company_id)
+          .single();
+
+        // Check store-level access if user has a store
+        let storeHaccp = false;
+        let storeRoasting = false;
+        if (userData.store_id) {
+          const { data: store } = await supabase
+            .from('stores')
+            .select('haccp_enabled, roasting_enabled')
+            .eq('id', userData.store_id)
+            .single();
+          storeHaccp = store?.haccp_enabled || false;
+          storeRoasting = store?.roasting_enabled || false;
+        }
+
+        setAddonAccess({
+          haccp: (subscription?.haccp_addon_enabled && storeHaccp) || userData.haccp_access || false,
+          roasting: (subscription?.roasting_addon_enabled && storeRoasting) || userData.roasting_access || false,
+        });
+      } catch (error) {
+        console.error('Failed to check addon access:', error);
+      }
+    }
+    checkAddonAccess();
+  }, []);
 
   const handleSignOut = useCallback(async () => {
     // Clear demo mode cookie
@@ -220,6 +271,61 @@ function SidebarComponent() {
             </Link>
           );
         })}
+
+        {/* 애드온 앱 링크 */}
+        {(addonAccess.haccp || addonAccess.roasting) && (
+          <div className={cn("mt-4 pt-4 border-t border-gray-200", isHovered ? "mx-2" : "mx-2")}>
+            {isHovered && <p className="px-2 text-xs text-gray-400 mb-2">애드온</p>}
+
+            {addonAccess.haccp && (
+              <a
+                href={process.env.NEXT_PUBLIC_HACCP_URL || 'https://haccp.abcstaff.com'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-green-50 hover:text-green-700 transition-colors relative group rounded"
+                title={!isHovered ? 'HACCP 시스템' : undefined}
+              >
+                <Factory className="w-5 h-5 flex-shrink-0 text-green-600" />
+                <span className={cn(
+                  'ml-3 whitespace-nowrap transition-opacity duration-200 flex-1',
+                  isHovered ? 'opacity-100' : 'opacity-0'
+                )}>
+                  HACCP 시스템
+                </span>
+                {isHovered && <ExternalLink className="w-4 h-4 text-gray-400" />}
+                {!isHovered && (
+                  <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                    HACCP 시스템
+                  </div>
+                )}
+              </a>
+            )}
+
+            {addonAccess.roasting && (
+              <a
+                href={process.env.NEXT_PUBLIC_ROASTING_URL || 'https://roasting.abcstaff.com'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-amber-50 hover:text-amber-700 transition-colors relative group rounded"
+                title={!isHovered ? '로스팅 시스템' : undefined}
+              >
+                <Coffee className="w-5 h-5 flex-shrink-0 text-amber-600" />
+                <span className={cn(
+                  'ml-3 whitespace-nowrap transition-opacity duration-200 flex-1',
+                  isHovered ? 'opacity-100' : 'opacity-0'
+                )}>
+                  로스팅 시스템
+                </span>
+                {isHovered && <ExternalLink className="w-4 h-4 text-gray-400" />}
+                {!isHovered && (
+                  <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                    로스팅 시스템
+                  </div>
+                )}
+              </a>
+            )}
+          </div>
+        )}
       </nav>
 
       {/* Sign out button */}
