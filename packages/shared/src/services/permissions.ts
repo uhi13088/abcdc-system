@@ -138,12 +138,17 @@ export async function checkAddonAccess(
     // 사용자 정보 조회
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('haccp_access, roasting_access, store_id, company_id')
+      .select('haccp_access, roasting_access, store_id, company_id, role')
       .eq('id', userId)
       .single();
 
     if (userError || !user) {
       return { haccp: false, roasting: false };
+    }
+
+    // SUPER_ADMIN has access to all addons
+    if (user.role === 'SUPER_ADMIN') {
+      return { haccp: true, roasting: true };
     }
 
     // 회사 구독 정보 조회

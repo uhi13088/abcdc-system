@@ -101,11 +101,18 @@ function StoresPageContent() {
 
       const { data: userData } = await supabase
         .from('users')
-        .select('company_id')
+        .select('company_id, role')
         .eq('auth_id', user.id)
         .single();
 
       if (!userData?.company_id) return;
+
+      // SUPER_ADMIN has access to all addons
+      if (userData.role === 'SUPER_ADMIN') {
+        setHaccpAddonEnabled(true);
+        setRoastingAddonEnabled(true);
+        return;
+      }
 
       const { data: subscription } = await supabase
         .from('company_subscriptions')

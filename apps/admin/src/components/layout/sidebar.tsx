@@ -89,11 +89,17 @@ function SidebarComponent() {
 
         const { data: userData } = await supabase
           .from('users')
-          .select('company_id, store_id, haccp_access, roasting_access')
+          .select('company_id, store_id, role, haccp_access, roasting_access')
           .eq('auth_id', user.id)
           .single();
 
         if (!userData) return;
+
+        // SUPER_ADMIN has access to all addons
+        if (userData.role === 'SUPER_ADMIN') {
+          setAddonAccess({ haccp: true, roasting: true });
+          return;
+        }
 
         // Check company subscription for addons
         const { data: subscription } = await supabase
