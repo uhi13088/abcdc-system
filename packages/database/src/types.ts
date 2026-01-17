@@ -99,6 +99,8 @@ export interface Database {
           early_checkout_minutes: number;
           default_hourly_rate: number | null;
           qr_code: string | null;
+          haccp_enabled: boolean;
+          roasting_enabled: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -116,6 +118,8 @@ export interface Database {
           early_checkout_minutes?: number;
           default_hourly_rate?: number | null;
           qr_code?: string | null;
+          haccp_enabled?: boolean;
+          roasting_enabled?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -133,6 +137,8 @@ export interface Database {
           early_checkout_minutes?: number;
           default_hourly_rate?: number | null;
           qr_code?: string | null;
+          haccp_enabled?: boolean;
+          roasting_enabled?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -191,6 +197,8 @@ export interface Database {
           status: 'PENDING' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
           avatar_url: string | null;
           fcm_token: string | null;
+          haccp_access: boolean;
+          roasting_access: boolean;
           created_at: string;
           updated_at: string;
           last_login_at: string | null;
@@ -216,6 +224,8 @@ export interface Database {
           status?: 'PENDING' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
           avatar_url?: string | null;
           fcm_token?: string | null;
+          haccp_access?: boolean;
+          roasting_access?: boolean;
           created_at?: string;
           updated_at?: string;
           last_login_at?: string | null;
@@ -241,6 +251,8 @@ export interface Database {
           status?: 'PENDING' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
           avatar_url?: string | null;
           fcm_token?: string | null;
+          haccp_access?: boolean;
+          roasting_access?: boolean;
           created_at?: string;
           updated_at?: string;
           last_login_at?: string | null;
@@ -493,6 +505,56 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['subscription_plans']['Insert']>;
+      };
+      company_subscriptions: {
+        Row: {
+          id: string;
+          company_id: string;
+          plan_id: string | null;
+          status: 'ACTIVE' | 'CANCELLED' | 'EXPIRED' | 'TRIAL';
+          started_at: string | null;
+          expires_at: string | null;
+          haccp_addon_enabled: boolean;
+          haccp_addon_started_at: string | null;
+          haccp_addon_price: number;
+          roasting_addon_enabled: boolean;
+          roasting_addon_started_at: string | null;
+          roasting_addon_price: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          plan_id?: string | null;
+          status?: 'ACTIVE' | 'CANCELLED' | 'EXPIRED' | 'TRIAL';
+          started_at?: string | null;
+          expires_at?: string | null;
+          haccp_addon_enabled?: boolean;
+          haccp_addon_started_at?: string | null;
+          haccp_addon_price?: number;
+          roasting_addon_enabled?: boolean;
+          roasting_addon_started_at?: string | null;
+          roasting_addon_price?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          plan_id?: string | null;
+          status?: 'ACTIVE' | 'CANCELLED' | 'EXPIRED' | 'TRIAL';
+          started_at?: string | null;
+          expires_at?: string | null;
+          haccp_addon_enabled?: boolean;
+          haccp_addon_started_at?: string | null;
+          haccp_addon_price?: number;
+          roasting_addon_enabled?: boolean;
+          roasting_addon_started_at?: string | null;
+          roasting_addon_price?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
       labor_law_versions: {
         Row: {
