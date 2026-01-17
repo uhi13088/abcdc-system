@@ -179,7 +179,8 @@ function SettingsContent() {
           .single();
 
         // Get plan name from joined data
-        const planName = (subscriptionData?.subscription_plans as { name: string } | null)?.name || 'FREE';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const planName = (subscriptionData?.subscription_plans as any)?.name || 'FREE';
 
         // Plan limits based on tier
         const planLimits: Record<string, { maxEmployees: number | null; maxStores: number | null; price: number }> = {
