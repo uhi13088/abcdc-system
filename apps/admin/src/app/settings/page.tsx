@@ -114,6 +114,23 @@ function SettingsContent() {
         .eq('auth_id', user.id)
         .single();
 
+      // SUPER_ADMIN gets full access
+      if (userData?.role === 'SUPER_ADMIN') {
+        setSubscription({
+          planName: 'SUPER_ADMIN',
+          planTier: 'PRO',
+          price: 0,
+          status: 'ACTIVE',
+          currentPeriodEnd: null,
+          maxEmployees: null,
+          maxStores: null,
+          currentEmployees: 0,
+          currentStores: 0,
+          haccpAddonEnabled: true,
+          roastingAddonEnabled: true,
+        });
+      }
+
       // If user has a company, fetch company info
       if (userData?.company_id) {
         const { data: companyData } = await supabase
@@ -144,12 +161,25 @@ function SettingsContent() {
           .select('id', { count: 'exact', head: true })
           .eq('company_id', userData.company_id);
 
-        // Fetch subscription data including addons
+        // SUPER_ADMIN already has subscription set, skip the rest
+        if (userData.role === 'SUPER_ADMIN') {
+          setSubscription(prev => prev ? {
+            ...prev,
+            currentEmployees: employeeCount || 0,
+            currentStores: storeCount || 0,
+          } : prev);
+          return;
+        }
+
+        // Fetch subscription data including addons (join with subscription_plans)
         const { data: subscriptionData } = await supabase
           .from('company_subscriptions')
-          .select('plan_tier, status, current_period_end, haccp_addon_enabled, roasting_addon_enabled')
+          .select('plan_id, status, current_period_end, haccp_addon_enabled, roasting_addon_enabled, subscription_plans(name)')
           .eq('company_id', userData.company_id)
           .single();
+
+        // Get plan name from joined data
+        const planName = (subscriptionData?.subscription_plans as { name: string } | null)?.name || 'FREE';
 
         // Plan limits based on tier
         const planLimits: Record<string, { maxEmployees: number | null; maxStores: number | null; price: number }> = {
@@ -158,12 +188,11 @@ function SettingsContent() {
           PRO: { maxEmployees: 200, maxStores: null, price: 99000 },
         };
 
-        const tier = subscriptionData?.plan_tier || 'FREE';
-        const limits = planLimits[tier] || planLimits.FREE;
+        const limits = planLimits[planName] || planLimits.FREE;
 
         setSubscription({
-          planName: tier,
-          planTier: tier,
+          planName: planName,
+          planTier: planName,
           price: limits.price,
           status: subscriptionData?.status || 'ACTIVE',
           currentPeriodEnd: subscriptionData?.current_period_end || null,
