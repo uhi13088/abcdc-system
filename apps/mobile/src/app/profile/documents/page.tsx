@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Camera, Check, Upload, FileText, CreditCard, Shield, GraduationCap, IdCard, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Camera, Check, Upload, FileText, CreditCard, Shield, GraduationCap, Contact2, AlertCircle } from 'lucide-react';
 
 interface DocumentType {
   id: string;
@@ -29,7 +29,7 @@ const DOCUMENT_TYPES: Record<string, DocumentType> = {
   bank_copy: { id: 'bank_copy', label: '통장 사본', icon: CreditCard, hasBankInfo: true },
   career_certificate: { id: 'career_certificate', label: '경력 증명서', icon: FileText },
   education_certificate: { id: 'education_certificate', label: '학력 증명서', icon: GraduationCap },
-  id_copy: { id: 'id_copy', label: '신분증 사본', icon: IdCard },
+  id_copy: { id: 'id_copy', label: '신분증 사본', icon: Contact2 },
 };
 
 const BANK_OPTIONS = [
