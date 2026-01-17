@@ -71,6 +71,9 @@ export async function PUT(
     // HACCP 설정
     if (typeof body.haccpEnabled === 'boolean') updateData.haccp_enabled = body.haccpEnabled;
 
+    // Roasting 설정
+    if (typeof body.roastingEnabled === 'boolean') updateData.roasting_enabled = body.roastingEnabled;
+
     // Use admin client to bypass RLS
     const adminClient = createAdminClient();
     const { data, error } = await adminClient
