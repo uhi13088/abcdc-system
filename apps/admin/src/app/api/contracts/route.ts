@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { CreateContractSchema } from '@abc/shared';
 
@@ -162,7 +162,9 @@ export async function POST(request: NextRequest) {
       created_by: userData?.id,
     };
 
-    const { data, error } = await supabase
+    // Use admin client to bypass RLS (API already checks permissions)
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
       .from('contracts')
       .insert(contractData)
       .select()
