@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import {
   Button,
+  Badge,
   Card,
   CardContent,
   CardHeader,
@@ -40,6 +41,15 @@ interface Store {
   brand_id: string;
   company_id: string;
   brands: { name: string };
+  // 급여 설정
+  pay_day?: number;
+  pay_period_type?: string;
+  // 수당 옵션
+  allowance_overtime?: boolean;
+  allowance_night?: boolean;
+  allowance_holiday?: boolean;
+  // 기타
+  default_hourly_rate?: number;
 }
 
 const STEPS = [
@@ -93,6 +103,8 @@ export default function NewContractPage() {
         breakMinutes: 60,
       },
     ],
+    perDayMode: false,
+    workSchedulePerDay: {} as Record<string, { startTime: string; endTime: string; breakMinutes: number }>,
     standardHoursPerWeek: 40,
     standardHoursPerDay: 8,
     breakMinutes: 60,
@@ -111,12 +123,14 @@ export default function NewContractPage() {
       paymentMethod: '계좌이체' as '계좌이체' | '현금' | '혼합',
     },
     deductionConfig: {
+      deductionType: 'full' as 'full' | 'employment_only' | 'freelancer' | 'none',
       nationalPension: true,
       healthInsurance: true,
       employmentInsurance: true,
       industrialAccident: true,
       incomeTax: true,
       localIncomeTax: true,
+      retirementAllowance: false,
     },
     annualLeaveDays: 15,
     paidLeaveDays: 0,
@@ -256,12 +270,28 @@ export default function NewContractPage() {
   const handleStoreChange = (storeId: string) => {
     const store = storeList.find((s) => s.id === storeId);
     if (store) {
-      setFormData({
-        ...formData,
+      // 매장 설정에서 수당/급여일 프리필
+      const updates: Partial<typeof formData> = {
         storeId,
         brandId: store.brand_id,
         companyId: store.company_id,
-      });
+      };
+
+      // 급여 설정 프리필
+      if (store.pay_day || store.allowance_overtime !== undefined) {
+        updates.salaryConfig = {
+          ...formData.salaryConfig,
+          paymentDate: store.pay_day || formData.salaryConfig.paymentDate,
+          allowances: {
+            ...formData.salaryConfig.allowances,
+            overtimeAllowance: store.allowance_overtime ?? formData.salaryConfig.allowances.overtimeAllowance,
+            nightAllowance: store.allowance_night ?? formData.salaryConfig.allowances.nightAllowance,
+            holidayAllowance: store.allowance_holiday ?? formData.salaryConfig.allowances.holidayAllowance,
+          },
+        };
+      }
+
+      setFormData({ ...formData, ...updates });
     }
   };
 
@@ -287,13 +317,57 @@ export default function NewContractPage() {
 
   const toggleWorkDay = (day: number) => {
     const schedule = formData.workSchedules[0];
-    const days = schedule.daysOfWeek.includes(day)
+    const isRemoving = schedule.daysOfWeek.includes(day);
+    const newDays = isRemoving
       ? schedule.daysOfWeek.filter((d) => d !== day)
-      : [...schedule.daysOfWeek, day];
+      : [...schedule.daysOfWeek, day].sort((a, b) => a - b);
+
+    // Update per-day schedule accordingly
+    const newWorkSchedulePerDay = { ...formData.workSchedulePerDay };
+    if (isRemoving) {
+      delete newWorkSchedulePerDay[String(day)];
+    } else if (formData.perDayMode) {
+      newWorkSchedulePerDay[String(day)] = {
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        breakMinutes: schedule.breakMinutes,
+      };
+    }
 
     setFormData({
       ...formData,
-      workSchedules: [{ ...schedule, daysOfWeek: days }],
+      workSchedules: [{ ...schedule, daysOfWeek: newDays }],
+      workSchedulePerDay: newWorkSchedulePerDay,
+    });
+  };
+
+  const togglePerDayMode = (enabled: boolean) => {
+    if (enabled) {
+      // Initialize per-day schedule for all selected days
+      const newSchedule: Record<string, { startTime: string; endTime: string; breakMinutes: number }> = {};
+      formData.workSchedules[0].daysOfWeek.forEach((day) => {
+        newSchedule[String(day)] = {
+          startTime: formData.workSchedules[0].startTime,
+          endTime: formData.workSchedules[0].endTime,
+          breakMinutes: formData.workSchedules[0].breakMinutes,
+        };
+      });
+      setFormData({ ...formData, perDayMode: true, workSchedulePerDay: newSchedule });
+    } else {
+      setFormData({ ...formData, perDayMode: false, workSchedulePerDay: {} });
+    }
+  };
+
+  const updateDaySchedule = (day: number, field: 'startTime' | 'endTime' | 'breakMinutes', value: string | number) => {
+    setFormData({
+      ...formData,
+      workSchedulePerDay: {
+        ...formData.workSchedulePerDay,
+        [String(day)]: {
+          ...formData.workSchedulePerDay[String(day)],
+          [field]: value,
+        },
+      },
     });
   };
 
@@ -485,41 +559,115 @@ export default function NewContractPage() {
                 ))}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>출근 시간</Label>
-                <Input
-                  type="time"
-                  value={formData.workSchedules[0].startTime}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      workSchedules: [
-                        { ...formData.workSchedules[0], startTime: e.target.value },
-                      ],
-                    })
-                  }
-                  className="mt-2"
-                />
-              </div>
-              <div>
-                <Label>퇴근 시간</Label>
-                <Input
-                  type="time"
-                  value={formData.workSchedules[0].endTime}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      workSchedules: [
-                        { ...formData.workSchedules[0], endTime: e.target.value },
-                      ],
-                    })
-                  }
-                  className="mt-2"
-                />
-              </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="perDayMode"
+                checked={formData.perDayMode}
+                onChange={(e) => togglePerDayMode(e.target.checked)}
+                className="mr-2"
+              />
+              <label htmlFor="perDayMode" className="text-sm cursor-pointer">
+                요일별로 다른 근무시간 설정
+              </label>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+
+            {!formData.perDayMode ? (
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>출근 시간</Label>
+                  <Input
+                    type="time"
+                    value={formData.workSchedules[0].startTime}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        workSchedules: [
+                          { ...formData.workSchedules[0], startTime: e.target.value },
+                        ],
+                      })
+                    }
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label>퇴근 시간</Label>
+                  <Input
+                    type="time"
+                    value={formData.workSchedules[0].endTime}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        workSchedules: [
+                          { ...formData.workSchedules[0], endTime: e.target.value },
+                        ],
+                      })
+                    }
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label>휴게 시간 (분)</Label>
+                  <Input
+                    type="number"
+                    value={formData.workSchedules[0].breakMinutes}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        workSchedules: [
+                          { ...formData.workSchedules[0], breakMinutes: parseInt(e.target.value) || 0 },
+                        ],
+                      })
+                    }
+                    className="mt-2"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {DAYS_OF_WEEK.filter((day) =>
+                  formData.workSchedules[0].daysOfWeek.includes(day.value)
+                ).map((day) => (
+                  <div key={day.value} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <span className="w-8 h-8 flex items-center justify-center bg-primary text-white rounded-full text-sm font-medium">
+                      {day.label}
+                    </span>
+                    <div className="flex-1 grid grid-cols-3 gap-3">
+                      <div>
+                        <Label className="text-xs">출근</Label>
+                        <Input
+                          type="time"
+                          value={formData.workSchedulePerDay[String(day.value)]?.startTime || '09:00'}
+                          onChange={(e) => updateDaySchedule(day.value, 'startTime', e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">퇴근</Label>
+                        <Input
+                          type="time"
+                          value={formData.workSchedulePerDay[String(day.value)]?.endTime || '18:00'}
+                          onChange={(e) => updateDaySchedule(day.value, 'endTime', e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">휴게(분)</Label>
+                        <Input
+                          type="number"
+                          value={formData.workSchedulePerDay[String(day.value)]?.breakMinutes || 60}
+                          onChange={(e) => updateDaySchedule(day.value, 'breakMinutes', parseInt(e.target.value) || 0)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
               <div>
                 <Label>주당 근무시간</Label>
                 <Input
@@ -538,22 +686,6 @@ export default function NewContractPage() {
                   value={formData.standardHoursPerDay}
                   onChange={(e) =>
                     setFormData({ ...formData, standardHoursPerDay: parseInt(e.target.value) || 0 })
-                  }
-                  className="mt-2"
-                />
-              </div>
-              <div>
-                <Label>휴게 시간 (분)</Label>
-                <Input
-                  type="number"
-                  value={formData.workSchedules[0].breakMinutes}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      workSchedules: [
-                        { ...formData.workSchedules[0], breakMinutes: parseInt(e.target.value) || 0 },
-                      ],
-                    })
                   }
                   className="mt-2"
                 />
@@ -782,121 +914,138 @@ export default function NewContractPage() {
         );
 
       case 6:
+        const handleDeductionTypeChange = (type: 'full' | 'employment_only' | 'freelancer' | 'none') => {
+          let config = { ...formData.deductionConfig, deductionType: type };
+
+          switch (type) {
+            case 'full':
+              config = {
+                ...config,
+                nationalPension: true,
+                healthInsurance: true,
+                employmentInsurance: true,
+                industrialAccident: true,
+                incomeTax: true,
+                localIncomeTax: true,
+              };
+              break;
+            case 'employment_only':
+              config = {
+                ...config,
+                nationalPension: false,
+                healthInsurance: false,
+                employmentInsurance: true,
+                industrialAccident: true,
+                incomeTax: false,
+                localIncomeTax: false,
+              };
+              break;
+            case 'freelancer':
+              config = {
+                ...config,
+                nationalPension: false,
+                healthInsurance: false,
+                employmentInsurance: false,
+                industrialAccident: false,
+                incomeTax: true,
+                localIncomeTax: true,
+              };
+              break;
+            case 'none':
+              config = {
+                ...config,
+                nationalPension: false,
+                healthInsurance: false,
+                employmentInsurance: false,
+                industrialAccident: false,
+                incomeTax: false,
+                localIncomeTax: false,
+              };
+              break;
+          }
+
+          setFormData({ ...formData, deductionConfig: config });
+        };
+
         return (
           <div className="space-y-6">
             <div>
-              <Label>4대보험</Label>
-              <div className="grid grid-cols-2 gap-4 mt-2">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.deductionConfig.nationalPension}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        deductionConfig: {
-                          ...formData.deductionConfig,
-                          nationalPension: e.target.checked,
-                        },
-                      })
-                    }
-                    className="mr-2"
-                  />
-                  <span className="text-sm">국민연금 (4.5%)</span>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.deductionConfig.healthInsurance}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        deductionConfig: {
-                          ...formData.deductionConfig,
-                          healthInsurance: e.target.checked,
-                        },
-                      })
-                    }
-                    className="mr-2"
-                  />
-                  <span className="text-sm">건강보험 (3.545%)</span>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.deductionConfig.employmentInsurance}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        deductionConfig: {
-                          ...formData.deductionConfig,
-                          employmentInsurance: e.target.checked,
-                        },
-                      })
-                    }
-                    className="mr-2"
-                  />
-                  <span className="text-sm">고용보험 (0.9%)</span>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.deductionConfig.industrialAccident}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        deductionConfig: {
-                          ...formData.deductionConfig,
-                          industrialAccident: e.target.checked,
-                        },
-                      })
-                    }
-                    className="mr-2"
-                  />
-                  <span className="text-sm">산재보험</span>
-                </div>
+              <Label required>공제 유형</Label>
+              <Select
+                value={formData.deductionConfig.deductionType}
+                onChange={(e) => handleDeductionTypeChange(e.target.value as 'full' | 'employment_only' | 'freelancer' | 'none')}
+                options={[
+                  { value: 'full', label: '전체 적용 (국민연금+건강+장기요양+고용+산재)' },
+                  { value: 'employment_only', label: '고용·산재보험만 (단시간 근로자)' },
+                  { value: 'freelancer', label: '소득세만 적용 (프리랜서 3.3%)' },
+                  { value: 'none', label: '완전 적용 안 함 (세금 없음)' },
+                ]}
+                className="mt-2"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                근로 형태에 따라 적절한 공제 유형을 선택하세요.
+              </p>
+            </div>
+
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-700 mb-2">적용 항목</p>
+              <div className="flex flex-wrap gap-2">
+                {formData.deductionConfig.nationalPension && (
+                  <Badge variant="default">국민연금 4.5%</Badge>
+                )}
+                {formData.deductionConfig.healthInsurance && (
+                  <Badge variant="default">건강보험 3.545%</Badge>
+                )}
+                {formData.deductionConfig.employmentInsurance && (
+                  <Badge variant="default">고용보험 0.9%</Badge>
+                )}
+                {formData.deductionConfig.industrialAccident && (
+                  <Badge variant="default">산재보험</Badge>
+                )}
+                {formData.deductionConfig.incomeTax && (
+                  <Badge variant="default">소득세</Badge>
+                )}
+                {formData.deductionConfig.localIncomeTax && (
+                  <Badge variant="default">지방소득세</Badge>
+                )}
+                {formData.deductionConfig.deductionType === 'none' && (
+                  <span className="text-sm text-gray-500">공제 항목 없음</span>
+                )}
               </div>
             </div>
 
-            <div>
-              <Label>세금</Label>
-              <div className="grid grid-cols-2 gap-4 mt-2">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.deductionConfig.incomeTax}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        deductionConfig: {
-                          ...formData.deductionConfig,
-                          incomeTax: e.target.checked,
-                        },
-                      })
-                    }
-                    className="mr-2"
-                  />
-                  <span className="text-sm">소득세</span>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.deductionConfig.localIncomeTax}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        deductionConfig: {
-                          ...formData.deductionConfig,
-                          localIncomeTax: e.target.checked,
-                        },
-                      })
-                    }
-                    className="mr-2"
-                  />
-                  <span className="text-sm">지방소득세</span>
-                </div>
+            <div className="border-t pt-4">
+              <div className="flex items-start">
+                <input
+                  type="checkbox"
+                  id="retirementAllowance"
+                  checked={formData.deductionConfig.retirementAllowance}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      deductionConfig: {
+                        ...formData.deductionConfig,
+                        retirementAllowance: e.target.checked,
+                      },
+                    })
+                  }
+                  className="mr-3 mt-1"
+                />
+                <label htmlFor="retirementAllowance" className="cursor-pointer">
+                  <span className="text-sm font-medium">퇴직금 적용 대상</span>
+                  <p className="text-xs text-gray-500">주 15시간 이상 근무, 1년 이상 근속 시 퇴직금 지급</p>
+                </label>
               </div>
             </div>
+
+            <Alert variant="info">
+              <div className="flex items-center">
+                <Check className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                <span className="text-sm">
+                  <strong>주휴수당</strong>은 주 15시간 이상 근무 시 자동 적용됩니다.
+                </span>
+              </div>
+            </Alert>
 
             <div>
               <Label>휴가</Label>
