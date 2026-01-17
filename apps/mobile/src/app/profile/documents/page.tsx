@@ -57,49 +57,77 @@ export default function DocumentsPage() {
   const [accountNumber, setAccountNumber] = useState('');
   const [accountHolder, setAccountHolder] = useState('');
 
-  // 이미지 압축 함수 (최대 1024px, 품질 70%)
-  const compressImage = (file: File, maxWidth = 1024, quality = 0.7): Promise<File> => {
+  // 이미지 압축 함수 (100KB 이하로 압축)
+  const compressImage = (file: File, maxSizeKB = 100): Promise<File> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let { width, height } = img;
+          const compress = (maxWidth: number, quality: number): Promise<File> => {
+            return new Promise((res) => {
+              const canvas = document.createElement('canvas');
+              let { width, height } = img;
 
-          // 가로가 maxWidth보다 크면 리사이즈
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width;
-            width = maxWidth;
-          }
+              if (width > maxWidth) {
+                height = (height * maxWidth) / width;
+                width = maxWidth;
+              }
 
-          canvas.width = width;
-          canvas.height = height;
+              canvas.width = width;
+              canvas.height = height;
 
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            resolve(file);
-            return;
-          }
-
-          ctx.drawImage(img, 0, 0, width, height);
-
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) {
-                resolve(file);
+              const ctx = canvas.getContext('2d');
+              if (!ctx) {
+                res(file);
                 return;
               }
-              const compressedFile = new File([blob], file.name, {
-                type: 'image/jpeg',
-                lastModified: Date.now(),
-              });
-              console.log(`Image compressed: ${(file.size / 1024).toFixed(0)}KB → ${(compressedFile.size / 1024).toFixed(0)}KB`);
-              resolve(compressedFile);
-            },
-            'image/jpeg',
-            quality
-          );
+
+              ctx.drawImage(img, 0, 0, width, height);
+
+              canvas.toBlob(
+                (blob) => {
+                  if (!blob) {
+                    res(file);
+                    return;
+                  }
+                  const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+                    type: 'image/jpeg',
+                    lastModified: Date.now(),
+                  });
+                  res(compressedFile);
+                },
+                'image/jpeg',
+                quality
+              );
+            });
+          };
+
+          // 점진적으로 압축 (100KB 이하가 될 때까지)
+          const tryCompress = async () => {
+            const settings = [
+              { maxWidth: 1024, quality: 0.7 },
+              { maxWidth: 800, quality: 0.6 },
+              { maxWidth: 640, quality: 0.5 },
+              { maxWidth: 480, quality: 0.4 },
+              { maxWidth: 400, quality: 0.3 },
+            ];
+
+            for (const { maxWidth, quality } of settings) {
+              const result = await compress(maxWidth, quality);
+              if (result.size <= maxSizeKB * 1024) {
+                console.log(`Image compressed: ${(file.size / 1024).toFixed(0)}KB → ${(result.size / 1024).toFixed(0)}KB (${maxWidth}px, ${quality * 100}%)`);
+                return result;
+              }
+            }
+
+            // 마지막 설정으로 반환
+            const finalResult = await compress(400, 0.3);
+            console.log(`Image compressed: ${(file.size / 1024).toFixed(0)}KB → ${(finalResult.size / 1024).toFixed(0)}KB (final)`);
+            return finalResult;
+          };
+
+          tryCompress().then(resolve).catch(reject);
         };
         img.onerror = () => reject(new Error('Failed to load image'));
         img.src = e.target?.result as string;
