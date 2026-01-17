@@ -14,6 +14,22 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // 사용자 정보 조회
+    const { data: userData } = await supabase
+      .from('users')
+      .select('role, company_id')
+      .eq('auth_id', user.id)
+      .single();
+
+    if (!userData) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // 회사 격리 체크 - super_admin이 아니면 본인 회사만 조회 가능
+    if (userData.role !== 'super_admin' && userData.company_id !== params.id) {
+      return NextResponse.json({ error: '자신의 회사만 조회할 수 있습니다.' }, { status: 403 });
+    }
+
     const { data, error } = await supabase
       .from('companies')
       .select('*')
@@ -51,12 +67,18 @@ export async function PUT(
 
     const { data: userData } = await supabase
       .from('users')
-      .select('role')
+      .select('role, company_id')
       .eq('auth_id', user.id)
       .single();
 
+    // 역할 권한 체크
     if (!['super_admin', 'company_admin'].includes(userData?.role || '')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // 회사 격리 체크 - super_admin이 아니면 본인 회사만 수정 가능
+    if (userData?.role !== 'super_admin' && userData?.company_id !== params.id) {
+      return NextResponse.json({ error: '자신의 회사만 수정할 수 있습니다.' }, { status: 403 });
     }
 
     const body = await request.json();
