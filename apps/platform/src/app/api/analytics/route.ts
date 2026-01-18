@@ -45,18 +45,26 @@ export async function GET() {
       monthlyGrowth.push({ month: monthStr, count });
     }
 
-    // Get plan distribution
-    const { data: subscriptions } = await adminClient
-      .from('company_subscriptions')
-      .select('subscription_plans(tier)')
-      .eq('status', 'ACTIVE');
-
+    // Get plan distribution (with error handling)
     const planCounts: Record<string, number> = { free: 0, starter: 0, pro: 0, enterprise: 0 };
-    (subscriptions || []).forEach((s: any) => {
-      const planData = Array.isArray(s.subscription_plans) ? s.subscription_plans[0] : s.subscription_plans;
-      const tier = planData?.tier?.toLowerCase() || 'free';
-      planCounts[tier] = (planCounts[tier] || 0) + 1;
-    });
+    try {
+      const { data: subscriptions } = await adminClient
+        .from('company_subscriptions')
+        .select('plan_id')
+        .eq('status', 'ACTIVE');
+
+      for (const sub of subscriptions || []) {
+        const { data: plan } = await adminClient
+          .from('subscription_plans')
+          .select('tier')
+          .eq('id', sub.plan_id)
+          .maybeSingle();
+        const tier = plan?.tier?.toLowerCase() || 'free';
+        planCounts[tier] = (planCounts[tier] || 0) + 1;
+      }
+    } catch {
+      // Subscription tables might not exist
+    }
 
     // Get total companies without active subscriptions (free tier)
     const { count: totalCompanies } = await adminClient
@@ -94,13 +102,47 @@ export async function GET() {
     // Sort by user count and take top 5
     topCompanies.sort((a, b) => b.users_count - a.users_count);
 
+    // Get metrics for this month
+    const thisMonth = new Date();
+    thisMonth.setDate(1);
+    thisMonth.setHours(0, 0, 0, 0);
+
+    const { count: newCompaniesCount } = await adminClient
+      .from('companies')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', thisMonth.toISOString());
+
+    const { count: newUsersCount } = await adminClient
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', thisMonth.toISOString());
+
+    const { count: totalUsersCount } = await adminClient
+      .from('users')
+      .select('*', { count: 'exact', head: true });
+
     return NextResponse.json({
-      monthlyGrowth,
-      planDistribution: Object.entries(planCounts).map(([name, value]) => ({
-        name: name.charAt(0).toUpperCase() + name.slice(1),
-        value,
+      metrics: {
+        newCompanies: newCompaniesCount || 0,
+        newUsers: newUsersCount || 0,
+        mau: totalUsersCount || 0, // Simplified: using total users as MAU
+        monthlyRevenue: 0, // Would need billing data
+      },
+      companyGrowth: monthlyGrowth,
+      planDistribution: Object.entries(planCounts).map(([plan, count]) => {
+        const total = Object.values(planCounts).reduce((a, b) => a + b, 0);
+        return {
+          plan: plan.charAt(0).toUpperCase() + plan.slice(1),
+          count,
+          percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+        };
+      }),
+      topCompanies: topCompanies.slice(0, 5).map(c => ({
+        name: c.name,
+        users: c.users_count,
+        stores: c.stores_count,
+        revenue: 0, // Would need billing data
       })),
-      topCompanies: topCompanies.slice(0, 5),
     });
   } catch (error) {
     console.error('Error fetching analytics:', error);
