@@ -236,6 +236,7 @@ export const CreateContractSchema = z.object({
   annualLeaveDays: z.number().min(0, '연차는 0일 이상이어야 합니다').default(15),
   paidLeaveDays: z.number().min(0, '유급휴가는 0일 이상이어야 합니다').default(0),
   sickLeaveDays: z.number().min(0, '병가는 0일 이상이어야 합니다').default(0),
+  specialTerms: z.string().optional(), // 특약사항
 });
 
 // ============================================

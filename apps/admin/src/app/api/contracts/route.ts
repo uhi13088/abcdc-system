@@ -182,6 +182,7 @@ export async function POST(request: NextRequest) {
       annual_leave_days: validation.data.annualLeaveDays,
       paid_leave_days: validation.data.paidLeaveDays,
       sick_leave_days: validation.data.sickLeaveDays,
+      terms: validation.data.specialTerms ? { specialTerms: validation.data.specialTerms } : null,
       status: 'DRAFT',
       created_by: userData?.id,
     };
