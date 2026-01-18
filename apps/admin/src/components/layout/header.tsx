@@ -81,6 +81,8 @@ export function Header({ title }: HeaderProps) {
         {addonAccess.haccp && (
           <Link
             href={haccpUrl}
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 transition-colors"
           >
             <Factory className="w-4 h-4" />
@@ -90,14 +92,19 @@ export function Header({ title }: HeaderProps) {
 
         {/* Roasting Button */}
         {addonAccess.roasting && (
-          <Link
-            href={roastingUrl}
-            target="_blank"
+          <button
+            onClick={() => {
+              if (roastingUrl && roastingUrl !== '#') {
+                window.open(roastingUrl, '_blank', 'noopener,noreferrer');
+              } else {
+                alert('로스팅 관리 기능은 준비 중입니다.');
+              }
+            }}
             className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-md hover:bg-amber-100 transition-colors"
           >
             <Coffee className="w-4 h-4" />
             <span>로스팅</span>
-          </Link>
+          </button>
         )}
 
         {/* Notifications */}
