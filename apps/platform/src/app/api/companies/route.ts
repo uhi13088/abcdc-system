@@ -24,15 +24,10 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Get companies with counts
+    // Get companies
     const { data: companies, error } = await adminClient
       .from('companies')
-      .select(`
-        *,
-        company_subscriptions(
-          subscription_plans(name, tier)
-        )
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -52,15 +47,33 @@ export async function GET() {
             .neq('role', 'super_admin'),
         ]);
 
-        // Get active subscription plan
-        const activeSub = company.company_subscriptions?.find((s: any) => s.subscription_plans);
-        const planName = activeSub?.subscription_plans?.tier?.toLowerCase() || 'free';
+        // Get subscription plan (with error handling)
+        let planTier = 'free';
+        try {
+          const { data: subscription } = await adminClient
+            .from('company_subscriptions')
+            .select('plan_id')
+            .eq('company_id', company.id)
+            .eq('status', 'ACTIVE')
+            .maybeSingle();
+
+          if (subscription?.plan_id) {
+            const { data: plan } = await adminClient
+              .from('subscription_plans')
+              .select('tier')
+              .eq('id', subscription.plan_id)
+              .single();
+            planTier = plan?.tier?.toLowerCase() || 'free';
+          }
+        } catch {
+          // Subscription tables might not exist, use default
+        }
 
         return {
           ...company,
           stores_count: storesResult.count || 0,
           users_count: usersResult.count || 0,
-          plan: planName,
+          plan: planTier,
         };
       })
     );
