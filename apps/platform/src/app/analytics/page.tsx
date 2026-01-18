@@ -37,12 +37,17 @@ export default function AnalyticsPage() {
     fetchAnalytics();
   }, [period]);
 
-  const metrics = data ? [
-    { name: '신규 가입 회사', value: data.metrics.newCompanies, change: '-', icon: Building2 },
-    { name: '신규 사용자', value: data.metrics.newUsers, change: '-', icon: Users },
-    { name: 'MAU', value: data.metrics.mau, change: '-', icon: TrendingUp },
-    { name: '월 매출', value: data.metrics.monthlyRevenue, isCurrency: true, change: '-', icon: BarChart3 },
-  ] : [];
+  const metrics = data?.metrics ? [
+    { name: '신규 가입 회사', value: data.metrics.newCompanies || 0, change: '-', icon: Building2 },
+    { name: '신규 사용자', value: data.metrics.newUsers || 0, change: '-', icon: Users },
+    { name: 'MAU', value: data.metrics.mau || 0, change: '-', icon: TrendingUp },
+    { name: '월 매출', value: data.metrics.monthlyRevenue || 0, isCurrency: true, change: '-', icon: BarChart3 },
+  ] : [
+    { name: '신규 가입 회사', value: 0, change: '-', icon: Building2 },
+    { name: '신규 사용자', value: 0, change: '-', icon: Users },
+    { name: 'MAU', value: 0, change: '-', icon: TrendingUp },
+    { name: '월 매출', value: 0, isCurrency: true, change: '-', icon: BarChart3 },
+  ];
 
   const companyGrowth = data?.companyGrowth || [];
   const planDistribution = data?.planDistribution || [];

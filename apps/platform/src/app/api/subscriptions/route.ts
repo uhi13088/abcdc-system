@@ -24,39 +24,61 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Get subscription plans
-    const { data: plans } = await adminClient
-      .from('subscription_plans')
-      .select('*')
-      .order('price', { ascending: true });
+    // Get subscription plans (with error handling for missing table)
+    let plans: any[] = [];
+    try {
+      const { data } = await adminClient
+        .from('subscription_plans')
+        .select('*')
+        .order('price', { ascending: true });
+      plans = data || [];
+    } catch {
+      // Table might not exist
+    }
 
-    // Get company subscriptions with company info
-    const { data: subscriptions } = await adminClient
-      .from('company_subscriptions')
-      .select(`
-        *,
-        companies(id, name, email),
-        subscription_plans(id, name, tier, price)
-      `)
-      .order('created_at', { ascending: false });
+    // Get company subscriptions (with error handling)
+    let subscriptions: any[] = [];
+    try {
+      const { data } = await adminClient
+        .from('company_subscriptions')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // Get company and plan info separately
+      subscriptions = await Promise.all(
+        (data || []).map(async (sub) => {
+          const [companyResult, planResult] = await Promise.all([
+            adminClient.from('companies').select('id, name, email').eq('id', sub.company_id).maybeSingle(),
+            adminClient.from('subscription_plans').select('id, name, display_name, price_monthly').eq('id', sub.plan_id).maybeSingle(),
+          ]);
+          return {
+            ...sub,
+            companies: companyResult.data,
+            subscription_plans: planResult.data,
+          };
+        })
+      );
+    } catch {
+      // Tables might not exist
+    }
 
     // Calculate stats
-    const planStats = (plans || []).map(plan => {
-      const count = (subscriptions || []).filter(
+    const planStats = plans.map(plan => {
+      const count = subscriptions.filter(
         s => s.plan_id === plan.id && s.status === 'ACTIVE'
       ).length;
       return { ...plan, subscriber_count: count };
     });
 
-    const totalRevenue = (subscriptions || [])
+    const totalRevenue = subscriptions
       .filter(s => s.status === 'ACTIVE')
-      .reduce((sum, s) => sum + (s.subscription_plans?.price || 0), 0);
+      .reduce((sum, s) => sum + (s.subscription_plans?.price_monthly || 0), 0);
 
     return NextResponse.json({
       plans: planStats,
-      subscriptions: subscriptions || [],
+      subscriptions,
       stats: {
-        totalSubscriptions: (subscriptions || []).filter(s => s.status === 'ACTIVE').length,
+        totalSubscriptions: subscriptions.filter(s => s.status === 'ACTIVE').length,
         totalRevenue,
       }
     });

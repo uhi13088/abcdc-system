@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { Bell, Search, Factory, Coffee } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -58,9 +57,25 @@ export function Header({ title }: HeaderProps) {
     checkAddonAccess();
   }, []);
 
-  // Get app URLs
-  const haccpUrl = process.env.NEXT_PUBLIC_HACCP_URL || '/haccp';
-  const roastingUrl = process.env.NEXT_PUBLIC_ROASTING_URL || 'https://roasting.abcstaff.com';
+  // Get app URLs (external apps only)
+  const haccpUrl = process.env.NEXT_PUBLIC_HACCP_URL || '';
+  const roastingUrl = process.env.NEXT_PUBLIC_ROASTING_URL || '';
+
+  const handleHaccpClick = () => {
+    if (haccpUrl && haccpUrl.startsWith('http')) {
+      window.open(haccpUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      alert('HACCP 앱이 설치되지 않았습니다.\n관리자에게 HACCP 앱 설치를 요청하세요.');
+    }
+  };
+
+  const handleRoastingClick = () => {
+    if (roastingUrl && roastingUrl.startsWith('http')) {
+      window.open(roastingUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      alert('로스팅 앱이 설치되지 않았습니다.\n관리자에게 로스팅 앱 설치를 요청하세요.');
+    }
+  };
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
@@ -79,25 +94,24 @@ export function Header({ title }: HeaderProps) {
 
         {/* HACCP Button */}
         {addonAccess.haccp && (
-          <Link
-            href={haccpUrl}
+          <button
+            onClick={handleHaccpClick}
             className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 transition-colors"
           >
             <Factory className="w-4 h-4" />
             <span>HACCP</span>
-          </Link>
+          </button>
         )}
 
         {/* Roasting Button */}
         {addonAccess.roasting && (
-          <Link
-            href={roastingUrl}
-            target="_blank"
+          <button
+            onClick={handleRoastingClick}
             className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-md hover:bg-amber-100 transition-colors"
           >
             <Coffee className="w-4 h-4" />
             <span>로스팅</span>
-          </Link>
+          </button>
         )}
 
         {/* Notifications */}

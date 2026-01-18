@@ -25,26 +25,30 @@ export async function GET() {
 
     const { data: brands, error } = await adminClient
       .from('brands')
-      .select(`
-        *,
-        companies(id, name)
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // Get store counts
+    // Get store counts and company names
     const brandsWithCounts = await Promise.all(
       (brands || []).map(async (brand) => {
-        const { count } = await adminClient
-          .from('stores')
-          .select('*', { count: 'exact', head: true })
-          .eq('brand_id', brand.id);
+        const [storesResult, companyResult] = await Promise.all([
+          adminClient
+            .from('stores')
+            .select('*', { count: 'exact', head: true })
+            .eq('brand_id', brand.id),
+          adminClient
+            .from('companies')
+            .select('name')
+            .eq('id', brand.company_id)
+            .maybeSingle(),
+        ]);
 
         return {
           ...brand,
-          company_name: brand.companies?.name || '알 수 없음',
-          stores_count: count || 0,
+          company_name: companyResult.data?.name || '알 수 없음',
+          stores_count: storesResult.count || 0,
         };
       })
     );
