@@ -17,8 +17,19 @@ export function createClient() {
     );
   }
 
+  // Cookie domain for cross-subdomain auth (e.g., '.abcstaff.com')
+  const cookieDomain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined;
+
   return createBrowserClient<Database>(
     supabaseUrl,
-    supabaseKey
+    supabaseKey,
+    {
+      cookieOptions: {
+        domain: cookieDomain,
+        path: '/',
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    }
   );
 }
