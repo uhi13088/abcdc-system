@@ -82,6 +82,7 @@ export default function NewContractPage() {
   // Data
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [storeList, setStoreList] = useState<Store[]>([]);
+  const [previousDuties, setPreviousDuties] = useState<string[]>([]); // 이전에 사용한 업무내용 태그
 
   // Form state
   const [formData, setFormData] = useState({
@@ -142,7 +143,20 @@ export default function NewContractPage() {
   useEffect(() => {
     fetchStaff();
     fetchStores();
+    fetchPreviousDuties();
   }, []);
+
+  const fetchPreviousDuties = async () => {
+    try {
+      const response = await fetch('/api/contracts/duties');
+      if (response.ok) {
+        const data = await response.json();
+        setPreviousDuties(data.duties || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch previous duties:', error);
+    }
+  };
 
   const fetchStaff = async () => {
     const response = await fetch('/api/users?role=staff&status=ACTIVE&limit=100');
@@ -515,6 +529,45 @@ export default function NewContractPage() {
             </div>
             <div>
               <Label>담당 업무</Label>
+              {/* 이전에 사용한 업무내용 태그 */}
+              {previousDuties.length > 0 && (
+                <div className="mt-2 mb-3">
+                  <p className="text-xs text-gray-500 mb-2">이전에 사용한 업무내용 (클릭하여 추가)</p>
+                  <div className="flex flex-wrap gap-2">
+                    {previousDuties.map((duty, index) => {
+                      const isAlreadyAdded = formData.duties.includes(duty);
+                      return (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => {
+                            if (!isAlreadyAdded) {
+                              // 빈 항목이 있으면 거기에 추가, 없으면 새로 추가
+                              const emptyIndex = formData.duties.findIndex(d => !d.trim());
+                              if (emptyIndex >= 0) {
+                                updateDuty(emptyIndex, duty);
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  duties: [...formData.duties, duty],
+                                });
+                              }
+                            }
+                          }}
+                          disabled={isAlreadyAdded}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+                            isAlreadyAdded
+                              ? 'bg-primary/20 text-primary border border-primary/30 cursor-not-allowed'
+                              : 'bg-white border border-gray-200 hover:bg-primary hover:text-white hover:border-primary'
+                          }`}
+                        >
+                          {isAlreadyAdded ? '✓ ' : '+ '}{duty}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div className="space-y-2 mt-2">
                 {formData.duties.map((duty, index) => (
                   <div key={index} className="flex gap-2">
