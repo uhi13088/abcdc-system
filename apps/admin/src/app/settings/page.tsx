@@ -114,10 +114,10 @@ function SettingsContent() {
         .eq('auth_id', user.id)
         .single();
 
-      // SUPER_ADMIN gets full access
-      if (userData?.role === 'SUPER_ADMIN') {
+      // super_admin gets full access
+      if (userData?.role === 'super_admin') {
         setSubscription({
-          planName: 'SUPER_ADMIN',
+          planName: 'super_admin',
           planTier: 'PRO',
           price: 0,
           status: 'ACTIVE',
@@ -161,8 +161,8 @@ function SettingsContent() {
           .select('id', { count: 'exact', head: true })
           .eq('company_id', userData.company_id);
 
-        // SUPER_ADMIN already has subscription set, skip the rest
-        if (userData.role === 'SUPER_ADMIN') {
+        // super_admin already has subscription set, skip the rest
+        if (userData.role === 'super_admin') {
           setSubscription(prev => prev ? {
             ...prev,
             currentEmployees: employeeCount || 0,

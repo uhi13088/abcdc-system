@@ -59,7 +59,8 @@ const STEPS = [
   { id: 4, title: '근무 시간', description: '근무 일정을 설정합니다' },
   { id: 5, title: '급여 설정', description: '급여 및 수당을 설정합니다' },
   { id: 6, title: '공제 설정', description: '4대보험 및 공제 항목을 설정합니다' },
-  { id: 7, title: '확인', description: '최종 확인 후 저장합니다' },
+  { id: 7, title: '특약사항', description: '추가 계약 조건을 입력합니다' },
+  { id: 8, title: '확인', description: '최종 확인 후 저장합니다' },
 ];
 
 const DAYS_OF_WEEK = [
@@ -81,6 +82,7 @@ export default function NewContractPage() {
   // Data
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [storeList, setStoreList] = useState<Store[]>([]);
+  const [previousDuties, setPreviousDuties] = useState<string[]>([]); // 이전에 사용한 업무내용 태그
 
   // Form state
   const [formData, setFormData] = useState({
@@ -135,12 +137,26 @@ export default function NewContractPage() {
     annualLeaveDays: 15,
     paidLeaveDays: 0,
     sickLeaveDays: 0,
+    specialTerms: '' as string, // 특약사항
   });
 
   useEffect(() => {
     fetchStaff();
     fetchStores();
+    fetchPreviousDuties();
   }, []);
+
+  const fetchPreviousDuties = async () => {
+    try {
+      const response = await fetch('/api/contracts/duties');
+      if (response.ok) {
+        const data = await response.json();
+        setPreviousDuties(data.duties || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch previous duties:', error);
+    }
+  };
 
   const fetchStaff = async () => {
     const response = await fetch('/api/users?role=staff&status=ACTIVE&limit=100');
@@ -513,6 +529,45 @@ export default function NewContractPage() {
             </div>
             <div>
               <Label>담당 업무</Label>
+              {/* 이전에 사용한 업무내용 태그 */}
+              {previousDuties.length > 0 && (
+                <div className="mt-2 mb-3">
+                  <p className="text-xs text-gray-500 mb-2">이전에 사용한 업무내용 (클릭하여 추가)</p>
+                  <div className="flex flex-wrap gap-2">
+                    {previousDuties.map((duty, index) => {
+                      const isAlreadyAdded = formData.duties.includes(duty);
+                      return (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => {
+                            if (!isAlreadyAdded) {
+                              // 빈 항목이 있으면 거기에 추가, 없으면 새로 추가
+                              const emptyIndex = formData.duties.findIndex(d => !d.trim());
+                              if (emptyIndex >= 0) {
+                                updateDuty(emptyIndex, duty);
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  duties: [...formData.duties, duty],
+                                });
+                              }
+                            }
+                          }}
+                          disabled={isAlreadyAdded}
+                          className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+                            isAlreadyAdded
+                              ? 'bg-primary/20 text-primary border border-primary/30 cursor-not-allowed'
+                              : 'bg-white border border-gray-200 hover:bg-primary hover:text-white hover:border-primary'
+                          }`}
+                        >
+                          {isAlreadyAdded ? '✓ ' : '+ '}{duty}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div className="space-y-2 mt-2">
                 {formData.duties.map((duty, index) => (
                   <div key={index} className="flex gap-2">
@@ -1089,6 +1144,90 @@ export default function NewContractPage() {
         );
 
       case 7:
+        return (
+          <div className="space-y-6">
+            <Alert variant="info">
+              추가적인 계약 조건이 있다면 특약사항에 입력하세요. (선택사항)
+            </Alert>
+
+            <div>
+              <Label>특약사항</Label>
+              <Textarea
+                value={formData.specialTerms}
+                onChange={(e) => setFormData({ ...formData, specialTerms: e.target.value })}
+                placeholder={`예시:
+1. 수습 기간 중 급여는 기본급의 90%를 지급한다.
+2. 근무 중 취득한 자격증 비용은 회사에서 50% 지원한다.
+3. 야간 근무 시 교통비를 별도 지급한다.
+4. 경쟁업체 취업 제한: 퇴사 후 1년간 동종업계 취업을 제한한다.
+5. 비밀유지의무: 재직 중 알게 된 영업비밀을 퇴사 후에도 누설하지 않는다.`}
+                rows={10}
+                className="mt-2"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                * 특약사항은 근로기준법에 위반되지 않는 범위 내에서 작성해주세요.
+              </p>
+            </div>
+
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-700 mb-2">자주 사용하는 특약사항</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFormData({
+                    ...formData,
+                    specialTerms: formData.specialTerms + (formData.specialTerms ? '\n' : '') + '수습 기간 중 급여는 기본급의 90%를 지급한다.'
+                  })}
+                  className="text-xs px-3 py-1.5 bg-white border border-gray-200 rounded-full hover:bg-gray-50"
+                >
+                  + 수습기간 급여
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({
+                    ...formData,
+                    specialTerms: formData.specialTerms + (formData.specialTerms ? '\n' : '') + '근무 중 취득한 자격증 비용은 회사에서 지원한다.'
+                  })}
+                  className="text-xs px-3 py-1.5 bg-white border border-gray-200 rounded-full hover:bg-gray-50"
+                >
+                  + 자격증 비용 지원
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({
+                    ...formData,
+                    specialTerms: formData.specialTerms + (formData.specialTerms ? '\n' : '') + '야간 근무 시 교통비를 별도 지급한다.'
+                  })}
+                  className="text-xs px-3 py-1.5 bg-white border border-gray-200 rounded-full hover:bg-gray-50"
+                >
+                  + 야간 교통비
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({
+                    ...formData,
+                    specialTerms: formData.specialTerms + (formData.specialTerms ? '\n' : '') + '재직 중 알게 된 영업비밀을 퇴사 후에도 누설하지 않는다.'
+                  })}
+                  className="text-xs px-3 py-1.5 bg-white border border-gray-200 rounded-full hover:bg-gray-50"
+                >
+                  + 비밀유지의무
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({
+                    ...formData,
+                    specialTerms: formData.specialTerms + (formData.specialTerms ? '\n' : '') + '퇴사 후 1년간 동종업계 경쟁업체 취업을 제한한다.'
+                  })}
+                  className="text-xs px-3 py-1.5 bg-white border border-gray-200 rounded-full hover:bg-gray-50"
+                >
+                  + 경쟁업체 취업 제한
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 8:
         const selectedStaff = staffList.find((s) => s.id === formData.staffId);
         const selectedStore = storeList.find((s) => s.id === formData.storeId);
 
@@ -1153,6 +1292,15 @@ export default function NewContractPage() {
                 </div>
               </div>
             </div>
+
+            {formData.specialTerms && (
+              <div className="border-t pt-4">
+                <p className="text-sm text-gray-500 mb-2">특약사항</p>
+                <div className="p-3 bg-gray-50 rounded-lg whitespace-pre-wrap text-sm">
+                  {formData.specialTerms}
+                </div>
+              </div>
+            )}
           </div>
         );
 

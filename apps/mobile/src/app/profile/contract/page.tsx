@@ -14,10 +14,12 @@ interface Contract {
   position: string;
   department: string;
   status: string;
-  signed_at?: string;
-  hourly_wage?: number;
-  monthly_salary?: number;
-  work_hours_per_week?: number;
+  employee_signed_at?: string;
+  salary_config?: {
+    baseSalaryType: string;
+    baseSalaryAmount: number;
+  };
+  standard_hours_per_week?: number;
   stores: { name: string } | null;
 }
 
@@ -61,10 +63,9 @@ export default function ContractPage() {
           position,
           department,
           status,
-          signed_at,
-          hourly_wage,
-          monthly_salary,
-          work_hours_per_week,
+          employee_signed_at,
+          salary_config,
+          standard_hours_per_week,
           stores(name)
         `)
         .eq('staff_id', userData.id)
@@ -171,7 +172,7 @@ export default function ContractPage() {
                 <div className="ml-3">
                   <p className="font-bold text-gray-900">계약 체결 완료</p>
                   <p className="text-sm text-gray-500">
-                    {contract.signed_at && formatDate(contract.signed_at)} 서명됨
+                    {contract.employee_signed_at && formatDate(contract.employee_signed_at)} 서명됨
                   </p>
                 </div>
               </div>
@@ -233,29 +234,29 @@ export default function ContractPage() {
           </div>
 
           {/* Wage Info */}
-          {(contract.hourly_wage || contract.monthly_salary || contract.work_hours_per_week) && (
+          {(contract.salary_config || contract.standard_hours_per_week) && (
             <div className="bg-white rounded-2xl p-4 shadow-sm">
               <h3 className="font-bold text-gray-900 mb-3 flex items-center">
                 <Clock className="w-5 h-5 mr-2 text-primary" />
                 급여 정보
               </h3>
               <div className="space-y-3">
-                {contract.hourly_wage && contract.hourly_wage > 0 && (
+                {contract.salary_config?.baseSalaryType === 'HOURLY' && contract.salary_config?.baseSalaryAmount > 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-500">시급</span>
-                    <span className="font-medium text-gray-900">{formatCurrency(contract.hourly_wage)}</span>
+                    <span className="font-medium text-gray-900">{formatCurrency(contract.salary_config.baseSalaryAmount)}</span>
                   </div>
                 )}
-                {contract.monthly_salary && contract.monthly_salary > 0 && (
+                {contract.salary_config?.baseSalaryType === 'MONTHLY' && contract.salary_config?.baseSalaryAmount > 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-500">월급</span>
-                    <span className="font-medium text-gray-900">{formatCurrency(contract.monthly_salary)}</span>
+                    <span className="font-medium text-gray-900">{formatCurrency(contract.salary_config.baseSalaryAmount)}</span>
                   </div>
                 )}
-                {contract.work_hours_per_week && contract.work_hours_per_week > 0 && (
+                {contract.standard_hours_per_week && contract.standard_hours_per_week > 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-500">주당 근무시간</span>
-                    <span className="font-medium text-gray-900">{contract.work_hours_per_week}시간</span>
+                    <span className="font-medium text-gray-900">{contract.standard_hours_per_week}시간</span>
                   </div>
                 )}
               </div>

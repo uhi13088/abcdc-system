@@ -107,8 +107,8 @@ function StoresPageContent() {
 
       if (!userData?.company_id) return;
 
-      // SUPER_ADMIN has access to all addons
-      if (userData.role === 'SUPER_ADMIN') {
+      // super_admin has access to all addons
+      if (userData.role === 'super_admin') {
         setHaccpAddonEnabled(true);
         setRoastingAddonEnabled(true);
         return;

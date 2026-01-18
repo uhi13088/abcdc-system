@@ -4,26 +4,85 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { PDFGenerator } from '@abc/shared/server';
 
-function getSupabaseClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-  );
+// Helper: 급여 접근 권한 체크
+async function checkSalaryAccess(
+  adminClient: ReturnType<typeof createAdminClient>,
+  requesterId: string,
+  salaryId: string
+) {
+  // 1. 요청자 정보 조회
+  const { data: requester, error: requesterError } = await adminClient
+    .from('users')
+    .select('id, role, company_id, store_id')
+    .eq('auth_id', requesterId)
+    .single();
+
+  if (requesterError || !requester) {
+    return { error: 'Requester not found', status: 404 };
+  }
+
+  // 2. 급여 정보 조회
+  const { data: salary, error: salaryError } = await adminClient
+    .from('salaries')
+    .select('id, staff_id, company_id, store_id')
+    .eq('id', salaryId)
+    .single();
+
+  if (salaryError || !salary) {
+    return { error: '급여 정보를 찾을 수 없습니다.', status: 404 };
+  }
+
+  // 3. 회사/매장 격리 체크
+  if (requester.role === 'super_admin') {
+    return { requester, salary };
+  }
+
+  // 본인 급여는 항상 조회 가능
+  if (requester.id === salary.staff_id) {
+    return { requester, salary };
+  }
+
+  if (requester.role === 'store_manager') {
+    if (salary.store_id !== requester.store_id) {
+      return { error: '자신의 매장 급여만 접근 가능합니다.', status: 403 };
+    }
+  } else if (['company_admin', 'manager'].includes(requester.role)) {
+    if (salary.company_id !== requester.company_id) {
+      return { error: '자신의 회사 급여만 접근 가능합니다.', status: 403 };
+    }
+  } else {
+    return { error: '접근 권한이 없습니다.', status: 403 };
+  }
+
+  return { requester, salary };
 }
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = getSupabaseClient();
   try {
+    const supabase = await createClient();
+    const adminClient = createAdminClient();
     const salaryId = params.id;
 
+    // 인증 체크
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // 권한 체크
+    const accessCheck = await checkSalaryAccess(adminClient, user.id, salaryId);
+    if ('error' in accessCheck && !('salary' in accessCheck)) {
+      return NextResponse.json({ error: accessCheck.error }, { status: accessCheck.status });
+    }
+
     // 급여 정보 조회
-    const { data: salary, error: salaryError } = await supabase
+    const { data: salary, error: salaryError } = await adminClient
       .from('salaries')
       .select(`
         *,

@@ -146,8 +146,8 @@ export async function checkAddonAccess(
       return { haccp: false, roasting: false };
     }
 
-    // SUPER_ADMIN has access to all addons
-    if (user.role === 'SUPER_ADMIN') {
+    // super_admin has access to all addons
+    if (user.role === 'super_admin') {
       return { haccp: true, roasting: true };
     }
 

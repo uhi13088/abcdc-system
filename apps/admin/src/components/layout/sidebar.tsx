@@ -95,8 +95,8 @@ function SidebarComponent() {
 
         if (!userData) return;
 
-        // SUPER_ADMIN has access to all addons
-        if (userData.role === 'SUPER_ADMIN') {
+        // super_admin has access to all addons
+        if (userData.role === 'super_admin') {
           setAddonAccess({ haccp: true, roasting: true });
           return;
         }

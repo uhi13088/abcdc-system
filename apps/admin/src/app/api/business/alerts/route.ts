@@ -147,7 +147,34 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const updateData: any = {};
+    // 사용자 정보 조회
+    const { data: user } = await supabase
+      .from('users')
+      .select('role, company_id')
+      .eq('auth_id', userData.user.id)
+      .single();
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // 알림 정보 조회 (company_id 확인용)
+    const { data: alert } = await supabase
+      .from('cost_alerts')
+      .select('company_id')
+      .eq('id', alertId)
+      .single();
+
+    if (!alert) {
+      return NextResponse.json({ error: '알림을 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    // 회사 격리 체크 - super_admin이 아니면 본인 회사 알림만 수정 가능
+    if (user.role !== 'super_admin' && alert.company_id !== user.company_id) {
+      return NextResponse.json({ error: '자신의 회사 알림만 수정할 수 있습니다.' }, { status: 403 });
+    }
+
+    const updateData: Record<string, boolean> = {};
     if (isRead !== undefined) updateData.is_read = isRead;
     if (isResolved !== undefined) updateData.is_resolved = isResolved;
 

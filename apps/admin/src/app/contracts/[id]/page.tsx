@@ -137,6 +137,30 @@ export default function ContractDetailPage() {
     }
   };
 
+  const handleDownloadPDF = async () => {
+    try {
+      const response = await fetch(`/api/contracts/${contractId}/pdf`);
+
+      if (!response.ok) {
+        const data = await response.json();
+        alert(data.error || 'PDF 다운로드에 실패했습니다.');
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `근로계약서_${contract?.contract_number || 'contract'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      alert('PDF 다운로드에 실패했습니다.');
+    }
+  };
+
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -248,7 +272,7 @@ export default function ContractDetailPage() {
                 사업자 서명
               </Button>
             )}
-            <Button variant="outline">
+            <Button variant="outline" onClick={handleDownloadPDF}>
               <Download className="h-4 w-4 mr-2" />
               PDF 다운로드
             </Button>
