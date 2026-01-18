@@ -49,7 +49,7 @@ export async function GET() {
         (data || []).map(async (sub) => {
           const [companyResult, planResult] = await Promise.all([
             adminClient.from('companies').select('id, name, email').eq('id', sub.company_id).maybeSingle(),
-            adminClient.from('subscription_plans').select('id, name, tier, price').eq('id', sub.plan_id).maybeSingle(),
+            adminClient.from('subscription_plans').select('id, name, display_name, price_monthly').eq('id', sub.plan_id).maybeSingle(),
           ]);
           return {
             ...sub,
@@ -72,7 +72,7 @@ export async function GET() {
 
     const totalRevenue = subscriptions
       .filter(s => s.status === 'ACTIVE')
-      .reduce((sum, s) => sum + (s.subscription_plans?.price || 0), 0);
+      .reduce((sum, s) => sum + (s.subscription_plans?.price_monthly || 0), 0);
 
     return NextResponse.json({
       plans: planStats,

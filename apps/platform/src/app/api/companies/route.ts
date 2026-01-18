@@ -60,10 +60,10 @@ export async function GET() {
           if (subscription?.plan_id) {
             const { data: plan } = await adminClient
               .from('subscription_plans')
-              .select('tier')
+              .select('name')
               .eq('id', subscription.plan_id)
               .single();
-            planTier = plan?.tier?.toLowerCase() || 'free';
+            planTier = plan?.name?.toLowerCase() || 'free';
           }
         } catch {
           // Subscription tables might not exist, use default

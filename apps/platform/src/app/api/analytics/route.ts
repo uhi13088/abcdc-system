@@ -56,10 +56,10 @@ export async function GET() {
       for (const sub of subscriptions || []) {
         const { data: plan } = await adminClient
           .from('subscription_plans')
-          .select('tier')
+          .select('name')
           .eq('id', sub.plan_id)
           .maybeSingle();
-        const tier = plan?.tier?.toLowerCase() || 'free';
+        const tier = plan?.name?.toLowerCase() || 'free';
         planCounts[tier] = (planCounts[tier] || 0) + 1;
       }
     } catch {
