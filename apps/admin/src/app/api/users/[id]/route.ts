@@ -83,7 +83,7 @@ export async function GET(
 
     // 권한 체크 (조회는 모든 역할 - 단, 자기 회사/매장/본인만)
     const accessCheck = await checkUserAccess(adminClient, user.id, userId);
-    if ('error' in accessCheck && !('targetUser' in accessCheck)) {
+    if ('error' in accessCheck) {
       return NextResponse.json({ error: accessCheck.error }, { status: accessCheck.status });
     }
 
@@ -133,7 +133,7 @@ export async function PUT(
     // 권한 체크 (수정은 super_admin, company_admin, manager, store_manager만)
     // 단, 본인은 제한된 필드만 수정 가능
     const accessCheck = await checkUserAccess(adminClient, user.id, userId);
-    if ('error' in accessCheck && !('targetUser' in accessCheck)) {
+    if ('error' in accessCheck) {
       return NextResponse.json({ error: accessCheck.error }, { status: accessCheck.status });
     }
 
@@ -228,7 +228,7 @@ export async function DELETE(
       userId,
       ['super_admin', 'company_admin']
     );
-    if ('error' in accessCheck && !('targetUser' in accessCheck)) {
+    if ('error' in accessCheck) {
       return NextResponse.json({ error: accessCheck.error }, { status: accessCheck.status });
     }
 
