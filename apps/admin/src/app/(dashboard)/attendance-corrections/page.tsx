@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Clock, Check, X, AlertCircle, ChevronRight } from 'lucide-react';
-import { useAuth } from '@/components/providers/auth-provider';
 
 interface CorrectionRequest {
   id: string;
@@ -33,7 +32,6 @@ interface CorrectionRequest {
 }
 
 export default function AttendanceCorrectionsPage() {
-  const { accessToken } = useAuth();
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<CorrectionRequest[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
@@ -46,13 +44,9 @@ export default function AttendanceCorrectionsPage() {
   });
 
   const fetchRequests = useCallback(async () => {
-    if (!accessToken) return;
-
     setLoading(true);
     try {
-      const response = await fetch(`/api/attendance-corrections?status=${statusFilter}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const response = await fetch(`/api/attendance-corrections?status=${statusFilter}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -64,7 +58,7 @@ export default function AttendanceCorrectionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [accessToken, statusFilter]);
+  }, [statusFilter]);
 
   useEffect(() => {
     fetchRequests();
@@ -87,16 +81,13 @@ export default function AttendanceCorrectionsPage() {
   };
 
   const handleApprove = async (id: string) => {
-    if (!accessToken || processing) return;
+    if (processing) return;
 
     setProcessing(id);
     try {
       const response = await fetch(`/api/attendance-corrections/${id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'approve' }),
       });
 
@@ -115,16 +106,13 @@ export default function AttendanceCorrectionsPage() {
   };
 
   const handleReject = async () => {
-    if (!accessToken || processing || !rejectModal.id) return;
+    if (processing || !rejectModal.id) return;
 
     setProcessing(rejectModal.id);
     try {
       const response = await fetch(`/api/attendance-corrections/${rejectModal.id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'reject',
           rejection_reason: rejectModal.reason,
