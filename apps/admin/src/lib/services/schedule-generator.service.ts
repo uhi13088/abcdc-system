@@ -83,8 +83,9 @@ export class ScheduleGeneratorService {
       throw new Error('Contract not found');
     }
 
-    if (contract.status !== 'ACTIVE') {
-      throw new Error('Contract is not active');
+    // ACTIVE 또는 SIGNED 상태의 계약만 스케줄 생성 가능
+    if (!['ACTIVE', 'SIGNED'].includes(contract.status)) {
+      throw new Error('Contract is not active or signed');
     }
 
     const workSchedules: WorkSchedule[] = contract.work_schedules || [];
@@ -204,12 +205,12 @@ export class ScheduleGeneratorService {
     failed: number;
     results: Array<{ staffId: string; result: GenerationResult }>;
   }> {
-    // 활성 계약 목록 조회
+    // 활성/서명 계약 목록 조회
     const { data: contracts, error } = await supabase
       .from('contracts')
       .select('id, staff_id')
       .eq('company_id', companyId)
-      .eq('status', 'ACTIVE');
+      .in('status', ['ACTIVE', 'SIGNED']);
 
     if (error || !contracts) {
       throw new Error('Failed to fetch contracts');
