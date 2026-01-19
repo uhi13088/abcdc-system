@@ -62,9 +62,8 @@ export async function GET(
 
     if (type === 'draft') {
       pdfBuffer = await contractPDFService.generateDraft(params.id);
-    } else if (contract.status === 'SIGNED') {
-      pdfBuffer = await contractPDFService.generateSigned(params.id);
     } else {
+      // 모든 상태에서 PDF 생성 가능 (서명 정보는 있는 만큼만 포함)
       pdfBuffer = await contractPDFService.generate(params.id);
     }
 
