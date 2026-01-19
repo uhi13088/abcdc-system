@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Clock, Edit2, Save, X } from 'lucide-react';
+import { ArrowLeft, Clock, Edit2, Save, X, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 
 interface AttendanceRecord {
@@ -20,6 +20,17 @@ interface AttendanceRecord {
   corrected_at: string | null;
 }
 
+interface CorrectionRequest {
+  id: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  requested_check_in: string | null;
+  requested_check_out: string | null;
+  reason: string;
+  rejection_reason: string | null;
+  created_at: string;
+  processed_at: string | null;
+}
+
 export default function AttendanceDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -28,6 +39,7 @@ export default function AttendanceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [record, setRecord] = useState<AttendanceRecord | null>(null);
+  const [correctionRequests, setCorrectionRequests] = useState<CorrectionRequest[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     checkIn: '',
@@ -35,19 +47,30 @@ export default function AttendanceDetailPage() {
     reason: '',
   });
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const fetchRecord = useCallback(async () => {
     try {
-      const response = await fetch(`/api/attendances/${attendanceId}`);
-      if (!response.ok) {
-        if (response.status === 401) {
+      const [recordRes, requestsRes] = await Promise.all([
+        fetch(`/api/attendances/${attendanceId}`),
+        fetch(`/api/attendances/${attendanceId}/correct`),
+      ]);
+
+      if (!recordRes.ok) {
+        if (recordRes.status === 401) {
           router.push('/auth/login');
           return;
         }
         throw new Error('Failed to fetch');
       }
-      const data = await response.json();
+
+      const data = await recordRes.json();
       setRecord(data);
+
+      if (requestsRes.ok) {
+        const requestsData = await requestsRes.json();
+        setCorrectionRequests(requestsData);
+      }
 
       // Set edit data from existing record
       if (data.actual_check_in) {
@@ -122,6 +145,8 @@ export default function AttendanceDetailPage() {
     return styles[status] || 'bg-gray-100 text-gray-700';
   };
 
+  const hasPendingRequest = correctionRequests.some(r => r.status === 'PENDING');
+
   const handleSave = async () => {
     if (!editData.reason.trim()) {
       setError('수정 사유를 입력해주세요.');
@@ -129,10 +154,10 @@ export default function AttendanceDetailPage() {
     }
 
     setError('');
+    setSuccessMessage('');
     setSaving(true);
 
     try {
-      // Build datetime from time input
       const workDate = record?.work_date || new Date().toISOString().split('T')[0];
       let correctedCheckIn = undefined;
       let correctedCheckOut = undefined;
@@ -164,17 +189,17 @@ export default function AttendanceDetailPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        setError(result.error || '수정에 실패했습니다.');
+        setError(result.error || '요청에 실패했습니다.');
         return;
       }
 
-      // Refresh record and exit edit mode
+      setSuccessMessage('수정 요청이 접수되었습니다. 관리자 승인 후 반영됩니다.');
       await fetchRecord();
       setIsEditing(false);
       setEditData(prev => ({ ...prev, reason: '' }));
     } catch (error) {
       console.error('Error saving correction:', error);
-      setError('수정에 실패했습니다.');
+      setError('요청에 실패했습니다.');
     } finally {
       setSaving(false);
     }
@@ -210,19 +235,40 @@ export default function AttendanceDetailPage() {
             </button>
             <h1 className="text-xl font-bold text-gray-900">출퇴근 상세</h1>
           </div>
-          {!isEditing && (
+          {!isEditing && !hasPendingRequest && (
             <button
               onClick={() => setIsEditing(true)}
               className="flex items-center text-primary font-medium"
             >
               <Edit2 className="w-4 h-4 mr-1" />
-              수정
+              수정요청
             </button>
           )}
         </div>
       </div>
 
       <div className="p-4 space-y-4">
+        {/* Success Message */}
+        {successMessage && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start">
+            <CheckCircle className="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-green-700">{successMessage}</p>
+          </div>
+        )}
+
+        {/* Pending Request Notice */}
+        {hasPendingRequest && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start">
+            <AlertCircle className="w-5 h-5 text-yellow-500 mr-2 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm text-yellow-700 font-medium">수정 요청 대기 중</p>
+              <p className="text-xs text-yellow-600 mt-1">
+                관리자 승인을 기다리고 있습니다. 승인 후 급여에 반영됩니다.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Date & Status */}
         <div className="bg-white rounded-2xl p-4 shadow-sm">
           <div className="flex items-center justify-between">
@@ -335,18 +381,51 @@ export default function AttendanceDetailPage() {
           )}
         </div>
 
-        {/* Correction History */}
-        {record.corrected_at && (
-          <div className="bg-blue-50 rounded-xl p-4">
-            <p className="text-sm text-blue-700 font-medium mb-1">수정 기록</p>
-            <p className="text-sm text-blue-600">
-              {new Date(record.corrected_at).toLocaleString('ko-KR')}에 수정됨
-            </p>
-            {record.correction_reason && (
-              <p className="text-sm text-blue-600 mt-1">
-                사유: {record.correction_reason}
-              </p>
-            )}
+        {/* Correction Request History */}
+        {correctionRequests.length > 0 && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-3">수정 요청 이력</h3>
+            <div className="space-y-3">
+              {correctionRequests.map((req) => (
+                <div
+                  key={req.id}
+                  className={`p-3 rounded-xl ${
+                    req.status === 'PENDING'
+                      ? 'bg-yellow-50 border border-yellow-200'
+                      : req.status === 'APPROVED'
+                      ? 'bg-green-50 border border-green-200'
+                      : 'bg-red-50 border border-red-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center">
+                      {req.status === 'PENDING' && <AlertCircle className="w-4 h-4 text-yellow-500 mr-1" />}
+                      {req.status === 'APPROVED' && <CheckCircle className="w-4 h-4 text-green-500 mr-1" />}
+                      {req.status === 'REJECTED' && <XCircle className="w-4 h-4 text-red-500 mr-1" />}
+                      <span className={`text-sm font-medium ${
+                        req.status === 'PENDING' ? 'text-yellow-700' :
+                        req.status === 'APPROVED' ? 'text-green-700' : 'text-red-700'
+                      }`}>
+                        {req.status === 'PENDING' ? '대기 중' :
+                         req.status === 'APPROVED' ? '승인됨' : '거절됨'}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {new Date(req.created_at).toLocaleDateString('ko-KR')}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600">사유: {req.reason}</p>
+                  {req.requested_check_out && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      요청 퇴근: {formatTime(req.requested_check_out)}
+                    </p>
+                  )}
+                  {req.status === 'REJECTED' && req.rejection_reason && (
+                    <p className="text-xs text-red-600 mt-1">거절 사유: {req.rejection_reason}</p>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -357,7 +436,7 @@ export default function AttendanceDetailPage() {
             <textarea
               value={editData.reason}
               onChange={(e) => setEditData(prev => ({ ...prev, reason: e.target.value }))}
-              placeholder="수정 사유를 입력해주세요 (예: 퇴근 기록 깜빡함)"
+              placeholder="수정 사유를 입력해주세요 (예: 퇴근 기록 깜빡함, 연장 근무 등)"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none h-24"
             />
             {error && (
@@ -386,7 +465,7 @@ export default function AttendanceDetailPage() {
                 ) : (
                   <>
                     <Save className="w-4 h-4 mr-1" />
-                    저장
+                    요청하기
                   </>
                 )}
               </button>
@@ -397,8 +476,8 @@ export default function AttendanceDetailPage() {
         {/* Notice */}
         <div className="bg-orange-50 rounded-xl p-4">
           <p className="text-xs text-orange-700 leading-relaxed">
-            <span className="font-medium">안내:</span> 출퇴근 기록 수정 후 관리자가 확인합니다.
-            관리자가 기록을 수정할 경우 알림으로 안내드립니다.
+            <span className="font-medium">안내:</span> 출퇴근 수정 요청 후 관리자 승인이 필요합니다.
+            승인되면 급여에 자동 반영됩니다.
           </p>
         </div>
       </div>
