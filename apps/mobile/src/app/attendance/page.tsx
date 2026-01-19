@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Calendar } from 'lucide-react';
+import { Calendar, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { BottomNav } from '@/components/bottom-nav';
 
 interface AttendanceRecord {
@@ -214,28 +215,33 @@ export default function AttendancePage() {
         {records.length > 0 ? (
           <div className="space-y-3">
             {records.map((record) => (
-              <div key={record.id} className="bg-white rounded-xl p-4 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-gray-900">{formatDate(record.work_date)}</span>
-                  {getStatusBadge(record.status)}
+              <Link key={record.id} href={`/attendance/${record.id}`} className="block">
+                <div className="bg-white rounded-xl p-4 shadow-sm hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-900">{formatDate(record.work_date)}</span>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(record.status)}
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 text-sm text-gray-500">
+                    <div>
+                      <p className="text-xs text-gray-400">출근</p>
+                      <p className="font-medium text-gray-900">{formatTime(record.actual_check_in)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400">퇴근</p>
+                      <p className="font-medium text-gray-900">{formatTime(record.actual_check_out)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400">근무</p>
+                      <p className="font-medium text-gray-900">
+                        {calculateHours(record.actual_check_in, record.actual_check_out, record.work_hours)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 text-sm text-gray-500">
-                  <div>
-                    <p className="text-xs text-gray-400">출근</p>
-                    <p className="font-medium text-gray-900">{formatTime(record.actual_check_in)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">퇴근</p>
-                    <p className="font-medium text-gray-900">{formatTime(record.actual_check_out)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">근무</p>
-                    <p className="font-medium text-gray-900">
-                      {calculateHours(record.actual_check_in, record.actual_check_out, record.work_hours)}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              </Link>
             ))}
           </div>
         ) : (
