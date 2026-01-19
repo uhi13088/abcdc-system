@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createClient as createAuthClient } from '@/lib/supabase/server';
 import { pushNotificationService } from '@abc/shared/server';
 import { ContractPDFService } from '@/lib/services/contract-pdf.service';
+import { addMonths, format } from 'date-fns';
 
 function getSupabaseClient() {
   return createClient(
@@ -197,6 +198,70 @@ export async function POST(
             pdf_signed_url: pdfUrl,
           })
           .eq('id', contractId);
+
+        // 자동 스케줄 생성
+        try {
+          const workSchedules = contract.work_schedules || [];
+          if (workSchedules.length > 0) {
+            const startDate = new Date(contract.start_date);
+            // 계약 종료일 또는 3개월 후까지 스케줄 생성
+            const endDate = contract.end_date
+              ? new Date(contract.end_date)
+              : addMonths(startDate, 3);
+
+            const schedulesToInsert: Array<{
+              staff_id: string;
+              company_id: string;
+              brand_id: string;
+              store_id: string;
+              work_date: string;
+              start_time: string;
+              end_time: string;
+              break_minutes: number;
+              status: string;
+              generated_by: string;
+              position?: string;
+            }> = [];
+
+            let currentDate = new Date(startDate);
+
+            while (currentDate <= endDate) {
+              const dateStr = format(currentDate, 'yyyy-MM-dd');
+              const dayOfWeek = currentDate.getDay();
+
+              for (const ws of workSchedules) {
+                if (ws.daysOfWeek && ws.daysOfWeek.includes(dayOfWeek)) {
+                  schedulesToInsert.push({
+                    staff_id: contract.staff_id,
+                    company_id: contract.company_id,
+                    brand_id: contract.brand_id,
+                    store_id: contract.store_id,
+                    work_date: dateStr,
+                    start_time: `${dateStr}T${ws.startTime}:00`,
+                    end_time: `${dateStr}T${ws.endTime}:00`,
+                    break_minutes: ws.breakMinutes || 60,
+                    status: 'SCHEDULED',
+                    generated_by: 'CONTRACT',
+                    position: contract.position,
+                  });
+                }
+              }
+
+              currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            if (schedulesToInsert.length > 0) {
+              await supabase
+                .from('schedules')
+                .insert(schedulesToInsert);
+
+              console.log(`Generated ${schedulesToInsert.length} schedules for contract ${contractId}`);
+            }
+          }
+        } catch (scheduleError) {
+          console.error('Schedule generation error:', scheduleError);
+          // 스케줄 생성 실패해도 계약 서명은 완료 처리
+        }
 
         // 버전 기록
         await supabase.from('contract_versions').insert({
