@@ -230,16 +230,73 @@ export async function POST(request: NextRequest) {
 
     const results = [];
 
+    // Get contracts for hourly rate lookup
+    const staffIds = Object.keys(staffAttendances);
+    const { data: contracts } = await supabase
+      .from('contracts')
+      .select('staff_id, salary_config, standard_hours_per_day')
+      .in('staff_id', staffIds)
+      .in('status', ['ACTIVE', 'SIGNED', 'DRAFT']);
+
+    const contractMap = (contracts || []).reduce((acc, c) => {
+      acc[c.staff_id] = c;
+      return acc;
+    }, {} as Record<string, any>);
+
     for (const [staffId, records] of Object.entries(staffAttendances) as [string, typeof attendances][]) {
-      // Calculate totals
+      // Get hourly rate from contract
+      const contract = contractMap[staffId];
+      const salaryConfig = contract?.salary_config || {};
+      let hourlyRate = 9860; // 2024 minimum wage default
+
+      if (salaryConfig.baseSalaryType === 'HOURLY') {
+        hourlyRate = salaryConfig.baseSalaryAmount || hourlyRate;
+      } else if (salaryConfig.baseSalaryType === 'MONTHLY') {
+        // Monthly salary → hourly (월급 / 209시간)
+        hourlyRate = Math.round((salaryConfig.baseSalaryAmount || 0) / 209);
+      }
+
+      const standardHoursPerDay = contract?.standard_hours_per_day || 8;
+
+      // Calculate totals (include records without checkout using scheduled time)
       const totals = records.reduce(
-        (sum, r) => ({
-          workDays: sum.workDays + 1,
-          totalHours: sum.totalHours + (r.work_hours || 0),
-          basePay: sum.basePay + (r.base_pay || 0),
-          overtimePay: sum.overtimePay + (r.overtime_pay || 0),
-          nightPay: sum.nightPay + (r.night_pay || 0),
-        }),
+        (sum, r) => {
+          let workHours = r.work_hours || 0;
+          let basePay = r.base_pay || 0;
+          let overtimePay = r.overtime_pay || 0;
+          let nightPay = r.night_pay || 0;
+
+          // 퇴근 기록이 없는 경우, 예정 시간 기준으로 계산
+          if (!r.actual_check_out && r.actual_check_in) {
+            const checkIn = new Date(r.actual_check_in);
+            let checkOut: Date;
+
+            if (r.scheduled_check_out) {
+              checkOut = new Date(r.scheduled_check_out);
+            } else {
+              // 예정 퇴근 시간도 없으면 기본 근무시간 사용
+              checkOut = new Date(checkIn.getTime() + standardHoursPerDay * 60 * 60 * 1000);
+            }
+
+            const diffMs = checkOut.getTime() - checkIn.getTime();
+            workHours = Math.max(0, diffMs / (1000 * 60 * 60));
+            const breakHours = workHours >= 8 ? 1 : workHours >= 4 ? 0.5 : 0;
+            const actualWorkHours = Math.max(0, workHours - breakHours);
+            const overtimeHours = Math.max(0, actualWorkHours - 8);
+
+            basePay = Math.min(actualWorkHours, 8) * hourlyRate;
+            overtimePay = overtimeHours * hourlyRate * 1.5;
+            workHours = actualWorkHours;
+          }
+
+          return {
+            workDays: sum.workDays + 1,
+            totalHours: sum.totalHours + workHours,
+            basePay: sum.basePay + basePay,
+            overtimePay: sum.overtimePay + overtimePay,
+            nightPay: sum.nightPay + nightPay,
+          };
+        },
         { workDays: 0, totalHours: 0, basePay: 0, overtimePay: 0, nightPay: 0 }
       );
 
