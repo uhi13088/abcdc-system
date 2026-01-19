@@ -1,6 +1,15 @@
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { CreateContractSchema } from '@abc/shared';
+import { addMonths, format } from 'date-fns';
+
+function getAdminClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  );
+}
 
 // GET /api/contracts - 계약서 목록 조회
 export async function GET(request: NextRequest) {
@@ -196,6 +205,71 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // 계약서 생성 시 바로 스케줄 생성 (서명 여부 관계없이)
+    try {
+      const adminClient = getAdminClient();
+      const workSchedules = validation.data.workSchedules || [];
+
+      if (workSchedules.length > 0) {
+        const startDate = new Date(validation.data.startDate);
+        const endDate = validation.data.endDate
+          ? new Date(validation.data.endDate)
+          : addMonths(startDate, 3);
+
+        const schedulesToInsert: Array<{
+          staff_id: string;
+          company_id: string;
+          brand_id: string;
+          store_id: string;
+          work_date: string;
+          start_time: string;
+          end_time: string;
+          break_minutes: number;
+          status: string;
+          generated_by: string;
+          position?: string;
+        }> = [];
+
+        let currentDate = new Date(startDate);
+
+        while (currentDate <= endDate) {
+          const dateStr = format(currentDate, 'yyyy-MM-dd');
+          const dayOfWeek = currentDate.getDay();
+
+          for (const ws of workSchedules) {
+            if (ws.daysOfWeek && ws.daysOfWeek.includes(dayOfWeek)) {
+              schedulesToInsert.push({
+                staff_id: validation.data.staffId,
+                company_id: validation.data.companyId,
+                brand_id: validation.data.brandId,
+                store_id: validation.data.storeId,
+                work_date: dateStr,
+                start_time: `${dateStr}T${ws.startTime}:00`,
+                end_time: `${dateStr}T${ws.endTime}:00`,
+                break_minutes: ws.breakMinutes || 60,
+                status: 'SCHEDULED',
+                generated_by: 'CONTRACT',
+                position: validation.data.position,
+              });
+            }
+          }
+
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        if (schedulesToInsert.length > 0) {
+          await adminClient
+            .from('schedules')
+            .insert(schedulesToInsert);
+
+          console.log(`Generated ${schedulesToInsert.length} schedules for contract ${data.id}`);
+        }
+      }
+    } catch (scheduleError) {
+      console.error('Schedule generation error:', scheduleError);
+      // 스케줄 생성 실패해도 계약서 생성은 완료 처리
     }
 
     return NextResponse.json(data, { status: 201 });

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Calendar } from 'lucide-react';
+import { Calendar, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { BottomNav } from '@/components/bottom-nav';
 
 interface AttendanceRecord {
@@ -68,7 +69,8 @@ export default function AttendancePage() {
             const checkOut = new Date(record.actual_check_out);
             totalHours += (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
           }
-          if (record.status === 'LATE' || record.status === 'EARLY_LEAVE') {
+          const abnormalStatuses = ['LATE', 'EARLY_LEAVE', 'LATE_AND_EARLY_LEAVE', 'NO_SHOW', 'ABSENT'];
+          if (abnormalStatuses.includes(record.status)) {
             lateCount++;
           }
         });
@@ -133,15 +135,23 @@ export default function AttendancePage() {
     const styles: Record<string, string> = {
       NORMAL: 'bg-green-100 text-green-700',
       LATE: 'bg-yellow-100 text-yellow-700',
+      EARLY_CHECK_IN: 'bg-blue-100 text-blue-700',
       EARLY_LEAVE: 'bg-orange-100 text-orange-700',
+      LATE_AND_EARLY_LEAVE: 'bg-red-100 text-red-700',
+      OVERTIME: 'bg-purple-100 text-purple-700',
       ABSENT: 'bg-red-100 text-red-700',
+      NO_SHOW: 'bg-red-100 text-red-700',
       VACATION: 'bg-blue-100 text-blue-700',
     };
     const labels: Record<string, string> = {
       NORMAL: '정상',
       LATE: '지각',
+      EARLY_CHECK_IN: '조기출근',
       EARLY_LEAVE: '조퇴',
+      LATE_AND_EARLY_LEAVE: '지각+조퇴',
+      OVERTIME: '연장근무',
       ABSENT: '결근',
+      NO_SHOW: '미출근',
       VACATION: '휴가',
     };
     return (
@@ -214,28 +224,33 @@ export default function AttendancePage() {
         {records.length > 0 ? (
           <div className="space-y-3">
             {records.map((record) => (
-              <div key={record.id} className="bg-white rounded-xl p-4 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-gray-900">{formatDate(record.work_date)}</span>
-                  {getStatusBadge(record.status)}
+              <Link key={record.id} href={`/attendance/${record.id}`} className="block">
+                <div className="bg-white rounded-xl p-4 shadow-sm hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-900">{formatDate(record.work_date)}</span>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(record.status)}
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 text-sm text-gray-500">
+                    <div>
+                      <p className="text-xs text-gray-400">출근</p>
+                      <p className="font-medium text-gray-900">{formatTime(record.actual_check_in)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400">퇴근</p>
+                      <p className="font-medium text-gray-900">{formatTime(record.actual_check_out)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400">근무</p>
+                      <p className="font-medium text-gray-900">
+                        {calculateHours(record.actual_check_in, record.actual_check_out, record.work_hours)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-3 text-sm text-gray-500">
-                  <div>
-                    <p className="text-xs text-gray-400">출근</p>
-                    <p className="font-medium text-gray-900">{formatTime(record.actual_check_in)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">퇴근</p>
-                    <p className="font-medium text-gray-900">{formatTime(record.actual_check_out)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">근무</p>
-                    <p className="font-medium text-gray-900">
-                      {calculateHours(record.actual_check_in, record.actual_check_out, record.work_hours)}
-                    </p>
-                  </div>
-                </div>
-              </div>
+              </Link>
             ))}
           </div>
         ) : (

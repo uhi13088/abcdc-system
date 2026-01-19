@@ -259,6 +259,14 @@ export default function SalaryPage() {
                 <Download className="w-5 h-5 mr-2" />
                 급여명세서 다운로드
               </button>
+
+              {/* Notice */}
+              <div className="bg-blue-50 rounded-xl p-4">
+                <p className="text-xs text-blue-700 leading-relaxed">
+                  <span className="font-medium">안내:</span> 퇴근 기록이 없는 경우, 예정된 퇴근 시간을 기준으로 급여가 계산됩니다.
+                  정확한 급여 계산을 위해 퇴근 시 반드시 퇴근 처리를 해주세요.
+                </p>
+              </div>
             </>
           )}
         </div>

@@ -127,7 +127,7 @@ export class ContractPDFService {
   }
 
   /**
-   * 서명된 PDF 생성
+   * 서명된 PDF 생성 (서명이 없어도 생성 가능)
    */
   async generateSigned(contractId: string): Promise<Buffer> {
     const { data: contract, error } = await supabase
@@ -157,10 +157,7 @@ export class ContractPDFService {
       throw new Error('Contract not found');
     }
 
-    if (!contract.employee_signature || !contract.employer_signature) {
-      throw new Error('Contract is not fully signed');
-    }
-
+    // 서명이 없어도 PDF 생성 허용 (서명 정보는 있는 만큼만 포함)
     const pdfData: ContractPDFData = this.transformContractData(contract);
 
     return PDFGenerator.generateContract(pdfData);
