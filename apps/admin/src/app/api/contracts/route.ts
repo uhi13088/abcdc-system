@@ -260,15 +260,45 @@ export async function POST(request: NextRequest) {
         }
 
         if (schedulesToInsert.length > 0) {
-          await adminClient
-            .from('schedules')
-            .insert(schedulesToInsert);
+          console.log(`Attempting to insert ${schedulesToInsert.length} schedules for contract ${data.id}`);
+          console.log('Sample schedule:', JSON.stringify(schedulesToInsert[0], null, 2));
 
-          console.log(`Generated ${schedulesToInsert.length} schedules for contract ${data.id}`);
+          // 기존 스케줄 중복 확인 및 upsert
+          const { data: insertedSchedules, error: scheduleInsertError } = await adminClient
+            .from('schedules')
+            .upsert(schedulesToInsert, {
+              onConflict: 'staff_id,work_date',
+              ignoreDuplicates: false, // 기존 스케줄 업데이트
+            })
+            .select('id');
+
+          if (scheduleInsertError) {
+            console.error('Schedule insert/upsert error:', scheduleInsertError);
+            console.error('Failed insert data:', JSON.stringify(schedulesToInsert.slice(0, 3), null, 2));
+
+            // upsert 실패 시 개별 삽입 시도 (기존 스케줄 건너뛰기)
+            let successCount = 0;
+            for (const schedule of schedulesToInsert) {
+              const { error: singleError } = await adminClient
+                .from('schedules')
+                .insert(schedule);
+              if (!singleError) {
+                successCount++;
+              }
+            }
+            console.log(`Fallback: inserted ${successCount}/${schedulesToInsert.length} schedules`);
+          } else {
+            console.log(`Successfully generated ${insertedSchedules?.length || 0} schedules for contract ${data.id}`);
+          }
+        } else {
+          console.log('No schedules to insert - workSchedules:', JSON.stringify(workSchedules, null, 2));
         }
+      } else {
+        console.log('No workSchedules provided in contract data');
       }
     } catch (scheduleError) {
       console.error('Schedule generation error:', scheduleError);
+      console.error('Error details:', JSON.stringify(scheduleError, Object.getOwnPropertyNames(scheduleError), 2));
       // 스케줄 생성 실패해도 계약서 생성은 완료 처리
     }
 

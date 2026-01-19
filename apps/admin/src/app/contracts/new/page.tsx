@@ -263,10 +263,31 @@ export default function NewContractPage() {
     setError('');
 
     try {
+      // perDayMode가 활성화된 경우 workSchedulePerDay를 workSchedules로 변환
+      let submitData = { ...formData };
+
+      if (formData.perDayMode && Object.keys(formData.workSchedulePerDay).length > 0) {
+        // 각 요일별로 개별 스케줄 생성
+        const convertedSchedules = Object.entries(formData.workSchedulePerDay).map(([dayStr, schedule]) => ({
+          daysOfWeek: [parseInt(dayStr)],
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          breakMinutes: schedule.breakMinutes,
+        }));
+
+        submitData = {
+          ...formData,
+          workSchedules: convertedSchedules,
+        };
+      }
+
+      // perDayMode와 workSchedulePerDay는 API에서 사용하지 않으므로 제거
+      const { perDayMode, workSchedulePerDay, ...dataToSend } = submitData;
+
       const response = await fetch('/api/contracts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(dataToSend),
       });
 
       if (response.ok) {

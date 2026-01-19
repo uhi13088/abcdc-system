@@ -108,6 +108,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '직원을 찾을 수 없습니다.' }, { status: 404 });
     }
 
+    // start_time과 end_time을 풀 타임스탬프로 변환
+    const fullStartTime = `${workDate}T${startTime}:00`;
+    const fullEndTime = `${workDate}T${endTime}:00`;
+
     const { data, error } = await supabase
       .from('schedules')
       .insert({
@@ -116,8 +120,8 @@ export async function POST(request: NextRequest) {
         brand_id: brandId,
         store_id: storeId,
         work_date: workDate,
-        start_time: startTime,
-        end_time: endTime,
+        start_time: fullStartTime,
+        end_time: fullEndTime,
         break_minutes: breakMinutes || 60,
         status: 'SCHEDULED',
         generated_by: 'MANUAL',
