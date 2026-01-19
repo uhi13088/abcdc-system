@@ -13,7 +13,7 @@ import {
   PageLoading,
   Alert,
 } from '@/components/ui';
-import { ArrowLeft, Send, FileText, Download, Pen, CalendarPlus } from 'lucide-react';
+import { ArrowLeft, Send, FileText, Download, Pen } from 'lucide-react';
 
 interface ContractDetail {
   id: string;
@@ -96,34 +96,10 @@ export default function ContractDetailPage() {
   const [signatureType, setSignatureType] = useState<'employee' | 'employer'>('employer');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [generatingSchedules, setGeneratingSchedules] = useState(false);
 
   useEffect(() => {
     fetchContract();
   }, [contractId]);
-
-  const handleGenerateSchedules = async () => {
-    if (!confirm('계약서 내용을 기반으로 스케줄을 생성하시겠습니까?\n기존 스케줄이 있으면 덮어씌워집니다.')) return;
-
-    setGeneratingSchedules(true);
-    try {
-      const response = await fetch(`/api/contracts/${contractId}/generate-schedules`, {
-        method: 'POST',
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        alert(`스케줄이 생성되었습니다.\n생성된 스케줄: ${data.generated}개`);
-      } else {
-        alert(data.error || '스케줄 생성에 실패했습니다.');
-      }
-    } catch (err) {
-      alert('스케줄 생성에 실패했습니다.');
-    } finally {
-      setGeneratingSchedules(false);
-    }
-  };
 
   const fetchContract = async () => {
     try {
@@ -299,14 +275,6 @@ export default function ContractDetailPage() {
             <Button variant="outline" onClick={handleDownloadPDF}>
               <Download className="h-4 w-4 mr-2" />
               PDF 다운로드
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleGenerateSchedules}
-              disabled={generatingSchedules}
-            >
-              <CalendarPlus className="h-4 w-4 mr-2" />
-              {generatingSchedules ? '생성 중...' : '스케줄 생성'}
             </Button>
           </div>
         </div>
