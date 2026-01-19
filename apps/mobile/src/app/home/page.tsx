@@ -190,6 +190,13 @@ export default function HomePage() {
             </p>
           )}
 
+          {/* Checkout Notice */}
+          {isCheckedIn && (
+            <p className="text-center text-xs text-orange-600 mt-2 bg-orange-50 rounded-lg py-2 px-3">
+              퇴근 기록이 없으면 예정 시간 기준으로 급여가 계산됩니다.
+            </p>
+          )}
+
           {/* Quick Request Buttons */}
           <div className="flex gap-2 mt-3">
             <Link
