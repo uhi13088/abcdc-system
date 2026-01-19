@@ -69,7 +69,8 @@ export default function AttendancePage() {
             const checkOut = new Date(record.actual_check_out);
             totalHours += (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
           }
-          if (record.status === 'LATE' || record.status === 'EARLY_LEAVE') {
+          const abnormalStatuses = ['LATE', 'EARLY_LEAVE', 'LATE_AND_EARLY_LEAVE', 'NO_SHOW', 'ABSENT'];
+          if (abnormalStatuses.includes(record.status)) {
             lateCount++;
           }
         });
@@ -134,15 +135,23 @@ export default function AttendancePage() {
     const styles: Record<string, string> = {
       NORMAL: 'bg-green-100 text-green-700',
       LATE: 'bg-yellow-100 text-yellow-700',
+      EARLY_CHECK_IN: 'bg-blue-100 text-blue-700',
       EARLY_LEAVE: 'bg-orange-100 text-orange-700',
+      LATE_AND_EARLY_LEAVE: 'bg-red-100 text-red-700',
+      OVERTIME: 'bg-purple-100 text-purple-700',
       ABSENT: 'bg-red-100 text-red-700',
+      NO_SHOW: 'bg-red-100 text-red-700',
       VACATION: 'bg-blue-100 text-blue-700',
     };
     const labels: Record<string, string> = {
       NORMAL: '정상',
       LATE: '지각',
+      EARLY_CHECK_IN: '조기출근',
       EARLY_LEAVE: '조퇴',
+      LATE_AND_EARLY_LEAVE: '지각+조퇴',
+      OVERTIME: '연장근무',
       ABSENT: '결근',
+      NO_SHOW: '미출근',
       VACATION: '휴가',
     };
     return (

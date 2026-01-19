@@ -96,11 +96,30 @@ export default function AttendanceDetailPage() {
     const labels: Record<string, string> = {
       NORMAL: '정상',
       LATE: '지각',
+      EARLY_CHECK_IN: '조기출근',
       EARLY_LEAVE: '조퇴',
+      LATE_AND_EARLY_LEAVE: '지각+조퇴',
+      OVERTIME: '연장근무',
       ABSENT: '결근',
+      NO_SHOW: '미출근',
       VACATION: '휴가',
     };
     return labels[status] || status;
+  };
+
+  const getStatusStyle = (status: string) => {
+    const styles: Record<string, string> = {
+      NORMAL: 'bg-green-100 text-green-700',
+      LATE: 'bg-yellow-100 text-yellow-700',
+      EARLY_CHECK_IN: 'bg-blue-100 text-blue-700',
+      EARLY_LEAVE: 'bg-orange-100 text-orange-700',
+      LATE_AND_EARLY_LEAVE: 'bg-red-100 text-red-700',
+      OVERTIME: 'bg-purple-100 text-purple-700',
+      ABSENT: 'bg-red-100 text-red-700',
+      NO_SHOW: 'bg-red-100 text-red-700',
+      VACATION: 'bg-blue-100 text-blue-700',
+    };
+    return styles[status] || 'bg-gray-100 text-gray-700';
   };
 
   const handleSave = async () => {
@@ -208,12 +227,7 @@ export default function AttendanceDetailPage() {
         <div className="bg-white rounded-2xl p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-gray-900">{formatDate(record.work_date)}</h2>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              record.status === 'NORMAL' ? 'bg-green-100 text-green-700' :
-              record.status === 'LATE' ? 'bg-yellow-100 text-yellow-700' :
-              record.status === 'EARLY_LEAVE' ? 'bg-orange-100 text-orange-700' :
-              'bg-gray-100 text-gray-700'
-            }`}>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusStyle(record.status)}`}>
               {getStatusLabel(record.status)}
             </span>
           </div>
