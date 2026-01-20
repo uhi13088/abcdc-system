@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Star, User, Calendar, TrendingUp, Filter, X } from 'lucide-react';
+import { Plus, Search, Star, User, Calendar, TrendingUp, X } from 'lucide-react';
 
 interface Evaluation {
   id: string;

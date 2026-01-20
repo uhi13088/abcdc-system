@@ -26,7 +26,6 @@ import {
   Alert,
 } from '@/components/ui';
 import { Plus, Users, Search, Eye, Edit, Trash2, Phone, Mail } from 'lucide-react';
-import { UserRole, UserStatus } from '@abc/shared';
 
 interface Employee {
   id: string;

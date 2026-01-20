@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
 
     if (!validation.success) {
       return NextResponse.json(
-        { error: validation.error.errors[0].message },
+        { error: validation.error.errors[0]?.message || '입력값이 올바르지 않습니다.' },
         { status: 400 }
       );
     }
