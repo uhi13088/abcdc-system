@@ -79,7 +79,7 @@ export async function POST(
         .from('users')
         .select('id, name, position')
         .in('id', staffIds)
-        .eq('is_active', true);
+        .eq('status', 'ACTIVE');
 
       candidates = (staffList || []).map((s: any) => ({
         id: s.id,
@@ -219,7 +219,7 @@ async function getStaffCandidates(
     .from('users')
     .select('id, name, position')
     .eq('company_id', companyId)
-    .eq('is_active', true)
+    .eq('status', 'ACTIVE')
     .in('role', ['staff', 'part_time']);
 
   if (error || !staffList) {

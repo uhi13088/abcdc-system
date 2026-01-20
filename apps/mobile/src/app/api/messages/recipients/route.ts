@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       .from('users')
       .select('id, name, role, position')
       .eq('company_id', userProfile.company_id)
-      .eq('is_active', true)
+      .eq('status', 'ACTIVE')
       .in('role', ['company_admin', 'manager', 'store_manager'])
       .neq('id', userProfile.id)
       .order('name');
