@@ -19,6 +19,7 @@ export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     code: '',
@@ -52,20 +53,38 @@ export default function SuppliersPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('/api/haccp/suppliers', {
-        method: 'POST',
+      const url = editingId ? `/api/haccp/suppliers/${editingId}` : '/api/haccp/suppliers';
+      const method = editingId ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
 
       if (response.ok) {
         setShowModal(false);
+        setEditingId(null);
         fetchSuppliers();
         setFormData({ code: '', name: '', contact: '', phone: '', email: '', address: '', certifications: [] });
       }
     } catch (error) {
-      console.error('Failed to create supplier:', error);
+      console.error('Failed to save supplier:', error);
     }
+  };
+
+  const handleEdit = (supplier: Supplier) => {
+    setEditingId(supplier.id);
+    setFormData({
+      code: supplier.code,
+      name: supplier.name,
+      contact: supplier.contact || '',
+      phone: supplier.phone || '',
+      email: supplier.email || '',
+      address: supplier.address || '',
+      certifications: supplier.certifications || [],
+    });
+    setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -179,7 +198,7 @@ export default function SuppliersPage() {
               )}
 
               <div className="flex justify-end gap-1 pt-3 border-t">
-                <button className="p-2 hover:bg-gray-100 rounded">
+                <button onClick={() => handleEdit(supplier)} className="p-2 hover:bg-gray-100 rounded">
                   <Edit className="w-4 h-4 text-gray-500" />
                 </button>
                 <button onClick={() => handleDelete(supplier.id)} className="p-2 hover:bg-red-100 rounded">
@@ -196,8 +215,8 @@ export default function SuppliersPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">공급업체 등록</h2>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <h2 className="text-xl font-bold">{editingId ? '공급업체 수정' : '공급업체 등록'}</h2>
+              <button onClick={() => { setShowModal(false); setEditingId(null); }} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -285,11 +304,11 @@ export default function SuppliersPage() {
                 </div>
               </div>
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
+                <button type="button" onClick={() => { setShowModal(false); setEditingId(null); }} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
                   취소
                 </button>
                 <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  등록
+                  {editingId ? '수정' : '등록'}
                 </button>
               </div>
             </form>

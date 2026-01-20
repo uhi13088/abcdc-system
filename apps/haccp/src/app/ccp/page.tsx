@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, AlertTriangle, Edit, Trash2, X, ClipboardCheck, TrendingUp } from 'lucide-react';
+import { Plus, AlertTriangle, Edit, Trash2, X, ClipboardCheck, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 
 interface CCPDefinition {
@@ -26,6 +26,7 @@ export default function CCPPage() {
   const [ccps, setCcps] = useState<CCPDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     ccp_number: '',
     process: '',
@@ -59,14 +60,18 @@ export default function CCPPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('/api/haccp/ccp', {
-        method: 'POST',
+      const url = editingId ? `/api/haccp/ccp/${editingId}` : '/api/haccp/ccp';
+      const method = editingId ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
 
       if (response.ok) {
         setShowModal(false);
+        setEditingId(null);
         fetchCCPs();
         setFormData({
           ccp_number: '',
@@ -80,8 +85,28 @@ export default function CCPPage() {
         });
       }
     } catch (error) {
-      console.error('Failed to create CCP:', error);
+      console.error('Failed to save CCP:', error);
     }
+  };
+
+  const handleEdit = (ccp: CCPDefinition) => {
+    setEditingId(ccp.id);
+    setFormData({
+      ccp_number: ccp.ccp_number,
+      process: ccp.process,
+      hazard: ccp.hazard,
+      control_measure: ccp.control_measure,
+      critical_limit: {
+        parameter: ccp.critical_limit.parameter,
+        min: ccp.critical_limit.min ?? 0,
+        max: ccp.critical_limit.max ?? 0,
+        unit: ccp.critical_limit.unit,
+      },
+      monitoring_method: ccp.monitoring_method,
+      monitoring_frequency: ccp.monitoring_frequency,
+      corrective_action: ccp.corrective_action,
+    });
+    setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -196,7 +221,7 @@ export default function CCPPage() {
                 >
                   기록하기
                 </Link>
-                <button className="p-2 hover:bg-gray-200 rounded">
+                <button onClick={() => handleEdit(ccp)} className="p-2 hover:bg-gray-200 rounded">
                   <Edit className="w-4 h-4 text-gray-500" />
                 </button>
                 <button onClick={() => handleDelete(ccp.id)} className="p-2 hover:bg-red-100 rounded">
@@ -213,8 +238,8 @@ export default function CCPPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">CCP 등록</h2>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <h2 className="text-xl font-bold">{editingId ? 'CCP 수정' : 'CCP 등록'}</h2>
+              <button onClick={() => { setShowModal(false); setEditingId(null); }} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -347,11 +372,11 @@ export default function CCPPage() {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
+                <button type="button" onClick={() => { setShowModal(false); setEditingId(null); }} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
                   취소
                 </button>
                 <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  등록
+                  {editingId ? '수정' : '등록'}
                 </button>
               </div>
             </form>
