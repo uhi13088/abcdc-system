@@ -208,9 +208,26 @@ export async function POST(request: NextRequest) {
     }
 
     // 계약서 생성 시 바로 스케줄 생성 (서명 여부 관계없이)
+    let scheduleResult: {
+      success: boolean;
+      attempted: number;
+      created: number;
+      error?: string;
+      debug?: Record<string, unknown>;
+    } = { success: false, attempted: 0, created: 0 };
+
     try {
       const adminClient = getAdminClient();
       const workSchedules = validation.data.workSchedules || [];
+
+      // 디버그 정보 수집
+      scheduleResult.debug = {
+        workSchedulesCount: workSchedules.length,
+        workSchedules: workSchedules,
+        startDate: validation.data.startDate,
+        endDate: validation.data.endDate,
+        hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      };
 
       logger.log(`Contract ${data.id} created. workSchedules count: ${workSchedules.length}`);
       logger.log('workSchedules data:', JSON.stringify(workSchedules, null, 2));
@@ -249,8 +266,8 @@ export async function POST(request: NextRequest) {
                 brand_id: validation.data.brandId,
                 store_id: validation.data.storeId,
                 work_date: dateStr,
-                start_time: `${dateStr}T${ws.startTime}:00`,
-                end_time: `${dateStr}T${ws.endTime}:00`,
+                start_time: `${dateStr}T${ws.startTime}:00+09:00`,  // KST timezone 추가
+                end_time: `${dateStr}T${ws.endTime}:00+09:00`,      // KST timezone 추가
                 break_minutes: ws.breakMinutes || 60,
                 status: 'SCHEDULED',
                 generated_by: 'CONTRACT',
@@ -261,6 +278,14 @@ export async function POST(request: NextRequest) {
 
           currentDate.setDate(currentDate.getDate() + 1);
         }
+
+        scheduleResult.attempted = schedulesToInsert.length;
+        scheduleResult.debug = {
+          ...scheduleResult.debug,
+          schedulesToInsertCount: schedulesToInsert.length,
+          sampleSchedule: schedulesToInsert[0],
+          dateRange: { start: startDate.toISOString(), end: endDate.toISOString() },
+        };
 
         if (schedulesToInsert.length > 0) {
           logger.log(`Attempting to insert ${schedulesToInsert.length} schedules for contract ${data.id}`);
@@ -278,6 +303,7 @@ export async function POST(request: NextRequest) {
           if (scheduleInsertError) {
             console.error('Schedule insert/upsert error:', scheduleInsertError);
             console.error('Failed insert data:', JSON.stringify(schedulesToInsert.slice(0, 3), null, 2));
+            scheduleResult.error = `Upsert failed: ${scheduleInsertError.message}`;
 
             // upsert 실패 시 개별 삽입 시도 (기존 스케줄 건너뛰기)
             let successCount = 0;
@@ -294,27 +320,41 @@ export async function POST(request: NextRequest) {
               }
             }
 
+            scheduleResult.created = successCount;
+            scheduleResult.success = successCount > 0;
             logger.log(`Fallback: inserted ${successCount}/${schedulesToInsert.length} schedules`);
+
             if (failedSchedules.length > 0) {
               console.error(`Failed to insert ${failedSchedules.length} schedules:`,
                 JSON.stringify(failedSchedules.slice(0, 5), null, 2));
+              scheduleResult.debug = {
+                ...scheduleResult.debug,
+                failedSamples: failedSchedules.slice(0, 3),
+              };
             }
           } else {
+            scheduleResult.created = insertedSchedules?.length || schedulesToInsert.length;
+            scheduleResult.success = true;
             logger.log(`Successfully generated ${insertedSchedules?.length || 0} schedules for contract ${data.id}`);
           }
         } else {
+          scheduleResult.error = 'No matching schedules for date range and daysOfWeek';
           logger.log('No schedules to insert - workSchedules:', JSON.stringify(workSchedules, null, 2));
         }
       } else {
+        scheduleResult.error = 'No workSchedules provided';
         logger.log('No workSchedules provided in contract data');
       }
     } catch (scheduleError) {
+      const err = scheduleError as Error;
+      scheduleResult.error = `Exception: ${err.message}`;
       console.error('Schedule generation error:', scheduleError);
       console.error('Error details:', JSON.stringify(scheduleError, Object.getOwnPropertyNames(scheduleError), 2));
       // 스케줄 생성 실패해도 계약서 생성은 완료 처리
     }
 
-    return NextResponse.json(data, { status: 201 });
+    // 응답에 스케줄 생성 결과 포함
+    return NextResponse.json({ ...data, _scheduleResult: scheduleResult }, { status: 201 });
   } catch (error) {
     return NextResponse.json(
       { error: 'Internal Server Error' },

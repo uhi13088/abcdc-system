@@ -322,6 +322,22 @@ export default function NewContractPage() {
 
       if (response.ok) {
         const contract = await response.json();
+
+        // 스케줄 생성 결과 확인
+        if (contract._scheduleResult) {
+          const sr = contract._scheduleResult;
+          if (!sr.success) {
+            console.warn('Schedule generation issue:', sr);
+            // 스케줄 생성 실패해도 계약서는 생성됨 - 경고만 표시
+            if (sr.error) {
+              alert(`계약서는 생성되었지만 스케줄 생성에 문제가 있습니다:\n${sr.error}\n\n시도: ${sr.attempted}개, 생성: ${sr.created}개\n\n디버그 정보는 콘솔을 확인하세요.`);
+              console.log('Schedule debug info:', sr.debug);
+            }
+          } else {
+            console.log(`Successfully created ${sr.created} schedules`);
+          }
+        }
+
         router.push(`/contracts/${contract.id}`);
       } else {
         const data = await response.json();
