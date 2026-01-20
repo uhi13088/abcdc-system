@@ -1,6 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { CreateBrandSchema } from '@abc/shared';
+import { CreateBrandSchema, logger } from '@abc/shared';
 
 // GET /api/brands - 브랜드 목록 조회
 export async function GET(request: NextRequest) {
@@ -27,13 +27,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (!userData) {
-      console.log('[GET /api/brands] No user data found for auth_id:', user.id);
+      logger.log('[GET /api/brands] No user data found for auth_id:', user.id);
       return NextResponse.json([]);
     }
 
     // If user has no company_id and is not super_admin, return empty array
     if (!userData.company_id && userData.role !== 'super_admin') {
-      console.log('[GET /api/brands] User has no company_id:', user.id);
+      logger.log('[GET /api/brands] User has no company_id:', user.id);
       return NextResponse.json([]);
     }
 
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      console.log('[POST /api/brands] Unauthorized - no user');
+      logger.log('[POST /api/brands] Unauthorized - no user');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '사용자 정보를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    console.log('[POST /api/brands] User data:', {
+    logger.log('[POST /api/brands] User data:', {
       id: userData.id,
       role: userData.role,
       company_id: userData.company_id,
@@ -104,18 +104,18 @@ export async function POST(request: NextRequest) {
 
     // Check user permissions
     if (!['super_admin', 'company_admin'].includes(userData.role || '')) {
-      console.log('[POST /api/brands] Forbidden - role:', userData.role);
+      logger.log('[POST /api/brands] Forbidden - role:', userData.role);
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
-    console.log('[POST /api/brands] Request body:', body);
+    logger.log('[POST /api/brands] Request body:', body);
 
     let companyId = userData.company_id;
 
     // Auto-create company if user doesn't have one (for non-super_admin)
     if (!companyId && userData.role !== 'super_admin') {
-      console.log('[POST /api/brands] Auto-creating company for user:', userData.id);
+      logger.log('[POST /api/brands] Auto-creating company for user:', userData.id);
 
       // Create a new company
       const { data: newCompany, error: companyError } = await adminClient
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
 
-      console.log('[POST /api/brands] Company created:', newCompany.id);
+      logger.log('[POST /api/brands] Company created:', newCompany.id);
 
       // Link company to user
       const { error: updateError } = await adminClient
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
 
-      console.log('[POST /api/brands] Company linked to user successfully');
+      logger.log('[POST /api/brands] Company linked to user successfully');
       companyId = newCompany.id;
     }
 
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
       companyId: companyId,
     };
 
-    console.log('[POST /api/brands] Brand data for validation:', brandData);
+    logger.log('[POST /api/brands] Brand data for validation:', brandData);
 
     // Validate input
     const validation = CreateBrandSchema.safeParse(brandData);
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
     // Non-platform admins can only create brands in their company
     if (userData.role !== 'super_admin') {
       if (validation.data.companyId !== companyId) {
-        console.log('[POST /api/brands] Company ID mismatch:', {
+        logger.log('[POST /api/brands] Company ID mismatch:', {
           validation: validation.data.companyId,
           user: companyId
         });
@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create brand using adminClient to bypass RLS
-    console.log('[POST /api/brands] Creating brand with company_id:', validation.data.companyId);
+    logger.log('[POST /api/brands] Creating brand with company_id:', validation.data.companyId);
 
     const { data, error } = await adminClient
       .from('brands')
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log('[POST /api/brands] Brand created successfully:', data.id);
+    logger.log('[POST /api/brands] Brand created successfully:', data.id);
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
     console.error('[POST /api/brands] Catch error:', error);

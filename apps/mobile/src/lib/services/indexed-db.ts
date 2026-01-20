@@ -5,6 +5,8 @@
  * - 오프라인 시 캐시된 데이터 제공
  */
 
+import { logger } from '@abc/shared';
+
 const DB_NAME = 'abc_staff_offline_db';
 const DB_VERSION = 1;
 
@@ -89,7 +91,7 @@ class IndexedDBService {
       request.onsuccess = () => {
         this.db = request.result;
         this.isInitialized = true;
-        console.log('IndexedDB initialized');
+        logger.log('IndexedDB initialized');
         resolve();
       };
 

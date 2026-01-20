@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Camera, Check, Upload, FileText, CreditCard, Shield, GraduationCap, Contact2, AlertCircle } from 'lucide-react';
+import { logger } from '@abc/shared';
 
 interface DocumentType {
   id: string;
@@ -116,14 +117,14 @@ export default function DocumentsPage() {
             for (const { maxWidth, quality } of settings) {
               const result = await compress(maxWidth, quality);
               if (result.size <= maxSizeKB * 1024) {
-                console.log(`Image compressed: ${(file.size / 1024).toFixed(0)}KB → ${(result.size / 1024).toFixed(0)}KB (${maxWidth}px, ${quality * 100}%)`);
+                logger.log(`Image compressed: ${(file.size / 1024).toFixed(0)}KB → ${(result.size / 1024).toFixed(0)}KB (${maxWidth}px, ${quality * 100}%)`);
                 return result;
               }
             }
 
             // 마지막 설정으로 반환
             const finalResult = await compress(400, 0.3);
-            console.log(`Image compressed: ${(file.size / 1024).toFixed(0)}KB → ${(finalResult.size / 1024).toFixed(0)}KB (final)`);
+            logger.log(`Image compressed: ${(file.size / 1024).toFixed(0)}KB → ${(finalResult.size / 1024).toFixed(0)}KB (final)`);
             return finalResult;
           };
 

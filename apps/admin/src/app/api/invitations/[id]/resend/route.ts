@@ -1,6 +1,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { logger } from '@abc/shared';
 
 const ResendSchema = z.object({
   sendMethods: z.array(z.enum(['kakao', 'sms', 'link'])).min(1),
@@ -88,7 +89,7 @@ export async function POST(
       try {
         // TODO: 카카오 알림톡 API 호출
         sendResults.kakao = { success: true, sentAt: new Date().toISOString() };
-        console.log(`[Kakao Resend] Would send to ${invitation.phone}: ${inviteUrl}`);
+        logger.log(`[Kakao Resend] Would send to ${invitation.phone}: ${inviteUrl}`);
       } catch (err) {
         sendResults.kakao = { success: false, error: 'Failed to send' };
       }
@@ -99,7 +100,7 @@ export async function POST(
       try {
         // TODO: SMS API 호출
         sendResults.sms = { success: true, sentAt: new Date().toISOString() };
-        console.log(`[SMS Resend] Would send to ${invitation.phone}: ${inviteUrl}`);
+        logger.log(`[SMS Resend] Would send to ${invitation.phone}: ${inviteUrl}`);
       } catch (err) {
         sendResults.sms = { success: false, error: 'Failed to send' };
       }

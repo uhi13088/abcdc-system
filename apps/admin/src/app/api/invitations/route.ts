@@ -2,6 +2,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { randomBytes } from 'crypto';
+import { logger } from '@abc/shared';
 
 // 초대 생성 스키마
 const CreateInvitationSchema = z.object({
@@ -221,7 +222,7 @@ export async function POST(request: NextRequest) {
         // TODO: 카카오 알림톡 API 호출
         // await sendKakaoAlimtalk(validation.data.phone, inviteUrl, store.name, validation.data.name);
         sendResults.kakao = { success: true, sentAt: new Date().toISOString() };
-        console.log(`[Kakao] Would send to ${validation.data.phone}: ${inviteUrl}`);
+        logger.log(`[Kakao] Would send to ${validation.data.phone}: ${inviteUrl}`);
       } catch (err) {
         sendResults.kakao = { success: false, error: 'Failed to send' };
       }
@@ -233,7 +234,7 @@ export async function POST(request: NextRequest) {
         // TODO: SMS API 호출
         // await sendSms(validation.data.phone, `[${store.name}] 직원 등록 링크: ${inviteUrl}`);
         sendResults.sms = { success: true, sentAt: new Date().toISOString() };
-        console.log(`[SMS] Would send to ${validation.data.phone}: ${inviteUrl}`);
+        logger.log(`[SMS] Would send to ${validation.data.phone}: ${inviteUrl}`);
       } catch (err) {
         sendResults.sms = { success: false, error: 'Failed to send' };
       }

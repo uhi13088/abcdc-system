@@ -6,6 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '@abc/shared';
 
 let _supabaseClient: SupabaseClient | null = null;
 
@@ -23,7 +24,7 @@ function getSupabase(): SupabaseClient {
 const OFFLINE_THRESHOLD_MS = 5 * 60 * 1000;
 
 export async function GET() {
-  console.log('[Cron] Starting sensor health check...');
+  logger.log('[Cron] Starting sensor health check...');
 
   try {
     const now = new Date();
@@ -158,7 +159,7 @@ export async function GET() {
       }
     }
 
-    console.log('[Cron] Sensor health check completed:', results);
+    logger.log('[Cron] Sensor health check completed:', results);
 
     return NextResponse.json({
       success: true,

@@ -6,6 +6,7 @@
  */
 
 import { offlineDB, type PendingAction } from './indexed-db';
+import { logger } from '@abc/shared';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
@@ -354,7 +355,7 @@ class OfflineSyncService {
         await offlineDB.setLastSyncTime('attendances');
       }
 
-      console.log('Offline cache refreshed');
+      logger.log('Offline cache refreshed');
     } catch (error) {
       console.error('Failed to refresh offline cache:', error);
     }
@@ -395,7 +396,7 @@ class OfflineSyncService {
   private async handleOnline(): Promise<void> {
     this.isOnline = true;
     this.callbacks.onOnlineStatusChange?.(true);
-    console.log('Back online, starting sync...');
+    logger.log('Back online, starting sync...');
 
     // 잠시 대기 후 동기화 (네트워크 안정화)
     await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
@@ -409,7 +410,7 @@ class OfflineSyncService {
   private handleOffline(): void {
     this.isOnline = false;
     this.callbacks.onOnlineStatusChange?.(false);
-    console.log('Gone offline, will queue actions');
+    logger.log('Gone offline, will queue actions');
   }
 
   /**

@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@abc/shared';
 
 // GET /api/company - 현재 사용자의 회사 정보 조회
 export async function GET(request: NextRequest) {
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
         }, { status: 500 });
       }
 
-      console.log('[POST /api/company] Company created and linked:', newCompany.id);
+      logger.log('[POST /api/company] Company created and linked:', newCompany.id);
 
       return NextResponse.json({
         data: newCompany,

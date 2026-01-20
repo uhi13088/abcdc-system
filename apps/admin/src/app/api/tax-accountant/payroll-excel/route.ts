@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { ExcelGenerator, PayrollReportData } from '@abc/shared/server';
 import { z } from 'zod';
+import { logger } from '@abc/shared';
 
 const PayrollExcelSchema = z.object({
   year: z.number().int().min(2020).max(2100),
@@ -205,7 +206,7 @@ export async function POST(request: NextRequest) {
 
       if (taxAccountant && taxAccountant.auto_send && taxAccountant.email) {
         // 이메일 전송 로직 (실제 구현 필요)
-        console.log('Sending email to:', taxAccountant.email);
+        logger.log('Sending email to:', taxAccountant.email);
 
         // 전송 완료 처리
         await adminClient

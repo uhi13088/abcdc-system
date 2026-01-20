@@ -3,6 +3,8 @@
  * Handles FCM token registration and notification handling
  */
 
+import { logger } from '@abc/shared';
+
 interface NotificationData {
   title: string;
   body: string;
@@ -19,19 +21,19 @@ class PushNotificationService {
    */
   async initialize(): Promise<boolean> {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      console.log('Push notifications not supported');
+      logger.log('Push notifications not supported');
       return false;
     }
 
     try {
       // Register service worker
       this.swRegistration = await navigator.serviceWorker.register('/sw.js');
-      console.log('Service Worker registered');
+      logger.log('Service Worker registered');
 
       // Check permission
       const permission = await this.requestPermission();
       if (permission !== 'granted') {
-        console.log('Push notification permission denied');
+        logger.log('Push notification permission denied');
         return false;
       }
 

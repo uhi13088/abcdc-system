@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
 import { getPushNotificationService } from '@abc/shared/server';
+import { logger } from '@abc/shared';
 
 let _supabaseClient: SupabaseClient | null = null;
 
@@ -45,7 +46,7 @@ export async function GET() {
     const currentDay = now.getDay(); // 0 = Sunday
     const currentDate = now.getDate();
 
-    console.log(`[HACCP Reminder] Running at ${format(now, 'yyyy-MM-dd HH:mm:ss')}`);
+    logger.log(`[HACCP Reminder] Running at ${format(now, 'yyyy-MM-dd HH:mm:ss')}`);
 
     const results: { type: string; sent: number; escalated: number }[] = [];
 
@@ -74,7 +75,7 @@ export async function GET() {
       results.push({ type: 'ESCALATION', sent: 0, escalated: escalationResult.escalated });
     }
 
-    console.log(`[HACCP Reminder] Completed:`, results);
+    logger.log(`[HACCP Reminder] Completed:`, results);
 
     return NextResponse.json({
       success: true,

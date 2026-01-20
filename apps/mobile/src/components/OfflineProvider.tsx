@@ -10,6 +10,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { offlineSync } from '@/lib/services/offline-sync';
 import { offlineDB } from '@/lib/services/indexed-db';
+import { logger } from '@abc/shared';
 
 interface OfflineContextType {
   isOnline: boolean;
@@ -48,7 +49,7 @@ export function OfflineProvider({ children }: OfflineProviderProps) {
       navigator.serviceWorker
         .register('/sw.js')
         .then((registration) => {
-          console.log('Service Worker registered:', registration.scope);
+          logger.log('Service Worker registered:', registration.scope);
           setSwRegistered(true);
 
           // 업데이트 확인
@@ -57,7 +58,7 @@ export function OfflineProvider({ children }: OfflineProviderProps) {
             newWorker?.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                 // 새 버전 사용 가능
-                console.log('New service worker available');
+                logger.log('New service worker available');
               }
             });
           });
@@ -87,7 +88,7 @@ export function OfflineProvider({ children }: OfflineProviderProps) {
         setIsSyncing(false);
         setLastSyncTime(new Date());
         updatePendingCount();
-        console.log('Sync complete:', result);
+        logger.log('Sync complete:', result);
       },
       onOnlineStatusChange: (online) => {
         setIsOnline(online);

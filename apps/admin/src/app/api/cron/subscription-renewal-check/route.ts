@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { addDays, format } from 'date-fns';
+import { logger } from '@abc/shared';
 
 function getSupabaseClient() {
   return createClient(
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getSupabaseClient();
-  console.log('[Cron] Starting subscription renewal check...');
+  logger.log('[Cron] Starting subscription renewal check...');
 
   try {
     const today = new Date();
@@ -151,7 +152,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log('[Cron] Subscription renewal check completed:', results);
+    logger.log('[Cron] Subscription renewal check completed:', results);
 
     return NextResponse.json({
       success: true,
