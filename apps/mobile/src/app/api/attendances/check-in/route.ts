@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { getTodayKorea } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,7 +113,7 @@ export async function POST() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayKorea();
     const now = new Date();
     const nowISO = now.toISOString();
 

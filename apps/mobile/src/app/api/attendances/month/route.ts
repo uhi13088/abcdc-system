@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { formatKoreaDate } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +34,8 @@ export async function GET(request: NextRequest) {
     }
 
     const startDate = `${year}-${month.padStart(2, '0')}-01`;
-    const endDate = new Date(parseInt(year), parseInt(month), 0).toISOString().split('T')[0];
+    const lastDay = new Date(parseInt(year), parseInt(month), 0);
+    const endDate = formatKoreaDate(lastDay);
 
     // Fetch attendance records using adminClient to bypass RLS
     const { data: attendanceData, error } = await adminClient
