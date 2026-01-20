@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Calendar, Clock, FileText, Send, CheckCircle, UserMinus } from 'lucide-react';
 import { BottomNav } from '@/components/bottom-nav';
+import { Label } from '@/components/ui/label';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
@@ -308,7 +309,7 @@ export default function RequestPage() {
 
             {/* Leave Type */}
             <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <label className="block text-sm font-medium text-gray-700 mb-3">휴가 유형</label>
+              <Label required className="mb-3">휴가 유형</Label>
               <div className="grid grid-cols-3 gap-2">
                 {leaveTypes.map((type) => (
                   <button
@@ -327,7 +328,7 @@ export default function RequestPage() {
             {/* Date Selection */}
             <div className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">시작일</label>
+                <Label required className="mb-2">시작일</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
@@ -339,7 +340,7 @@ export default function RequestPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">종료일</label>
+                <Label required className="mb-2">종료일</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
@@ -355,7 +356,7 @@ export default function RequestPage() {
 
             {/* Reason */}
             <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <label className="block text-sm font-medium text-gray-700 mb-2">사유</label>
+              <Label required className="mb-2">사유</Label>
               <div className="relative">
                 <FileText className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
                 <textarea
@@ -375,7 +376,7 @@ export default function RequestPage() {
           <>
             <div className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">초과근무일</label>
+                <Label required className="mb-2">초과근무일</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
@@ -387,7 +388,7 @@ export default function RequestPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">초과근무 시간</label>
+                <Label required className="mb-2">초과근무 시간</Label>
                 <div className="relative">
                   <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <select
@@ -407,7 +408,7 @@ export default function RequestPage() {
             </div>
 
             <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <label className="block text-sm font-medium text-gray-700 mb-2">사유</label>
+              <Label required className="mb-2">사유</Label>
               <div className="relative">
                 <FileText className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
                 <textarea
@@ -435,7 +436,7 @@ export default function RequestPage() {
           <>
             <div className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">기존 근무일</label>
+                <Label required className="mb-2">기존 근무일</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
@@ -447,7 +448,7 @@ export default function RequestPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">변경 희망일</label>
+                <Label required className="mb-2">변경 희망일</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
@@ -461,7 +462,7 @@ export default function RequestPage() {
             </div>
 
             <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <label className="block text-sm font-medium text-gray-700 mb-2">변경 사유</label>
+              <Label required className="mb-2">변경 사유</Label>
               <div className="relative">
                 <FileText className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
                 <textarea
@@ -499,7 +500,7 @@ export default function RequestPage() {
 
             <div className="bg-white rounded-2xl p-4 shadow-sm space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">퇴사 예정일</label>
+                <Label required className="mb-2">퇴사 예정일</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
@@ -513,7 +514,7 @@ export default function RequestPage() {
             </div>
 
             <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <label className="block text-sm font-medium text-gray-700 mb-2">퇴사 사유</label>
+              <Label required className="mb-2">퇴사 사유</Label>
               <div className="relative">
                 <FileText className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
                 <textarea

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Search, Package, Edit, Trash2, X } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 interface Product {
   id: string;
@@ -182,7 +183,7 @@ export default function ProductsPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">제품코드</label>
+                  <Label required>제품코드</Label>
                   <input
                     type="text"
                     value={formData.code}
@@ -192,7 +193,7 @@ export default function ProductsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">제품명</label>
+                  <Label required>제품명</Label>
                   <input
                     type="text"
                     value={formData.name}
@@ -203,7 +204,7 @@ export default function ProductsPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
+                <Label>카테고리</Label>
                 <input
                   type="text"
                   value={formData.category}
@@ -212,7 +213,7 @@ export default function ProductsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">규격</label>
+                <Label>규격</Label>
                 <input
                   type="text"
                   value={formData.specification}
@@ -222,7 +223,7 @@ export default function ProductsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">유통기한 (일)</label>
+                  <Label>유통기한 (일)</Label>
                   <input
                     type="number"
                     value={formData.shelf_life}
@@ -231,7 +232,7 @@ export default function ProductsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">보관조건</label>
+                  <Label>보관조건</Label>
                   <select
                     value={formData.storage_condition}
                     onChange={(e) => setFormData({ ...formData, storage_condition: e.target.value })}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Calendar, CheckCircle, XCircle, AlertCircle, ClipboardCheck } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 interface MaterialInspection {
   id: string;
@@ -262,7 +263,7 @@ export default function InspectionsPage() {
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">원부재료</label>
+                <Label required>원부재료</Label>
                 <select
                   value={formData.material_id}
                   onChange={(e) => setFormData({ ...formData, material_id: e.target.value })}
@@ -277,7 +278,7 @@ export default function InspectionsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">공급업체</label>
+                <Label>공급업체</Label>
                 <select
                   value={formData.supplier_id}
                   onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
@@ -292,7 +293,7 @@ export default function InspectionsPage() {
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">LOT 번호</label>
+                  <Label required>LOT 번호</Label>
                   <input
                     type="text"
                     value={formData.lot_number}
@@ -302,7 +303,7 @@ export default function InspectionsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">수량</label>
+                  <Label>수량</Label>
                   <input
                     type="number"
                     value={formData.quantity}
@@ -311,7 +312,7 @@ export default function InspectionsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">단위</label>
+                  <Label>단위</Label>
                   <select
                     value={formData.unit}
                     onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
