@@ -195,7 +195,29 @@ export default function SalaryPage() {
           </div>
 
           {/* Download Button */}
-          <button className="w-full py-4 bg-white border border-gray-200 rounded-2xl flex items-center justify-center gap-2 text-gray-700 font-medium shadow-sm">
+          <button
+            onClick={async () => {
+              try {
+                const response = await fetch(`/api/salaries/payslip?year=${selectedYear}&month=${selectedMonth}`);
+                if (!response.ok) {
+                  alert('급여명세서를 생성할 수 없습니다.');
+                  return;
+                }
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `급여명세서_${selectedYear}년_${selectedMonth}월.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+              } catch {
+                alert('다운로드 중 오류가 발생했습니다.');
+              }
+            }}
+            className="w-full py-4 bg-white border border-gray-200 rounded-2xl flex items-center justify-center gap-2 text-gray-700 font-medium shadow-sm"
+          >
             <FileText className="w-5 h-5" />
             급여명세서 다운로드
           </button>
