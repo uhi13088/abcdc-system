@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Send, Inbox, Mail, MailOpen, Reply, X, Search, User } from 'lucide-react';
+import { Send, Inbox, Mail, MailOpen, Reply, X, Search, User, Store } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -31,6 +31,11 @@ interface CompanyMember {
   stores?: { name: string } | null;
 }
 
+interface StoreInfo {
+  id: string;
+  name: string;
+}
+
 export default function MessagesPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +45,8 @@ export default function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [companyMembers, setCompanyMembers] = useState<CompanyMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [stores, setStores] = useState<StoreInfo[]>([]);
+  const [storeFilter, setStoreFilter] = useState<string>('');
   const [formData, setFormData] = useState({
     recipient_id: '',
     subject: '',
@@ -49,7 +56,23 @@ export default function MessagesPage() {
   useEffect(() => {
     fetchMessages();
     fetchCompanyMembers();
-  }, [activeTab]);
+  }, [activeTab, storeFilter]);
+
+  useEffect(() => {
+    fetchStores();
+  }, []);
+
+  const fetchStores = async () => {
+    try {
+      const response = await fetch('/api/stores');
+      if (response.ok) {
+        const data = await response.json();
+        setStores(data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch stores:', error);
+    }
+  };
 
   const fetchCompanyMembers = async () => {
     try {
@@ -70,7 +93,12 @@ export default function MessagesPage() {
     try {
       setLoading(true);
       const endpoint = activeTab === 'inbox' ? '/api/messages/inbox' : '/api/messages/sent';
-      const response = await fetch(endpoint);
+      const params = new URLSearchParams();
+      if (storeFilter) {
+        params.set('store_id', storeFilter);
+      }
+      const url = params.toString() ? `${endpoint}?${params}` : endpoint;
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setMessages(data);
@@ -167,9 +195,9 @@ export default function MessagesPage() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="mb-4">
-        <div className="relative">
+      {/* Search and Store Filter */}
+      <div className="mb-4 flex gap-4">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
@@ -178,6 +206,19 @@ export default function MessagesPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border rounded-lg"
           />
+        </div>
+        <div className="relative">
+          <Store className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <select
+            value={storeFilter}
+            onChange={(e) => setStoreFilter(e.target.value)}
+            className="pl-10 pr-8 py-2 border rounded-lg bg-white appearance-none cursor-pointer min-w-[160px]"
+          >
+            <option value="">전체 매장</option>
+            {stores.map((store) => (
+              <option key={store.id} value={store.id}>{store.name}</option>
+            ))}
+          </select>
         </div>
       </div>
 
