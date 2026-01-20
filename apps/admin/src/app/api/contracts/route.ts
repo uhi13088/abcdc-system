@@ -212,6 +212,9 @@ export async function POST(request: NextRequest) {
       const adminClient = getAdminClient();
       const workSchedules = validation.data.workSchedules || [];
 
+      logger.log(`Contract ${data.id} created. workSchedules count: ${workSchedules.length}`);
+      logger.log('workSchedules data:', JSON.stringify(workSchedules, null, 2));
+
       if (workSchedules.length > 0) {
         const startDate = new Date(validation.data.startDate);
         const endDate = validation.data.endDate
@@ -278,15 +281,24 @@ export async function POST(request: NextRequest) {
 
             // upsert 실패 시 개별 삽입 시도 (기존 스케줄 건너뛰기)
             let successCount = 0;
+            const failedSchedules: Array<{ schedule: typeof schedulesToInsert[0]; error: string }> = [];
+
             for (const schedule of schedulesToInsert) {
               const { error: singleError } = await adminClient
                 .from('schedules')
                 .insert(schedule);
               if (!singleError) {
                 successCount++;
+              } else {
+                failedSchedules.push({ schedule, error: singleError.message });
               }
             }
+
             logger.log(`Fallback: inserted ${successCount}/${schedulesToInsert.length} schedules`);
+            if (failedSchedules.length > 0) {
+              console.error(`Failed to insert ${failedSchedules.length} schedules:`,
+                JSON.stringify(failedSchedules.slice(0, 5), null, 2));
+            }
           } else {
             logger.log(`Successfully generated ${insertedSchedules?.length || 0} schedules for contract ${data.id}`);
           }
