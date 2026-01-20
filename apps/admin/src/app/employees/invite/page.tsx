@@ -10,7 +10,8 @@ import {
   Label,
   Alert,
 } from '@/components/ui';
-import { Send, Copy, Check, MessageSquare, MessageCircle, Share2, ExternalLink } from 'lucide-react';
+import { Send, Copy, Check, MessageSquare, MessageCircle, Share2, ExternalLink, AlertTriangle } from 'lucide-react';
+import { DEFAULT_MINIMUM_WAGE } from '@abc/shared';
 
 // Kakao SDK type declaration
 declare global {
@@ -501,6 +502,12 @@ export default function InviteEmployeePage() {
                         )}
                         <div className="text-sm text-gray-600 mt-1">
                           {salaryTypeLabels[template.salary_type]} {template.salary_amount.toLocaleString()}원
+                          {template.salary_type === 'hourly' && template.salary_amount > 0 && template.salary_amount < DEFAULT_MINIMUM_WAGE && (
+                            <span className="inline-flex items-center gap-0.5 text-amber-600 ml-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              <span className="text-xs">최저임금 미만</span>
+                            </span>
+                          )}
                           {' | '}
                           {formatWorkDays(template.work_days)} {template.work_start_time}~{template.work_end_time}
                         </div>
