@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { formatKoreaDate } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,10 +25,10 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Calculate week start (Sunday)
+    // Calculate week start (Sunday) - use Korea timezone
     const weekStart = new Date();
     weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-    const weekStartStr = weekStart.toISOString().split('T')[0];
+    const weekStartStr = formatKoreaDate(weekStart);
 
     // Fetch weekly attendance using adminClient to bypass RLS
     const { data: weekAttendance, error } = await adminClient

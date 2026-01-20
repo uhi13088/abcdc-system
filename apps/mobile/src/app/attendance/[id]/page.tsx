@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Clock, Edit2, Save, X, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
+import { formatLocalDate } from '@/lib/utils';
 
 interface AttendanceRecord {
   id: string;
@@ -158,7 +159,7 @@ export default function AttendanceDetailPage() {
     setSaving(true);
 
     try {
-      const workDate = record?.work_date || new Date().toISOString().split('T')[0];
+      const workDate = record?.work_date || formatLocalDate(new Date());
       let correctedCheckIn = undefined;
       let correctedCheckOut = undefined;
 

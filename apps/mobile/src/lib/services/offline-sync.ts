@@ -7,6 +7,7 @@
 
 import { offlineDB, type PendingAction } from './indexed-db';
 import { logger } from '@abc/shared';
+import { formatLocalDate } from '@/lib/utils';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
@@ -369,7 +370,7 @@ class OfflineSyncService {
   }
 
   async getCachedTodaySchedule() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatLocalDate(new Date());
     return offlineDB.getScheduleByDate(today);
   }
 
@@ -381,8 +382,8 @@ class OfflineSyncService {
     endOfWeek.setDate(startOfWeek.getDate() + 6);
 
     return offlineDB.getSchedulesInRange(
-      startOfWeek.toISOString().split('T')[0],
-      endOfWeek.toISOString().split('T')[0]
+      formatLocalDate(startOfWeek),
+      formatLocalDate(endOfWeek)
     );
   }
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/bottom-nav';
+import { formatLocalDate } from '@/lib/utils';
 
 interface ScheduleItem {
   id: string;
@@ -45,8 +46,8 @@ export default function SchedulePage() {
       const weekEnd = new Date(currentWeekStart);
       weekEnd.setDate(weekEnd.getDate() + 6);
 
-      const startStr = currentWeekStart.toISOString().split('T')[0];
-      const endStr = weekEnd.toISOString().split('T')[0];
+      const startStr = formatLocalDate(currentWeekStart);
+      const endStr = formatLocalDate(weekEnd);
 
       // Fetch schedules via API
       const response = await fetch(`/api/schedules/week?start=${startStr}&end=${endStr}`);
@@ -63,7 +64,7 @@ export default function SchedulePage() {
       // Build week schedule array
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const todayStr = today.toISOString().split('T')[0];
+      const todayStr = formatLocalDate(today);
 
       const week: WeekSchedule[] = [];
       let totalMinutes = 0;
@@ -72,7 +73,7 @@ export default function SchedulePage() {
       for (let i = 0; i < 7; i++) {
         const date = new Date(currentWeekStart);
         date.setDate(date.getDate() + i);
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = formatLocalDate(date);
 
         const schedule = schedulesData?.find((s) => s.work_date === dateStr) || null;
 

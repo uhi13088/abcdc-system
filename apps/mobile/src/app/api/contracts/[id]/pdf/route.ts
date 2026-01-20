@@ -5,6 +5,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { contractPDFService } from '@/lib/services/contract-pdf.service';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
@@ -35,7 +38,7 @@ export async function GET(
     // 계약서 정보 조회
     const { data: contract, error: contractError } = await adminClient
       .from('contracts')
-      .select('id, staff_id, pdf_url, pdf_signed_url, status')
+      .select('id, staff_id, contract_number, status')
       .eq('id', contractId)
       .single();
 
@@ -54,21 +57,24 @@ export async function GET(
       );
     }
 
-    // 서명된 PDF URL 반환 (있으면)
-    const pdfUrl = contract.pdf_signed_url || contract.pdf_url;
+    // PDF 실시간 생성
+    const pdfBuffer = await contractPDFService.generate(contractId);
 
-    if (!pdfUrl) {
-      return NextResponse.json(
-        { error: 'PDF 파일이 아직 생성되지 않았습니다.' },
-        { status: 404 }
-      );
-    }
+    // 파일명 생성
+    const fileName = `근로계약서_${contract.contract_number}.pdf`;
 
-    return NextResponse.json({ url: pdfUrl });
+    return new NextResponse(new Uint8Array(pdfBuffer), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}"`,
+        'Content-Length': pdfBuffer.length.toString(),
+      },
+    });
   } catch (error) {
     console.error('Contract PDF error:', error);
     return NextResponse.json(
-      { error: '계약서 다운로드에 실패했습니다.' },
+      { error: error instanceof Error ? error.message : '계약서 다운로드에 실패했습니다.' },
       { status: 500 }
     );
   }

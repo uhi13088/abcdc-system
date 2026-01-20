@@ -5,6 +5,7 @@ import { ArrowLeft, Camera, MapPin, Loader2, CheckCircle, XCircle } from 'lucide
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { formatLocalDate } from '@/lib/utils';
 
 type ScanStatus = 'idle' | 'scanning' | 'processing' | 'success' | 'error';
 
@@ -74,7 +75,7 @@ export default function QRScanPage() {
 
       // Fetch today's most recent attendance (use userData.id as staff_id)
       // Get the latest record to support multiple check-ins per day
-      const today = new Date().toISOString().split('T')[0];
+      const today = formatLocalDate(new Date());
       if (userData) {
         const { data: attendanceData } = await supabase
           .from('attendances')
@@ -164,7 +165,7 @@ export default function QRScanPage() {
         return;
       }
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = formatLocalDate(new Date());
       const now = new Date().toISOString();
       const timeDisplay = new Date().toLocaleTimeString('ko-KR', {
         hour: '2-digit',

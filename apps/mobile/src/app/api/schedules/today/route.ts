@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { getTodayKorea } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,7 @@ export async function GET() {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayKorea();
 
     // Fetch today's schedule using adminClient to bypass RLS
     const { data: scheduleData, error } = await adminClient
