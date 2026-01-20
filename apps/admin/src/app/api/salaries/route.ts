@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     const { data: userData } = await supabase
       .from('users')
-      .select('role, company_id')
+      .select('id, role, company_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -55,7 +55,8 @@ export async function GET(request: NextRequest) {
     } else if (['company_admin', 'manager'].includes(userData.role)) {
       query = query.eq('company_id', userData.company_id);
     } else {
-      query = query.eq('staff_id', user.id);
+      // staff role - filter by users table ID (not auth ID)
+      query = query.eq('staff_id', userData.id);
     }
 
     // Additional filters
@@ -90,7 +91,8 @@ export async function GET(request: NextRequest) {
     } else if (['company_admin', 'manager'].includes(userData.role)) {
       summaryQuery = summaryQuery.eq('company_id', userData.company_id);
     } else {
-      summaryQuery = summaryQuery.eq('staff_id', user.id);
+      // staff role - filter by users table ID (not auth ID)
+      summaryQuery = summaryQuery.eq('staff_id', userData.id);
     }
 
     if (staffId) summaryQuery = summaryQuery.eq('staff_id', staffId);

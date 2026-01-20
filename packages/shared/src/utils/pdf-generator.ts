@@ -4,11 +4,39 @@
  */
 
 import PDFDocument from 'pdfkit';
+import * as fs from 'fs';
+import * as path from 'path';
 import { Salary, Contract, LaborLawVersion } from '../types/entities';
 import { SalaryType } from '../types/enums';
 
-// 한글 폰트 경로 (프로젝트에 맞게 조정 필요)
-const KOREAN_FONT_PATH = process.env.KOREAN_FONT_PATH || '/fonts/NotoSansKR-Regular.otf';
+// 한글 폰트 경로 - Vercel과 로컬 환경 모두 지원
+function getKoreanFontPath(): string {
+  // 환경변수로 지정된 경우 우선
+  if (process.env.KOREAN_FONT_PATH) {
+    return process.env.KOREAN_FONT_PATH;
+  }
+
+  // Vercel 환경에서의 경로
+  const vercelPath = path.join(process.cwd(), 'public', 'fonts', 'NotoSansKR-Regular.otf');
+  if (fs.existsSync(vercelPath)) {
+    return vercelPath;
+  }
+
+  // 대체 경로들
+  const alternativePaths = [
+    path.join(process.cwd(), 'apps', 'admin', 'public', 'fonts', 'NotoSansKR-Regular.otf'),
+    '/var/task/public/fonts/NotoSansKR-Regular.otf',
+    '/fonts/NotoSansKR-Regular.otf',
+  ];
+
+  for (const fontPath of alternativePaths) {
+    if (fs.existsSync(fontPath)) {
+      return fontPath;
+    }
+  }
+
+  return vercelPath; // 기본값 반환 (존재하지 않을 수 있음)
+}
 
 export interface ProfitLossStatement {
   companyId: string;
@@ -64,10 +92,17 @@ export class PDFGenerator {
     });
 
     // 한글 폰트 등록 시도
+    const fontPath = getKoreanFontPath();
     try {
-      doc.registerFont('Korean', KOREAN_FONT_PATH);
-      doc.font('Korean');
-    } catch {
+      if (fs.existsSync(fontPath)) {
+        doc.registerFont('Korean', fontPath);
+        doc.font('Korean');
+      } else {
+        console.warn(`Korean font not found at: ${fontPath}, using Helvetica`);
+        doc.font('Helvetica');
+      }
+    } catch (error) {
+      console.warn('Failed to load Korean font, using Helvetica:', error);
       // 폰트가 없으면 기본 폰트 사용
       doc.font('Helvetica');
     }
