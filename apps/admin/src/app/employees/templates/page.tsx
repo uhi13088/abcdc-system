@@ -95,6 +95,7 @@ export default function InvitationTemplatesPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [hasInviteFormData, setHasInviteFormData] = useState(false);
+  const [storeFilter, setStoreFilter] = useState<string>('all'); // 'all', 'common', 또는 store_id
 
   // sessionStorage에 저장된 초대 폼 데이터가 있는지 확인
   useEffect(() => {
@@ -380,31 +381,87 @@ export default function InvitationTemplatesPage() {
     }
   };
 
+  // 매장별 필터링된 템플릿
+  const filteredTemplates = templates.filter((template) => {
+    if (storeFilter === 'all') return true;
+    if (storeFilter === 'common') return !template.store_id;
+    return template.store_id === storeFilter;
+  });
+
+  // 매장별 템플릿 개수 계산
+  const getTemplateCount = (storeId: string | null) => {
+    if (storeId === null) {
+      return templates.filter((t) => !t.store_id).length;
+    }
+    return templates.filter((t) => t.store_id === storeId).length;
+  };
+
   return (
     <div>
       <Header title="초대 템플릿 관리" />
 
       <div className="p-6">
-        <div className="mb-6 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            {hasInviteFormData && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => router.push('/employees/invite')}
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                직원 초대로 돌아가기
-              </Button>
-            )}
-            <p className="text-gray-600">
-              자주 사용하는 초대 조건을 템플릿으로 저장하면 초대 시 간편하게 사용할 수 있습니다.
-            </p>
+        <div className="mb-6 space-y-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              {hasInviteFormData && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/employees/invite')}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  직원 초대로 돌아가기
+                </Button>
+              )}
+              <p className="text-gray-600">
+                자주 사용하는 초대 조건을 템플릿으로 저장하면 초대 시 간편하게 사용할 수 있습니다.
+              </p>
+            </div>
+            <Button onClick={openCreateDialog}>
+              <Plus className="h-4 w-4 mr-2" />
+              템플릿 추가
+            </Button>
           </div>
-          <Button onClick={openCreateDialog}>
-            <Plus className="h-4 w-4 mr-2" />
-            템플릿 추가
-          </Button>
+
+          {/* 매장별 필터 */}
+          {stores.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setStoreFilter('all')}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  storeFilter === 'all'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                전체 ({templates.length})
+              </button>
+              <button
+                onClick={() => setStoreFilter('common')}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  storeFilter === 'common'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                공통 템플릿 ({getTemplateCount(null)})
+              </button>
+              {stores.map((store) => (
+                <button
+                  key={store.id}
+                  onClick={() => setStoreFilter(store.id)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    storeFilter === store.id
+                      ? 'bg-green-600 text-white'
+                      : 'bg-green-50 text-green-700 hover:bg-green-100'
+                  }`}
+                >
+                  {store.name} ({getTemplateCount(store.id)})
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {loading ? (
@@ -420,9 +477,22 @@ export default function InvitationTemplatesPage() {
               첫 템플릿 만들기
             </Button>
           </div>
+        ) : filteredTemplates.length === 0 ? (
+          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+            <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 mb-4">
+              {storeFilter === 'common'
+                ? '공통 템플릿이 없습니다.'
+                : '선택한 매장의 템플릿이 없습니다.'}
+            </p>
+            <Button onClick={openCreateDialog}>
+              <Plus className="h-4 w-4 mr-2" />
+              템플릿 만들기
+            </Button>
+          </div>
         ) : (
           <div className="grid gap-4">
-            {templates.map((template) => (
+            {filteredTemplates.map((template) => (
               <div
                 key={template.id}
                 className="bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-300 transition-colors"
