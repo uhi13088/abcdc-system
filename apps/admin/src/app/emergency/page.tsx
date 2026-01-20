@@ -6,6 +6,11 @@ import { ko } from 'date-fns/locale';
 import { Plus, AlertTriangle, Clock, Users, DollarSign, X } from 'lucide-react';
 import { DEFAULT_MINIMUM_WAGE } from '@abc/shared';
 
+interface Store {
+  id: string;
+  name: string;
+}
+
 interface EmergencyShift {
   id: string;
   store_id: string;
@@ -31,7 +36,9 @@ const statusConfig = {
 
 export default function EmergencyPage() {
   const [shifts, setShifts] = useState<EmergencyShift[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     store_id: '',
@@ -43,9 +50,23 @@ export default function EmergencyPage() {
     hourly_rate: DEFAULT_MINIMUM_WAGE,
     bonus: 0,
     deadline: '',
+    show_bonus_in_notification: false,
   });
 
+  const fetchStores = async () => {
+    try {
+      const response = await fetch('/api/stores');
+      if (response.ok) {
+        const data = await response.json();
+        setStores(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch stores:', error);
+    }
+  };
+
   useEffect(() => {
+    fetchStores();
     fetchShifts();
   }, []);
 
@@ -66,6 +87,13 @@ export default function EmergencyPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.store_id) {
+      alert('매장을 선택해주세요.');
+      return;
+    }
+
+    setSubmitting(true);
     try {
       const response = await fetch('/api/emergency-shifts', {
         method: 'POST',
@@ -86,10 +114,17 @@ export default function EmergencyPage() {
           hourly_rate: DEFAULT_MINIMUM_WAGE,
           bonus: 0,
           deadline: '',
+          show_bonus_in_notification: false,
         });
+      } else {
+        const error = await response.json();
+        alert(error.error || '긴급 근무 등록에 실패했습니다.');
       }
     } catch (error) {
       console.error('Failed to create emergency shift:', error);
+      alert('긴급 근무 등록에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -218,6 +253,25 @@ export default function EmergencyPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* 매장 선택 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  매장 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.store_id}
+                  onChange={(e) => setFormData({ ...formData, store_id: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                >
+                  <option value="">매장을 선택하세요</option>
+                  {stores.map((store) => (
+                    <option key={store.id} value={store.id}>
+                      {store.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">근무일</label>
@@ -283,11 +337,25 @@ export default function EmergencyPage() {
                   <input
                     type="number"
                     value={formData.bonus}
-                    onChange={(e) => setFormData({ ...formData, bonus: parseInt(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, bonus: parseInt(e.target.value) || 0 })}
                     className="w-full px-3 py-2 border rounded-lg"
                   />
                 </div>
               </div>
+              {formData.bonus > 0 && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="show_bonus_in_notification"
+                    checked={formData.show_bonus_in_notification}
+                    onChange={(e) => setFormData({ ...formData, show_bonus_in_notification: e.target.checked })}
+                    className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                  />
+                  <label htmlFor="show_bonus_in_notification" className="text-sm text-gray-700">
+                    알림에 보너스 금액 표시
+                  </label>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">필요 인원</label>
                 <input
@@ -303,15 +371,17 @@ export default function EmergencyPage() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50"
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                 >
-                  등록
+                  {submitting ? '등록 중...' : '등록'}
                 </button>
               </div>
             </form>

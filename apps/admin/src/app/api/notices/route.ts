@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createServerClient();
     const { searchParams } = new URL(request.url);
     const is_important = searchParams.get('is_important');
+    const store_id = searchParams.get('store_id');
 
     // Get user info for company filtering
     const { data: userData } = await supabase.auth.getUser();
@@ -24,7 +25,8 @@ export async function GET(request: NextRequest) {
       .from('notices')
       .select(`
         *,
-        users:created_by (name)
+        users:created_by (name),
+        stores:store_id (name)
       `)
       .order('is_pinned', { ascending: false })
       .order('created_at', { ascending: false });
@@ -38,6 +40,15 @@ export async function GET(request: NextRequest) {
       query = query.eq('is_important', true);
     }
 
+    // 매장 필터
+    if (store_id === 'null') {
+      // 공통 공지만 (store_id가 null인 것)
+      query = query.is('store_id', null);
+    } else if (store_id) {
+      // 특정 매장 공지만
+      query = query.eq('store_id', store_id);
+    }
+
     const { data, error } = await query;
 
     if (error) {
@@ -48,6 +59,9 @@ export async function GET(request: NextRequest) {
     const notices = data?.map((notice: any) => ({
       ...notice,
       author_name: notice.users?.name,
+      store_name: notice.stores?.name,
+      // is_important를 category로 매핑 (프론트엔드 호환성)
+      category: notice.is_important ? 'URGENT' : 'GENERAL',
     })) || [];
 
     return NextResponse.json(notices);
@@ -66,6 +80,7 @@ export async function POST(request: NextRequest) {
     const {
       title,
       content,
+      category, // GENERAL, URGENT, EVENT, UPDATE - URGENT면 is_important로 매핑
       is_important = false,
       is_pinned = false,
       target_roles,
@@ -75,6 +90,9 @@ export async function POST(request: NextRequest) {
       brand_id,
       store_id,
     } = body;
+
+    // category가 URGENT면 is_important를 true로 설정
+    const finalIsImportant = category === 'URGENT' || is_important;
 
     // Get user info
     const { data: userData } = await supabase.auth.getUser();
@@ -104,7 +122,7 @@ export async function POST(request: NextRequest) {
       .insert({
         title,
         content,
-        is_important,
+        is_important: finalIsImportant,
         is_pinned,
         target_roles: target_roles || null,
         attachments: attachments || null,

@@ -70,6 +70,16 @@ export default function TrainingPage() {
     score: '',
   });
 
+  const [showProgramModal, setShowProgramModal] = useState(false);
+  const [programFormData, setProgramFormData] = useState({
+    title: '',
+    description: '',
+    category: 'ONBOARDING' as Training['category'],
+    duration_hours: 1,
+    is_mandatory: false,
+    valid_months: '',
+  });
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -138,6 +148,46 @@ export default function TrainingPage() {
     } catch (error) {
       console.error('Failed to create record:', error);
       alert(error instanceof Error ? error.message : '교육 이수 등록에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleProgramSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSubmitting(true);
+      const response = await fetch('/api/training', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: programFormData.title,
+          description: programFormData.description,
+          category: programFormData.category,
+          duration_hours: programFormData.duration_hours,
+          is_mandatory: programFormData.is_mandatory,
+          valid_months: programFormData.valid_months ? parseInt(programFormData.valid_months) : null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '교육 프로그램 등록에 실패했습니다.');
+      }
+
+      setShowProgramModal(false);
+      setProgramFormData({
+        title: '',
+        description: '',
+        category: 'ONBOARDING',
+        duration_hours: 1,
+        is_mandatory: false,
+        valid_months: '',
+      });
+      fetchData();
+    } catch (error) {
+      console.error('Failed to create program:', error);
+      alert(error instanceof Error ? error.message : '교육 프로그램 등록에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }
@@ -336,6 +386,15 @@ export default function TrainingPage() {
 
         {activeTab === 'programs' && (
           <div className="p-4">
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={() => setShowProgramModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                <Plus className="w-4 h-4" />
+                교육 프로그램 추가
+              </button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {trainings.map((training) => (
                 <div key={training.id} className="border rounded-xl p-4 hover:shadow-md transition-shadow">
@@ -439,6 +498,115 @@ export default function TrainingPage() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
+                  className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+                  disabled={submitting}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  disabled={submitting}
+                >
+                  {submitting ? '등록 중...' : '등록'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Program Modal */}
+      {showProgramModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-lg mx-4 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">교육 프로그램 추가</h2>
+              <button onClick={() => setShowProgramModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleProgramSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">교육명</label>
+                <input
+                  type="text"
+                  value={programFormData.title}
+                  onChange={(e) => setProgramFormData({ ...programFormData, title: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="교육 프로그램 이름"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">설명</label>
+                <textarea
+                  value={programFormData.description}
+                  onChange={(e) => setProgramFormData({ ...programFormData, description: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  rows={3}
+                  placeholder="교육 내용에 대한 설명"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
+                  <select
+                    value={programFormData.category}
+                    onChange={(e) => setProgramFormData({ ...programFormData, category: e.target.value as Training['category'] })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    required
+                  >
+                    {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">교육 시간</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={programFormData.duration_hours}
+                    onChange={(e) => setProgramFormData({ ...programFormData, duration_hours: parseInt(e.target.value) || 1 })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="시간"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">유효 기간 (개월)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={programFormData.valid_months}
+                    onChange={(e) => setProgramFormData({ ...programFormData, valid_months: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="비워두면 무기한"
+                  />
+                </div>
+                <div className="flex items-center pt-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={programFormData.is_mandatory}
+                      onChange={(e) => setProgramFormData({ ...programFormData, is_mandatory: e.target.checked })}
+                      className="w-4 h-4 rounded border-gray-300"
+                    />
+                    <span className="text-sm font-medium text-gray-700">필수 교육</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowProgramModal(false)}
                   className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
                   disabled={submitting}
                 >

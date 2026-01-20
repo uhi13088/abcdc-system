@@ -12,33 +12,53 @@ import { SalaryType } from '../types/enums';
 // 한글 폰트 경로 - Vercel과 로컬 환경 모두 지원
 function getKoreanFontPath(): string {
   // 환경변수로 지정된 경우 우선
-  if (process.env.KOREAN_FONT_PATH) {
+  if (process.env.KOREAN_FONT_PATH && fs.existsSync(process.env.KOREAN_FONT_PATH)) {
     return process.env.KOREAN_FONT_PATH;
   }
 
-  // Vercel 환경에서의 경로
-  const vercelPath = path.join(process.cwd(), 'public', 'fonts', 'NotoSansKR-Regular.otf');
-  if (fs.existsSync(vercelPath)) {
-    return vercelPath;
-  }
+  const fontFileName = 'NotoSansKR-Regular.otf';
+  const cwd = process.cwd();
 
-  // 대체 경로들
-  const alternativePaths = [
-    path.join(process.cwd(), 'apps', 'admin', 'public', 'fonts', 'NotoSansKR-Regular.otf'),
-    path.join(process.cwd(), 'apps', 'mobile', 'public', 'fonts', 'NotoSansKR-Regular.otf'),
-    '/var/task/public/fonts/NotoSansKR-Regular.otf',
-    '/var/task/apps/mobile/public/fonts/NotoSansKR-Regular.otf',
-    '/var/task/apps/admin/public/fonts/NotoSansKR-Regular.otf',
-    '/fonts/NotoSansKR-Regular.otf',
+  // 모든 가능한 경로들 (우선순위 순)
+  const possiblePaths = [
+    // Vercel 환경 - 앱 루트의 public 폴더
+    path.join(cwd, 'public', 'fonts', fontFileName),
+    // Vercel 환경 - .next 서버 청크 내 (outputFileTracingIncludes로 포함된 경우)
+    path.join(cwd, '.next', 'server', 'chunks', 'public', 'fonts', fontFileName),
+    path.join(cwd, '.next', 'server', 'public', 'fonts', fontFileName),
+    // Vercel Lambda 환경 직접 경로
+    `/var/task/public/fonts/${fontFileName}`,
+    `/var/task/.next/server/chunks/public/fonts/${fontFileName}`,
+    // 모노레포 로컬 개발 환경
+    path.join(cwd, 'apps', 'mobile', 'public', 'fonts', fontFileName),
+    path.join(cwd, 'apps', 'admin', 'public', 'fonts', fontFileName),
+    // Vercel 모노레포 배포 환경
+    `/var/task/apps/mobile/public/fonts/${fontFileName}`,
+    `/var/task/apps/admin/public/fonts/${fontFileName}`,
+    // 대체 경로
+    `/fonts/${fontFileName}`,
+    // __dirname 기반 (패키지 내부)
+    path.join(__dirname, '..', '..', '..', '..', 'apps', 'mobile', 'public', 'fonts', fontFileName),
+    path.join(__dirname, '..', '..', '..', '..', 'apps', 'admin', 'public', 'fonts', fontFileName),
   ];
 
-  for (const fontPath of alternativePaths) {
-    if (fs.existsSync(fontPath)) {
-      return fontPath;
+  for (const fontPath of possiblePaths) {
+    try {
+      if (fs.existsSync(fontPath)) {
+        console.log(`Korean font found at: ${fontPath}`);
+        return fontPath;
+      }
+    } catch {
+      // 경로 접근 실패 시 다음 경로 시도
     }
   }
 
-  return vercelPath; // 기본값 반환 (존재하지 않을 수 있음)
+  // 디버깅을 위한 로그
+  console.warn('Korean font not found in any path. Searched:', possiblePaths.slice(0, 5));
+  console.warn(`Current working directory: ${cwd}`);
+
+  // 기본값 반환 (에러 발생 가능)
+  return path.join(cwd, 'public', 'fonts', fontFileName);
 }
 
 export interface ProfitLossStatement {
@@ -88,20 +108,25 @@ export interface ContractPDFData extends Contract {
 
 export class PDFGenerator {
   private static createDocument(): PDFKit.PDFDocument {
+    // autoFirstPage: false를 사용하여 기본 폰트(Helvetica) 로딩을 방지
+    // Vercel 환경에서 pdfkit AFM 파일이 번들에 포함되지 않아 에러 발생하는 문제 해결
     const doc = new PDFDocument({
       size: 'A4',
       margins: { top: 50, bottom: 50, left: 50, right: 50 },
       bufferPages: true,
+      autoFirstPage: false, // 첫 페이지 자동 생성 비활성화 - 폰트 등록 후 수동으로 추가
     });
 
-    // 한글 폰트 등록 시도
+    // 한글 폰트 등록 시도 (페이지 추가 전에 폰트를 먼저 등록)
     const fontPath = getKoreanFontPath();
     try {
       if (fs.existsSync(fontPath)) {
         doc.registerFont('Korean', fontPath);
-        doc.font('Korean');
+        doc.font('Korean'); // 기본 폰트로 한글 폰트 설정
+        doc.addPage(); // 폰트 등록 후 첫 페이지 추가
       } else {
         console.warn(`Korean font not found at: ${fontPath}`);
+        console.warn(`Searched paths: process.cwd()=${process.cwd()}`);
         // Vercel 환경에서는 Helvetica .afm 파일이 없을 수 있으므로 에러 발생시킴
         throw new Error(`Font file not found. Please ensure NotoSansKR-Regular.otf exists in public/fonts/`);
       }

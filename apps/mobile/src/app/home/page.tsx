@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Clock, Calendar, Bell, ChevronRight, FileText, Send } from 'lucide-react';
+import { Clock, Calendar, Bell, ChevronRight, FileText, Send, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/bottom-nav';
@@ -144,8 +144,16 @@ export default function HomePage() {
             <p className="text-primary-100 text-sm">{user?.stores?.name || '매장 미배정'}</p>
             <h1 className="text-xl font-bold">{user?.name || '사용자'}님, 안녕하세요!</h1>
           </div>
-          <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-            <span className="text-lg font-bold">{user?.name?.charAt(0) || '?'}</span>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/messages"
+              className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center"
+            >
+              <MessageCircle className="w-5 h-5" />
+            </Link>
+            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+              <span className="text-lg font-bold">{user?.name?.charAt(0) || '?'}</span>
+            </div>
           </div>
         </div>
 

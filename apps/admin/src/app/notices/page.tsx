@@ -3,7 +3,12 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Plus, Bell, Pin, Eye, X, Edit, Trash2 } from 'lucide-react';
+import { Plus, Bell, Pin, Eye, X, Edit, Trash2, Store, Building2 } from 'lucide-react';
+
+interface Store {
+  id: string;
+  name: string;
+}
 
 interface Notice {
   id: string;
@@ -12,6 +17,8 @@ interface Notice {
   category: 'GENERAL' | 'URGENT' | 'EVENT' | 'UPDATE';
   is_pinned: boolean;
   view_count: number;
+  store_id: string | null;
+  store_name?: string;
   created_by: string;
   author_name?: string;
   created_at: string;
@@ -27,24 +34,47 @@ const categoryConfig = {
 
 export default function NoticesPage() {
   const [notices, setNotices] = useState<Notice[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedNotice, setSelectedNotice] = useState<Notice | null>(null);
+  const [storeFilter, setStoreFilter] = useState<string>(''); // '' = 전체, 'common' = 공통, store_id = 특정매장
   const [formData, setFormData] = useState({
     title: '',
     content: '',
     category: 'GENERAL' as Notice['category'],
     is_pinned: false,
+    store_id: '' as string, // '' = 공통 공지
   });
 
+  const fetchStores = async () => {
+    try {
+      const response = await fetch('/api/stores');
+      if (response.ok) {
+        const data = await response.json();
+        setStores(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch stores:', error);
+    }
+  };
+
   useEffect(() => {
+    fetchStores();
     fetchNotices();
   }, []);
 
   const fetchNotices = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/notices');
+      const params = new URLSearchParams();
+      if (storeFilter === 'common') {
+        params.set('store_id', 'null'); // 공통 공지만
+      } else if (storeFilter) {
+        params.set('store_id', storeFilter); // 특정 매장
+      }
+      const url = params.toString() ? `/api/notices?${params}` : '/api/notices';
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setNotices(data);
@@ -56,19 +86,27 @@ export default function NoticesPage() {
     }
   };
 
+  useEffect(() => {
+    fetchNotices();
+  }, [storeFilter]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        store_id: formData.store_id || null, // 공통은 null
+      };
       const response = await fetch('/api/notices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
         setShowModal(false);
         fetchNotices();
-        setFormData({ title: '', content: '', category: 'GENERAL', is_pinned: false });
+        setFormData({ title: '', content: '', category: 'GENERAL', is_pinned: false, store_id: '' });
       }
     } catch (error) {
       console.error('Failed to create notice:', error);
@@ -101,13 +139,26 @@ export default function NoticesPage() {
           <h1 className="text-2xl font-bold text-gray-900">공지사항</h1>
           <p className="mt-1 text-sm text-gray-500">직원들에게 공지사항을 전달합니다</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          <Plus className="w-4 h-4" />
-          공지 작성
-        </button>
+        <div className="flex items-center gap-3">
+          <select
+            value={storeFilter}
+            onChange={(e) => setStoreFilter(e.target.value)}
+            className="px-3 py-2 border rounded-lg text-sm"
+          >
+            <option value="">전체 공지</option>
+            <option value="common">공통 공지만</option>
+            {stores.map((store) => (
+              <option key={store.id} value={store.id}>{store.name}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => setShowModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4" />
+            공지 작성
+          </button>
+        </div>
       </div>
 
       {/* Notice List */}
@@ -139,6 +190,17 @@ export default function NoticesPage() {
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${categoryConfig[notice.category].color}`}>
                           {categoryConfig[notice.category].label}
                         </span>
+                        {notice.store_id ? (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 flex items-center gap-1">
+                            <Store className="w-3 h-3" />
+                            {notice.store_name || '매장'}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 flex items-center gap-1">
+                            <Building2 className="w-3 h-3" />
+                            공통
+                          </span>
+                        )}
                       </div>
                       <h3 className="font-medium text-gray-900">{notice.title}</h3>
                       <p className="text-sm text-gray-500 mt-1 line-clamp-2">{notice.content}</p>
@@ -169,8 +231,8 @@ export default function NoticesPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="flex gap-4">
-                <div className="flex-1">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">제목</label>
                   <input
                     type="text"
@@ -193,6 +255,22 @@ export default function NoticesPage() {
                     ))}
                   </select>
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">대상 매장</label>
+                <select
+                  value={formData.store_id}
+                  onChange={(e) => setFormData({ ...formData, store_id: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="">공통 (전체 매장)</option>
+                  {stores.map((store) => (
+                    <option key={store.id} value={store.id}>{store.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  공통 선택 시 모든 매장 직원에게 공지됩니다
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">내용</label>

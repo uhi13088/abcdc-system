@@ -21,6 +21,11 @@ import {
 } from '@/components/ui';
 import { DollarSign, Calculator, Check, Download, FileSpreadsheet } from 'lucide-react';
 
+interface Store {
+  id: string;
+  name: string;
+}
+
 interface Salary {
   id: string;
   year: number;
@@ -40,6 +45,7 @@ interface Salary {
     name: string;
     email: string;
     position: string;
+    store_id?: string;
   };
 }
 
@@ -51,15 +57,29 @@ const statusMap: Record<string, { label: string; variant: 'default' | 'warning' 
 
 export default function SalariesPage() {
   const [salaries, setSalaries] = useState<Salary[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [statusFilter, setStatusFilter] = useState('');
+  const [storeFilter, setStoreFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [message, setMessage] = useState('');
   const [summary, setSummary] = useState({ totalGross: 0, totalDeductions: 0, totalNet: 0 });
+
+  const fetchStores = async () => {
+    try {
+      const response = await fetch('/api/stores');
+      if (response.ok) {
+        const data = await response.json();
+        setStores(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch stores:', error);
+    }
+  };
 
   const fetchSalaries = async () => {
     setLoading(true);
@@ -71,6 +91,7 @@ export default function SalariesPage() {
         month: selectedMonth.toString(),
       });
       if (statusFilter) params.set('status', statusFilter);
+      if (storeFilter) params.set('storeId', storeFilter);
 
       const response = await fetch(`/api/salaries?${params}`);
       const result = await response.json();
@@ -90,8 +111,12 @@ export default function SalariesPage() {
   };
 
   useEffect(() => {
+    fetchStores();
+  }, []);
+
+  useEffect(() => {
     fetchSalaries();
-  }, [currentPage, selectedYear, selectedMonth, statusFilter]);
+  }, [currentPage, selectedYear, selectedMonth, statusFilter, storeFilter]);
 
   const handleCalculate = async () => {
     if (!confirm(`${selectedYear}년 ${selectedMonth}월 급여를 계산하시겠습니까?`)) return;
@@ -254,7 +279,7 @@ export default function SalariesPage() {
 
         {/* Toolbar */}
         <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between">
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             <Select
               value={selectedYear.toString()}
               onChange={(e) => setSelectedYear(parseInt(e.target.value))}
@@ -272,6 +297,15 @@ export default function SalariesPage() {
                 label: `${i + 1}월`,
               }))}
               className="w-24"
+            />
+            <Select
+              value={storeFilter}
+              onChange={(e) => setStoreFilter(e.target.value)}
+              options={[
+                { value: '', label: '전체 매장' },
+                ...stores.map((s) => ({ value: s.id, label: s.name })),
+              ]}
+              className="w-40"
             />
             <Select
               value={statusFilter}

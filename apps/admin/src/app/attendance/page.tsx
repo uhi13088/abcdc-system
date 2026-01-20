@@ -3,7 +3,12 @@
 import { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Edit3, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Edit3, X, Store } from 'lucide-react';
+
+interface StoreInfo {
+  id: string;
+  name: string;
+}
 
 interface Attendance {
   id: string;
@@ -44,6 +49,10 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'calendar' | 'list'>('list');
 
+  // 매장 필터 관련 상태
+  const [stores, setStores] = useState<StoreInfo[]>([]);
+  const [storeFilter, setStoreFilter] = useState('');
+
   // 수정 모달 관련 상태
   const [editModal, setEditModal] = useState<EditModalData>({ attendance: null, isOpen: false });
   const [editForm, setEditForm] = useState({
@@ -54,9 +63,25 @@ export default function AttendancePage() {
   });
   const [saving, setSaving] = useState(false);
 
+  const fetchStores = async () => {
+    try {
+      const response = await fetch('/api/stores');
+      if (response.ok) {
+        const data = await response.json();
+        setStores(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch stores:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchStores();
+  }, []);
+
   useEffect(() => {
     fetchAttendances();
-  }, [currentDate]);
+  }, [currentDate, storeFilter]);
 
   const fetchAttendances = async () => {
     try {
@@ -64,7 +89,14 @@ export default function AttendancePage() {
       const start = format(startOfMonth(currentDate), 'yyyy-MM-dd');
       const end = format(endOfMonth(currentDate), 'yyyy-MM-dd');
 
-      const response = await fetch(`/api/attendances?startDate=${start}&endDate=${end}&limit=1000`);
+      const params = new URLSearchParams({
+        startDate: start,
+        endDate: end,
+        limit: '1000',
+      });
+      if (storeFilter) params.set('storeId', storeFilter);
+
+      const response = await fetch(`/api/attendances?${params}`);
       if (response.ok) {
         const result = await response.json();
         // API returns { data: [...], pagination: {...} }
@@ -201,23 +233,40 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      {/* Month Navigation */}
+      {/* Month Navigation & Store Filter */}
       <div className="mb-6 flex items-center justify-between">
-        <button
-          onClick={goToPreviousMonth}
-          className="p-2 hover:bg-gray-100 rounded-lg"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <h2 className="text-lg font-semibold">
-          {format(currentDate, 'yyyy년 M월', { locale: ko })}
-        </h2>
-        <button
-          onClick={goToNextMonth}
-          className="p-2 hover:bg-gray-100 rounded-lg"
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={goToPreviousMonth}
+            className="p-2 hover:bg-gray-100 rounded-lg"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <h2 className="text-lg font-semibold">
+            {format(currentDate, 'yyyy년 M월', { locale: ko })}
+          </h2>
+          <button
+            onClick={goToNextMonth}
+            className="p-2 hover:bg-gray-100 rounded-lg"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Store className="w-4 h-4 text-gray-400" />
+          <select
+            value={storeFilter}
+            onChange={(e) => setStoreFilter(e.target.value)}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">전체 매장</option>
+            {stores.map((store) => (
+              <option key={store.id} value={store.id}>
+                {store.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Summary Cards */}
