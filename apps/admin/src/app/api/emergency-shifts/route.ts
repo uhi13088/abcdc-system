@@ -191,7 +191,7 @@ async function sendEmergencyNotifications(
     .from('users')
     .select('id, name, position')
     .eq('company_id', storeData.company_id)
-    .eq('is_active', true)
+    .eq('status', 'ACTIVE')
     .in('role', ['staff', 'part_time']);
 
   if (error || !staffList || staffList.length === 0) {
