@@ -119,10 +119,12 @@ export async function PATCH(
     } = body;
 
     // Calculate work hours if times changed
-    let workHours = attendance.work_hours;
-    let basePay = attendance.base_pay;
-    let overtimePay = attendance.overtime_pay;
-    let nightPay = attendance.night_pay;
+    let workHours = attendance.work_hours || 0;
+    let breakHours = attendance.break_hours || 0;
+    let overtimeHours = attendance.overtime_hours || 0;
+    let basePay = attendance.base_pay || 0;
+    let overtimePay = attendance.overtime_pay || 0;
+    let nightPay = attendance.night_pay || 0;
 
     const checkIn = actual_check_in
       ? new Date(actual_check_in)
@@ -140,15 +142,17 @@ export async function PATCH(
       const diffMs = checkOut.getTime() - checkIn.getTime();
       const rawHours = diffMs / (1000 * 60 * 60);
 
-      const breakHours = rawHours >= DAILY_WORK_HOURS ? 1 : rawHours >= 4 ? 0.5 : 0;
+      // 휴게시간: 4시간 이상 30분, 8시간 이상 1시간
+      breakHours = rawHours >= DAILY_WORK_HOURS ? 1 : rawHours >= 4 ? 0.5 : 0;
       workHours = Math.max(0, rawHours - breakHours);
 
-      const overtimeHours = Math.max(0, workHours - DAILY_WORK_HOURS);
+      overtimeHours = Math.max(0, workHours - DAILY_WORK_HOURS);
       const hourlyRate = DEFAULT_MINIMUM_WAGE;
 
       basePay = Math.min(workHours, DAILY_WORK_HOURS) * hourlyRate;
       overtimePay = overtimeHours * hourlyRate * ALLOWANCE_RATES.overtime;
 
+      // 야간근무 시간 계산 (22:00 ~ 06:00)
       const checkOutHour = checkOut.getHours();
       let nightHours = 0;
       if (checkOutHour >= 22 || checkOutHour < 6) {
@@ -169,14 +173,20 @@ export async function PATCH(
     }
     if (actual_check_out !== undefined) {
       updateData.actual_check_out = actual_check_out;
-      updateData.work_hours = workHours;
-      updateData.base_pay = basePay;
-      updateData.overtime_pay = overtimePay;
-      updateData.night_pay = nightPay;
-      updateData.daily_total = basePay + overtimePay + nightPay;
     }
     if (status) {
       updateData.status = status;
+    }
+
+    // 출퇴근 시간이 둘 다 있으면 work_hours 계산 (변경 여부 상관없이)
+    if (checkIn && checkOut) {
+      updateData.work_hours = Math.round(workHours * 100) / 100;
+      updateData.break_hours = breakHours;
+      updateData.overtime_hours = Math.round(overtimeHours * 100) / 100;
+      updateData.base_pay = Math.round(basePay);
+      updateData.overtime_pay = Math.round(overtimePay);
+      updateData.night_pay = Math.round(nightPay);
+      updateData.daily_total = Math.round(basePay + overtimePay + nightPay);
     }
 
     // Update attendance record

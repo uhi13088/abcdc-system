@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Edit3, X } from 'lucide-react';
 
 interface Attendance {
   id: string;
@@ -25,6 +25,11 @@ interface Attendance {
   overtime_hours: number | null;
 }
 
+interface EditModalData {
+  attendance: Attendance | null;
+  isOpen: boolean;
+}
+
 const statusConfig: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
   NORMAL: { label: '정상', color: 'bg-green-100 text-green-800', icon: CheckCircle },
   LATE: { label: '지각', color: 'bg-yellow-100 text-yellow-800', icon: AlertCircle },
@@ -38,6 +43,16 @@ export default function AttendancePage() {
   const [attendances, setAttendances] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'calendar' | 'list'>('list');
+
+  // 수정 모달 관련 상태
+  const [editModal, setEditModal] = useState<EditModalData>({ attendance: null, isOpen: false });
+  const [editForm, setEditForm] = useState({
+    actual_check_in: '',
+    actual_check_out: '',
+    status: '',
+    correction_reason: '',
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchAttendances();
@@ -77,6 +92,75 @@ export default function AttendancePage() {
   const formatTime = (dateString: string | null) => {
     if (!dateString) return '-';
     return format(new Date(dateString), 'HH:mm');
+  };
+
+  // 날짜+시간 문자열을 datetime-local input 형식으로 변환
+  const toDateTimeLocal = (dateString: string | null) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    // datetime-local 형식: YYYY-MM-DDTHH:mm
+    return format(date, "yyyy-MM-dd'T'HH:mm");
+  };
+
+  // 수정 모달 열기
+  const openEditModal = (attendance: Attendance) => {
+    setEditForm({
+      actual_check_in: toDateTimeLocal(attendance.actual_check_in),
+      actual_check_out: toDateTimeLocal(attendance.actual_check_out),
+      status: attendance.status || 'NORMAL',
+      correction_reason: '',
+    });
+    setEditModal({ attendance, isOpen: true });
+  };
+
+  // 수정 모달 닫기
+  const closeEditModal = () => {
+    setEditModal({ attendance: null, isOpen: false });
+    setEditForm({
+      actual_check_in: '',
+      actual_check_out: '',
+      status: '',
+      correction_reason: '',
+    });
+  };
+
+  // 출퇴근 기록 수정 저장
+  const handleSaveEdit = async () => {
+    if (!editModal.attendance) return;
+
+    if (!editForm.correction_reason.trim()) {
+      alert('수정 사유를 입력해주세요.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/attendances/${editModal.attendance.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          actual_check_in: editForm.actual_check_in ? new Date(editForm.actual_check_in).toISOString() : null,
+          actual_check_out: editForm.actual_check_out ? new Date(editForm.actual_check_out).toISOString() : null,
+          status: editForm.status,
+          correction_reason: editForm.correction_reason,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(result.message || '수정이 완료되었습니다.');
+        closeEditModal();
+        fetchAttendances();
+      } else {
+        const error = await response.json();
+        alert(error.error || '수정에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Edit error:', error);
+      alert('수정 중 오류가 발생했습니다.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const days = eachDayOfInterval({
@@ -171,12 +255,13 @@ export default function AttendancePage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">실제 퇴근</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">근무시간</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">관리</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {attendances.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
                     출퇴근 기록이 없습니다
                   </td>
                 </tr>
@@ -219,6 +304,15 @@ export default function AttendancePage() {
                         ) : (
                           <span className="text-gray-400">-</span>
                         )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <button
+                          onClick={() => openEditModal(attendance)}
+                          className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Edit3 className="w-4 h-4 mr-1" />
+                          수정
+                        </button>
                       </td>
                     </tr>
                   );
@@ -275,6 +369,103 @@ export default function AttendancePage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* 출퇴근 수정 모달 */}
+      {editModal.isOpen && editModal.attendance && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4 shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-gray-900">출퇴근 기록 수정</h3>
+              <button onClick={closeEditModal} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">{editModal.attendance.staff?.name || editModal.attendance.staff_name || '직원'}</span>
+                님의 {format(new Date(editModal.attendance.work_date), 'yyyy년 M월 d일 (E)', { locale: ko })} 기록
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {/* 출근 시간 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">출근 시간</label>
+                <input
+                  type="datetime-local"
+                  value={editForm.actual_check_in}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, actual_check_in: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* 퇴근 시간 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">퇴근 시간</label>
+                <input
+                  type="datetime-local"
+                  value={editForm.actual_check_out}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, actual_check_out: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* 상태 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">상태</label>
+                <select
+                  value={editForm.status}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="NORMAL">정상</option>
+                  <option value="LATE">지각</option>
+                  <option value="EARLY_LEAVE">조퇴</option>
+                  <option value="ABSENT">결근</option>
+                  <option value="VACATION">휴가</option>
+                </select>
+              </div>
+
+              {/* 수정 사유 (필수) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  수정 사유 <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={editForm.correction_reason}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, correction_reason: e.target.value }))}
+                  placeholder="수정 사유를 입력해주세요 (직원에게 알림이 발송됩니다)"
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                />
+              </div>
+
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <p className="text-xs text-blue-700">
+                  <strong>알림:</strong> 수정 시 근무시간이 자동으로 재계산되며, 해당 직원에게 수정 알림이 발송됩니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={closeEditModal}
+                className="flex-1 py-2.5 px-4 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={saving}
+                className="flex-1 py-2.5 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {saving ? '저장 중...' : '저장'}
+              </button>
+            </div>
           </div>
         </div>
       )}
