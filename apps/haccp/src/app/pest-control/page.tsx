@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Calendar, Bug, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 interface PestControlCheck {
   id: string;

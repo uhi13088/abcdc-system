@@ -363,7 +363,7 @@ export default function SchedulesPage() {
 
           <div className="space-y-4">
             <div>
-              <Label>날짜</Label>
+              <Label required>날짜</Label>
               <Input
                 type="date"
                 value={selectedDate}
@@ -400,7 +400,7 @@ export default function SchedulesPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>시작 시간</Label>
+                <Label required>시작 시간</Label>
                 <Input
                   type="time"
                   value={newSchedule.startTime}
@@ -411,7 +411,7 @@ export default function SchedulesPage() {
                 />
               </div>
               <div>
-                <Label>종료 시간</Label>
+                <Label required>종료 시간</Label>
                 <Input
                   type="time"
                   value={newSchedule.endTime}

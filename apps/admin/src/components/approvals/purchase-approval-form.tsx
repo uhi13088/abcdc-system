@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { Label } from '@/components/ui/label';
 
 interface PurchaseItem {
   name: string;
@@ -109,9 +110,7 @@ export function PurchaseApprovalForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* 분류 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          분류 <span className="text-red-500">*</span>
-        </label>
+        <Label required className="block text-gray-700 mb-2">분류</Label>
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
@@ -126,9 +125,7 @@ export function PurchaseApprovalForm({
 
       {/* 품목 목록 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          품목 <span className="text-red-500">*</span>
-        </label>
+        <Label required className="block text-gray-700 mb-2">품목</Label>
         <div className="space-y-3">
           {items.map((item, index) => (
             <div key={index} className="flex gap-2 items-start">
@@ -205,9 +202,7 @@ export function PurchaseApprovalForm({
 
       {/* 구매 목적 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          구매 목적 <span className="text-red-500">*</span>
-        </label>
+        <Label required className="block text-gray-700 mb-2">구매 목적</Label>
         <textarea
           value={purpose}
           onChange={(e) => setPurpose(e.target.value)}
@@ -220,9 +215,7 @@ export function PurchaseApprovalForm({
 
       {/* 긴급도 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          긴급도 <span className="text-red-500">*</span>
-        </label>
+        <Label required className="block text-gray-700 mb-2">긴급도</Label>
         <div className="grid grid-cols-3 gap-3">
           {URGENCY_OPTIONS.map(option => (
             <label

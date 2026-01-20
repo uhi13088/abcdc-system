@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Calendar, Factory, Clock, Users, Package } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 interface ProductionRecord {
   id: string;
@@ -291,7 +292,7 @@ export default function ProductionPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">LOT 번호</label>
+                  <Label required>LOT 번호</Label>
                   <input
                     type="text"
                     value={formData.lot_number}
@@ -301,7 +302,7 @@ export default function ProductionPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">생산라인</label>
+                  <Label>생산라인</Label>
                   <input
                     type="text"
                     value={formData.line_number}
@@ -312,7 +313,7 @@ export default function ProductionPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">제품</label>
+                <Label required>제품</Label>
                 <select
                   value={formData.product_id}
                   onChange={(e) => setFormData({ ...formData, product_id: e.target.value })}
@@ -328,7 +329,7 @@ export default function ProductionPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">시작 시간</label>
+                  <Label>시작 시간</Label>
                   <input
                     type="time"
                     value={formData.start_time}
@@ -337,7 +338,7 @@ export default function ProductionPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">종료 시간</label>
+                  <Label>종료 시간</Label>
                   <input
                     type="time"
                     value={formData.end_time}
@@ -349,7 +350,7 @@ export default function ProductionPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">계획 수량</label>
+                  <Label>계획 수량</Label>
                   <input
                     type="number"
                     value={formData.planned_quantity}
@@ -358,7 +359,7 @@ export default function ProductionPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">실적 수량</label>
+                  <Label>실적 수량</Label>
                   <input
                     type="number"
                     value={formData.actual_quantity}
@@ -370,7 +371,7 @@ export default function ProductionPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">불량 수량</label>
+                  <Label>불량 수량</Label>
                   <input
                     type="number"
                     value={formData.defect_quantity}
@@ -379,7 +380,7 @@ export default function ProductionPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">단위</label>
+                  <Label>단위</Label>
                   <select
                     value={formData.unit}
                     onChange={(e) => setFormData({ ...formData, unit: e.target.value })}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Search, Package, ArrowUpCircle, ArrowDownCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 interface MaterialStock {
   id: string;
@@ -366,7 +367,7 @@ export default function InventoryPage() {
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">원부재료</label>
+                <Label required>원부재료</Label>
                 <select
                   value={formData.material_id}
                   onChange={(e) => {
@@ -389,7 +390,7 @@ export default function InventoryPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">LOT 번호</label>
+                  <Label required>LOT 번호</Label>
                   <input
                     type="text"
                     value={formData.lot_number}
@@ -399,7 +400,7 @@ export default function InventoryPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">수량</label>
+                  <Label required>수량</Label>
                   <div className="flex gap-2">
                     <input
                       type="number"
@@ -419,7 +420,7 @@ export default function InventoryPage() {
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">유통기한</label>
+                      <Label>유통기한</Label>
                       <input
                         type="date"
                         value={formData.expiry_date}
@@ -428,7 +429,7 @@ export default function InventoryPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">보관위치</label>
+                      <Label>보관위치</Label>
                       <input
                         type="text"
                         value={formData.location}
@@ -443,7 +444,7 @@ export default function InventoryPage() {
 
               {modalType === 'OUT' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">생산 LOT</label>
+                  <Label>생산 LOT</Label>
                   <input
                     type="text"
                     value={formData.production_lot}
@@ -455,7 +456,7 @@ export default function InventoryPage() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">비고</label>
+                <Label>비고</Label>
                 <input
                   type="text"
                   value={formData.notes}

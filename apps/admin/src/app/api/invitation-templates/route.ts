@@ -17,7 +17,7 @@ const CreateTemplateSchema = z.object({
   useStoreHours: z.boolean().optional().default(false), // 매장 운영시간 사용
   role: z.string().default('staff'),
   position: z.string().optional(),
-  contractType: z.enum(['정규직', '계약직', '아르바이트', '인턴']).optional(),
+  contractType: z.enum(['정규직', '계약직', '아르바이트', '인턴']).nullable().optional(),
   salaryType: z.enum(['hourly', 'daily', 'monthly']).default('hourly'),
   salaryAmount: z.number().min(0, '급여는 0 이상이어야 합니다'),
   workDays: z.array(z.number().min(0).max(6)).default([1, 2, 3, 4, 5]),

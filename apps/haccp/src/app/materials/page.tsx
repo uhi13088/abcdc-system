@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Search, Package, Edit, Trash2, X } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 interface Material {
   id: string;
@@ -218,7 +219,7 @@ export default function MaterialsPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">코드</label>
+                  <Label required>코드</Label>
                   <input
                     type="text"
                     value={formData.code}
@@ -228,7 +229,7 @@ export default function MaterialsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">원부재료명</label>
+                  <Label required>원부재료명</Label>
                   <input
                     type="text"
                     value={formData.name}
@@ -240,7 +241,7 @@ export default function MaterialsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">구분</label>
+                  <Label>구분</Label>
                   <select
                     value={formData.type}
                     onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
@@ -252,7 +253,7 @@ export default function MaterialsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">공급업체</label>
+                  <Label>공급업체</Label>
                   <select
                     value={formData.supplier_id}
                     onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
@@ -266,7 +267,7 @@ export default function MaterialsPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">규격</label>
+                <Label>규격</Label>
                 <input
                   type="text"
                   value={formData.specification}
@@ -276,7 +277,7 @@ export default function MaterialsPage() {
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">보관온도</label>
+                  <Label>보관온도</Label>
                   <input
                     type="text"
                     value={formData.storage_temp}
@@ -286,7 +287,7 @@ export default function MaterialsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">유통기한 (일)</label>
+                  <Label>유통기한 (일)</Label>
                   <input
                     type="number"
                     value={formData.shelf_life}
@@ -295,7 +296,7 @@ export default function MaterialsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">단위</label>
+                  <Label>단위</Label>
                   <select
                     value={formData.unit}
                     onChange={(e) => setFormData({ ...formData, unit: e.target.value })}

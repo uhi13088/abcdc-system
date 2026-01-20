@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, UserPlus, MoreVertical, Shield, Building2, Edit, Trash2, X } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 interface User {
   id: string;
@@ -355,9 +356,7 @@ export default function UsersPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  이름 <span className="text-red-500">*</span>
-                </label>
+                <Label required>이름</Label>
                 <input
                   type="text"
                   required
@@ -367,9 +366,7 @@ export default function UsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  이메일 <span className="text-red-500">*</span>
-                </label>
+                <Label required>이메일</Label>
                 <input
                   type="email"
                   required

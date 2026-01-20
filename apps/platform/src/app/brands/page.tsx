@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Plus, Search, Layers, Building2, MapPin, Edit, Trash2, X } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 interface Brand {
   id: string;
@@ -273,9 +274,7 @@ function BrandsContent() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  브랜드명 <span className="text-red-500">*</span>
-                </label>
+                <Label required>브랜드명</Label>
                 <input
                   type="text"
                   required
@@ -285,9 +284,7 @@ function BrandsContent() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  회사 <span className="text-red-500">*</span>
-                </label>
+                <Label required>회사</Label>
                 <select
                   required
                   value={formData.company_id}

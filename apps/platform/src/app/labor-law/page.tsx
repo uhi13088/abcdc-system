@@ -5,6 +5,7 @@ import { Plus, Edit2, Trash2, CheckCircle, Clock, AlertCircle } from 'lucide-rea
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { DEFAULT_MINIMUM_WAGE, INSURANCE_RATES, ALLOWANCE_RATES } from '@abc/shared';
+import { Label } from '@/components/ui/label';
 
 interface LaborLawVersion {
   id: string;
@@ -421,9 +422,7 @@ export default function LaborLawPage() {
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    버전 <span className="text-red-500">*</span>
-                  </label>
+                  <Label required>버전</Label>
                   <input
                     type="text"
                     value={formData.version}
@@ -434,9 +433,7 @@ export default function LaborLawPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    시행일 <span className="text-red-500">*</span>
-                  </label>
+                  <Label required>시행일</Label>
                   <input
                     type="date"
                     value={formData.effectiveDate}
@@ -448,9 +445,7 @@ export default function LaborLawPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  최저시급 (원) <span className="text-red-500">*</span>
-                </label>
+                <Label required>최저시급 (원)</Label>
                 <input
                   type="number"
                   value={formData.minimumWageHourly}

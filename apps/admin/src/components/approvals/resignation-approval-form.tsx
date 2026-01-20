@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Check, AlertTriangle } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 interface ResignationApprovalFormProps {
   staffId?: string;
@@ -138,9 +139,7 @@ export function ResignationApprovalForm({
 
       {/* 퇴사 유형 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          퇴사 유형 <span className="text-red-500">*</span>
-        </label>
+        <Label required className="block text-gray-700 mb-2">퇴사 유형</Label>
         <div className="grid grid-cols-2 gap-3">
           {RESIGNATION_TYPES.map(type => (
             <label
@@ -170,9 +169,7 @@ export function ResignationApprovalForm({
 
       {/* 최종 근무일 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          최종 근무일 <span className="text-red-500">*</span>
-        </label>
+        <Label required className="block text-gray-700 mb-2">최종 근무일</Label>
         <input
           type="date"
           value={resignationDate}
@@ -190,9 +187,7 @@ export function ResignationApprovalForm({
 
       {/* 퇴사 사유 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          퇴사 사유 <span className="text-red-500">*</span>
-        </label>
+        <Label required className="block text-gray-700 mb-2">퇴사 사유</Label>
         <select
           value={reason}
           onChange={(e) => setReason(e.target.value)}

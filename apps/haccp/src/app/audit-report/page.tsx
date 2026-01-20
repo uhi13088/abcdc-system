@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { FileText, Download, Calendar, CheckCircle, AlertCircle, Clock, Plus } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 interface AuditReport {
   id: string;

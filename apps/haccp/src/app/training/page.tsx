@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Users, Calendar, Award, BookOpen, CheckCircle, Clock } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 interface TrainingRecord {
   id: string;
@@ -292,7 +293,7 @@ export default function TrainingPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">교육 유형</label>
+                  <Label>교육 유형</Label>
                   <select
                     value={formData.training_type}
                     onChange={(e) => setFormData({ ...formData, training_type: e.target.value as any })}
@@ -307,7 +308,7 @@ export default function TrainingPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">교육일</label>
+                  <Label required>교육일</Label>
                   <input
                     type="date"
                     value={formData.training_date}
@@ -319,7 +320,7 @@ export default function TrainingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">교육명</label>
+                <Label required>교육명</Label>
                 <input
                   type="text"
                   value={formData.title}
@@ -332,7 +333,7 @@ export default function TrainingPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">강사</label>
+                  <Label required>강사</Label>
                   <input
                     type="text"
                     value={formData.instructor}
@@ -342,7 +343,7 @@ export default function TrainingPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">교육시간 (시간)</label>
+                  <Label required>교육시간 (시간)</Label>
                   <input
                     type="number"
                     min="0.5"
@@ -356,7 +357,7 @@ export default function TrainingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">교육자료</label>
+                <Label>교육자료</Label>
                 <input
                   type="text"
                   value={formData.materials}
@@ -366,7 +367,7 @@ export default function TrainingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">비고</label>
+                <Label>비고</Label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
