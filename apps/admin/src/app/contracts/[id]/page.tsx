@@ -42,6 +42,9 @@ interface ContractDetail {
   standard_hours_per_week: number;
   standard_hours_per_day: number;
   annual_leave_days: number;
+  terms: {
+    specialTerms?: string;
+  } | null;
   status: string;
   employee_signature: string | null;
   employee_signed_at: string | null;
@@ -430,6 +433,16 @@ export default function ContractDetailPage() {
                     <li key={idx} className="text-sm">{duty}</li>
                   ))}
                 </ul>
+              </section>
+            )}
+
+            {/* Special Terms */}
+            {contract.terms?.specialTerms && (
+              <section>
+                <h3 className="font-semibold mb-4 pb-2 border-b">특약사항</h3>
+                <div className="p-4 bg-gray-50 rounded-lg whitespace-pre-wrap text-sm">
+                  {contract.terms.specialTerms}
+                </div>
               </section>
             )}
 
