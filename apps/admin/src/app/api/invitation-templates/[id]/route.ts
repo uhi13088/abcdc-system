@@ -114,33 +114,51 @@ export async function PATCH(
       );
     }
 
-    // 업데이트할 데이터 구성
-    const updateData: Record<string, unknown> = {};
-    if (validation.data.name !== undefined) updateData.name = validation.data.name;
-    if (validation.data.description !== undefined) updateData.description = validation.data.description;
+    // 업데이트할 데이터 구성 (기본 필드)
+    const baseUpdateData: Record<string, unknown> = {};
+    if (validation.data.name !== undefined) baseUpdateData.name = validation.data.name;
+    if (validation.data.description !== undefined) baseUpdateData.description = validation.data.description;
+    if (validation.data.role !== undefined) baseUpdateData.role = validation.data.role;
+    if (validation.data.position !== undefined) baseUpdateData.position = validation.data.position;
+    if (validation.data.contractType !== undefined) baseUpdateData.contract_type = validation.data.contractType;
+    if (validation.data.salaryType !== undefined) baseUpdateData.salary_type = validation.data.salaryType;
+    if (validation.data.salaryAmount !== undefined) baseUpdateData.salary_amount = validation.data.salaryAmount;
+    if (validation.data.workDays !== undefined) baseUpdateData.work_days = validation.data.workDays;
+    if (validation.data.workStartTime !== undefined) baseUpdateData.work_start_time = validation.data.workStartTime;
+    if (validation.data.workEndTime !== undefined) baseUpdateData.work_end_time = validation.data.workEndTime;
+    if (validation.data.breakMinutes !== undefined) baseUpdateData.break_minutes = validation.data.breakMinutes;
+    if (validation.data.workSchedule !== undefined) baseUpdateData.work_schedule = validation.data.workSchedule;
+    if (validation.data.requiredDocuments !== undefined) baseUpdateData.required_documents = validation.data.requiredDocuments;
+    if (validation.data.customFields !== undefined) baseUpdateData.custom_fields = validation.data.customFields;
+    if (validation.data.isActive !== undefined) baseUpdateData.is_active = validation.data.isActive;
+
+    // store 관련 필드 추가 (마이그레이션 후에만 작동)
+    const updateData = { ...baseUpdateData };
     if (validation.data.storeId !== undefined) updateData.store_id = validation.data.storeId;
     if (validation.data.useStoreHours !== undefined) updateData.use_store_hours = validation.data.useStoreHours;
-    if (validation.data.role !== undefined) updateData.role = validation.data.role;
-    if (validation.data.position !== undefined) updateData.position = validation.data.position;
-    if (validation.data.contractType !== undefined) updateData.contract_type = validation.data.contractType;
-    if (validation.data.salaryType !== undefined) updateData.salary_type = validation.data.salaryType;
-    if (validation.data.salaryAmount !== undefined) updateData.salary_amount = validation.data.salaryAmount;
-    if (validation.data.workDays !== undefined) updateData.work_days = validation.data.workDays;
-    if (validation.data.workStartTime !== undefined) updateData.work_start_time = validation.data.workStartTime;
-    if (validation.data.workEndTime !== undefined) updateData.work_end_time = validation.data.workEndTime;
-    if (validation.data.breakMinutes !== undefined) updateData.break_minutes = validation.data.breakMinutes;
-    if (validation.data.workSchedule !== undefined) updateData.work_schedule = validation.data.workSchedule;
-    if (validation.data.requiredDocuments !== undefined) updateData.required_documents = validation.data.requiredDocuments;
-    if (validation.data.customFields !== undefined) updateData.custom_fields = validation.data.customFields;
-    if (validation.data.isActive !== undefined) updateData.is_active = validation.data.isActive;
 
-    const { data, error } = await adminClient
+    let { data, error } = await adminClient
       .from('invitation_templates')
       .update(updateData)
       .eq('id', params.id)
       .eq('company_id', userData.company_id)
       .select()
       .single();
+
+    // store 관련 컬럼 오류 시 폴백
+    if (error && (error.message.includes('store_id') || error.message.includes('use_store_hours'))) {
+      console.warn('[PATCH /api/invitation-templates/:id] store columns not found, using fallback update');
+      const fallbackResult = await adminClient
+        .from('invitation_templates')
+        .update(baseUpdateData)
+        .eq('id', params.id)
+        .eq('company_id', userData.company_id)
+        .select()
+        .single();
+
+      data = fallbackResult.data;
+      error = fallbackResult.error;
+    }
 
     if (error) {
       console.error('[PATCH /api/invitation-templates/:id] Update error:', error);

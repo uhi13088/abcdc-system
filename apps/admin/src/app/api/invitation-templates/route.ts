@@ -60,12 +60,27 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: [] });
     }
 
-    const { data: templates, error } = await adminClient
+    // 먼저 stores 조인 포함해서 시도
+    let { data: templates, error } = await adminClient
       .from('invitation_templates')
       .select('*, stores(id, name, opening_time, closing_time)')
       .eq('company_id', userData.company_id)
       .eq('is_active', true)
       .order('created_at', { ascending: false });
+
+    // store_id 컬럼이 없는 경우 (마이그레이션 전) 기본 쿼리로 폴백
+    if (error && error.message.includes('store_id')) {
+      console.warn('[GET /api/invitation-templates] store_id column not found, using fallback query');
+      const fallbackResult = await adminClient
+        .from('invitation_templates')
+        .select('*')
+        .eq('company_id', userData.company_id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      templates = fallbackResult.data;
+      error = fallbackResult.error;
+    }
 
     if (error) {
       console.error('[GET /api/invitation-templates] Query error:', error);
@@ -119,29 +134,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data, error } = await adminClient
+    // 기본 insert 데이터 (store_id 컬럼 없을 수 있음)
+    const baseInsertData = {
+      company_id: userData.company_id,
+      name: validation.data.name,
+      description: validation.data.description || null,
+      role: validation.data.role,
+      position: validation.data.position || null,
+      contract_type: validation.data.contractType || null,
+      salary_type: validation.data.salaryType,
+      salary_amount: validation.data.salaryAmount,
+      work_days: validation.data.workDays,
+      work_start_time: validation.data.workStartTime || '09:00',
+      work_end_time: validation.data.workEndTime || '18:00',
+      break_minutes: validation.data.breakMinutes,
+      work_schedule: validation.data.workSchedule || null,
+      required_documents: validation.data.requiredDocuments,
+      custom_fields: validation.data.customFields,
+    };
+
+    // store_id와 use_store_hours 추가 (마이그레이션 후에만 작동)
+    const insertData = {
+      ...baseInsertData,
+      store_id: validation.data.storeId || null,
+      use_store_hours: validation.data.useStoreHours || false,
+    };
+
+    let { data, error } = await adminClient
       .from('invitation_templates')
-      .insert({
-        company_id: userData.company_id,
-        store_id: validation.data.storeId || null,
-        use_store_hours: validation.data.useStoreHours || false,
-        name: validation.data.name,
-        description: validation.data.description || null,
-        role: validation.data.role,
-        position: validation.data.position || null,
-        contract_type: validation.data.contractType || null,
-        salary_type: validation.data.salaryType,
-        salary_amount: validation.data.salaryAmount,
-        work_days: validation.data.workDays,
-        work_start_time: validation.data.workStartTime || '09:00',
-        work_end_time: validation.data.workEndTime || '18:00',
-        break_minutes: validation.data.breakMinutes,
-        work_schedule: validation.data.workSchedule || null,
-        required_documents: validation.data.requiredDocuments,
-        custom_fields: validation.data.customFields,
-      })
+      .insert(insertData)
       .select('*, stores(id, name, opening_time, closing_time)')
       .single();
+
+    // store_id 컬럼 오류 시 폴백
+    if (error && (error.message.includes('store_id') || error.message.includes('use_store_hours'))) {
+      console.warn('[POST /api/invitation-templates] store columns not found, using fallback insert');
+      const fallbackResult = await adminClient
+        .from('invitation_templates')
+        .insert(baseInsertData)
+        .select('*')
+        .single();
+
+      data = fallbackResult.data;
+      error = fallbackResult.error;
+    }
 
     if (error) {
       console.error('[POST /api/invitation-templates] Insert error:', error);
