@@ -48,7 +48,7 @@ class OfflineQueueService {
 
     // Try to sync immediately if online
     if (this.isOnline) {
-      this.sync();
+      void this.sync();
     }
   }
 
@@ -164,7 +164,7 @@ class OfflineQueueService {
   private handleOnline(): void {
     this.isOnline = true;
     console.log('Back online, syncing offline queue...');
-    this.sync();
+    void this.sync();
   }
 
   /**

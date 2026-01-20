@@ -69,7 +69,7 @@ export function OfflineProvider({ children }: OfflineProviderProps) {
       // Service Worker 메시지 수신
       navigator.serviceWorker.addEventListener('message', (event) => {
         if (event.data.type === 'SYNC_REQUESTED') {
-          offlineSync.sync();
+          void offlineSync.sync();
         }
       });
     }
