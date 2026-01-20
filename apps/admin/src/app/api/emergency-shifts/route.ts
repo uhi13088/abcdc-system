@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
         hourly_rate,
         bonus: bonus || 0,
         benefits: benefits || [],
-        deadline,
+        deadline: deadline || null, // Convert empty string to null for timestamp field
         status: 'OPEN',
         applicants: [],
         created_by: userProfile.id,
