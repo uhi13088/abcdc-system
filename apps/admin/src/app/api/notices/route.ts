@@ -60,6 +60,8 @@ export async function GET(request: NextRequest) {
       ...notice,
       author_name: notice.users?.name,
       store_name: notice.stores?.name,
+      // is_important를 category로 매핑 (프론트엔드 호환성)
+      category: notice.is_important ? 'URGENT' : 'GENERAL',
     })) || [];
 
     return NextResponse.json(notices);
@@ -78,6 +80,7 @@ export async function POST(request: NextRequest) {
     const {
       title,
       content,
+      category, // GENERAL, URGENT, EVENT, UPDATE - URGENT면 is_important로 매핑
       is_important = false,
       is_pinned = false,
       target_roles,
@@ -87,6 +90,9 @@ export async function POST(request: NextRequest) {
       brand_id,
       store_id,
     } = body;
+
+    // category가 URGENT면 is_important를 true로 설정
+    const finalIsImportant = category === 'URGENT' || is_important;
 
     // Get user info
     const { data: userData } = await supabase.auth.getUser();
@@ -116,7 +122,7 @@ export async function POST(request: NextRequest) {
       .insert({
         title,
         content,
-        is_important,
+        is_important: finalIsImportant,
         is_pinned,
         target_roles: target_roles || null,
         attachments: attachments || null,
