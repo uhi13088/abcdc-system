@@ -52,6 +52,8 @@ interface Template {
   id: string;
   name: string;
   description: string | null;
+  store_id: string | null;
+  stores: { id: string; name: string } | null;
   salary_type: string;
   salary_amount: number;
   work_days: number[];
@@ -280,6 +282,13 @@ export default function InviteEmployeePage() {
     return days.map((d) => dayLabels[d]).join(', ');
   };
 
+  // 선택된 매장에 해당하는 템플릿 + 공통 템플릿만 필터링
+  const filteredTemplates = templates.filter((template) => {
+    if (!formData.storeId) return true; // 매장 미선택 시 전체 표시
+    // 해당 매장 템플릿 또는 공통 템플릿
+    return template.store_id === formData.storeId || !template.store_id;
+  });
+
   if (loading) {
     return (
       <div>
@@ -424,7 +433,7 @@ export default function InviteEmployeePage() {
               <Label required>매장</Label>
               <Select
                 value={formData.storeId}
-                onChange={(e) => setFormData({ ...formData, storeId: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, storeId: e.target.value, templateId: '' })}
                 options={[
                   { value: '', label: '매장을 선택하세요' },
                   ...stores.map((s) => ({ value: s.id, label: s.name })),
@@ -452,13 +461,17 @@ export default function InviteEmployeePage() {
                 템플릿 관리
               </Button>
             </div>
-            {templates.length === 0 ? (
+            {!formData.storeId ? (
               <div className="bg-gray-50 rounded-lg p-4 text-center">
-                <p className="text-gray-500 text-sm">등록된 템플릿이 없습니다. 템플릿을 먼저 만들어주세요.</p>
+                <p className="text-gray-500 text-sm">먼저 매장을 선택해주세요.</p>
+              </div>
+            ) : filteredTemplates.length === 0 ? (
+              <div className="bg-gray-50 rounded-lg p-4 text-center">
+                <p className="text-gray-500 text-sm">해당 매장의 템플릿이 없습니다. 템플릿을 먼저 만들어주세요.</p>
               </div>
             ) : (
               <div className="space-y-2">
-                {templates.map((template) => (
+                {filteredTemplates.map((template) => (
                   <label
                     key={template.id}
                     className={`block p-4 border rounded-lg cursor-pointer transition-colors ${
@@ -477,7 +490,12 @@ export default function InviteEmployeePage() {
                         className="mt-1"
                       />
                       <div className="flex-1">
-                        <div className="font-medium">{template.name}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{template.name}</span>
+                          {!template.store_id && (
+                            <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">공통</span>
+                          )}
+                        </div>
                         {template.description && (
                           <div className="text-sm text-gray-500">{template.description}</div>
                         )}
