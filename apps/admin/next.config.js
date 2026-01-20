@@ -6,6 +6,12 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '2mb',
     },
+    outputFileTracingIncludes: {
+      '/api/**/*': [
+        './node_modules/pdfkit/js/data/**/*',
+        './public/fonts/**/*',
+      ],
+    },
   },
   images: {
     remotePatterns: [
