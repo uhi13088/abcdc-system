@@ -14,6 +14,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Get current user info for company filtering
+    const { data: currentUser } = await adminClient
+      .from('users')
+      .select('id, role, company_id')
+      .eq('auth_id', user.id)
+      .single();
+
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get('userId');
     const period = searchParams.get('period');
@@ -27,6 +34,11 @@ export async function GET(request: NextRequest) {
         evaluators:evaluator_id (id, name, email)
       `)
       .order('created_at', { ascending: false });
+
+    // Filter by company for non-super_admin
+    if (currentUser?.role !== 'super_admin' && currentUser?.company_id) {
+      query = query.eq('company_id', currentUser.company_id);
+    }
 
     if (userId) {
       query = query.eq('user_id', userId);
@@ -93,7 +105,7 @@ export async function POST(request: NextRequest) {
     // Get current user info using auth_id
     const { data: userData } = await adminClient
       .from('users')
-      .select('id, role')
+      .select('id, role, company_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -134,6 +146,7 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id,
         evaluator_id: userData.id,
+        company_id: userData.company_id,
         evaluation_period_start: periodStart.toISOString().split('T')[0],
         evaluation_period_end: periodEnd.toISOString().split('T')[0],
         overall_score: overallScore.toFixed(1),
