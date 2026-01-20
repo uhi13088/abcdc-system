@@ -1,6 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { CreateStoreSchema } from '@abc/shared';
+import { CreateStoreSchema, logger } from '@abc/shared';
 
 // GET /api/stores - 매장 목록 조회
 export async function GET(request: NextRequest) {
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!userData) {
-      console.log('[GET /api/stores] No user data found for auth_id:', user.id);
+      logger.log('[GET /api/stores] No user data found for auth_id:', user.id);
       return NextResponse.json([]);
     }
 
@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log('[POST /api/stores] Store created successfully:', data.id);
+    logger.log('[POST /api/stores] Store created successfully:', data.id);
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
     console.error('[POST /api/stores] Catch error:', error);

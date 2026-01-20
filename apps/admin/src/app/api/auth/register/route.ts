@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import crypto from 'crypto';
+import { logger } from '@abc/shared';
 
 // 비밀번호 유효성 검사: 8자 이상, 특수문자 포함
 function validatePassword(password: string): { valid: boolean; message: string } {
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
       }
     } catch {
       // ssn_hash 컬럼이 없거나 에러 발생 시 무시 (첫 사용자일 수 있음)
-      console.log('SSN hash check skipped (column may not exist yet)');
+      logger.log('SSN hash check skipped (column may not exist yet)');
     }
 
     // 1. Create auth user
@@ -240,7 +241,7 @@ export async function POST(request: NextRequest) {
 
     if (result1.error && result1.error.message.includes('ssn_hash')) {
       // ssn_hash 컬럼이 없으면 제외하고 재시도
-      console.log('Retrying without ssn_hash column');
+      logger.log('Retrying without ssn_hash column');
       const { ssn_hash, ...userDataWithoutHash } = userDataWithHash;
       const result2 = await supabase
         .from('users')

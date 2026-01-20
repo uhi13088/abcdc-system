@@ -4,6 +4,7 @@
  */
 
 import * as admin from 'firebase-admin';
+import { logger } from '../utils/logger';
 
 export interface PushNotification {
   title: string;
@@ -108,7 +109,7 @@ export class PushNotificationService {
       const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
 
       if (!serviceAccountJson) {
-        console.warn('FIREBASE_SERVICE_ACCOUNT is not set. Push notifications will be disabled.');
+        logger.log('FIREBASE_SERVICE_ACCOUNT is not set. Push notifications will be disabled.');
         return;
       }
 
@@ -123,7 +124,7 @@ export class PushNotificationService {
 
       this.messaging = admin.messaging();
       this.initialized = true;
-      console.log('Firebase initialized successfully');
+      logger.log('Firebase initialized successfully');
     } catch (error) {
       console.error('Failed to initialize Firebase:', error);
     }
@@ -140,7 +141,7 @@ export class PushNotificationService {
   ): Promise<{ success: boolean; error?: string }> {
     // 이 메서드는 Supabase에 토큰을 저장하는 로직이 필요
     // 실제 구현 시 데이터베이스 연동 필요
-    console.log('Token registration:', { userId, platform, deviceId });
+    logger.log('Token registration:', { userId, platform, deviceId });
 
     return { success: true };
   }
@@ -153,7 +154,7 @@ export class PushNotificationService {
     fcmToken: string
   ): Promise<{ success: boolean; error?: string }> {
     // 토큰 삭제 로직
-    console.log('Token unregistration:', { userId });
+    logger.log('Token unregistration:', { userId });
 
     return { success: true };
   }

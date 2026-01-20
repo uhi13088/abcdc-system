@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
-import { CreateContractSchema } from '@abc/shared';
+import { CreateContractSchema, logger } from '@abc/shared';
 import { addMonths, format } from 'date-fns';
 
 function getAdminClient() {
@@ -260,8 +260,8 @@ export async function POST(request: NextRequest) {
         }
 
         if (schedulesToInsert.length > 0) {
-          console.log(`Attempting to insert ${schedulesToInsert.length} schedules for contract ${data.id}`);
-          console.log('Sample schedule:', JSON.stringify(schedulesToInsert[0], null, 2));
+          logger.log(`Attempting to insert ${schedulesToInsert.length} schedules for contract ${data.id}`);
+          logger.log('Sample schedule:', JSON.stringify(schedulesToInsert[0], null, 2));
 
           // 기존 스케줄 중복 확인 및 upsert
           const { data: insertedSchedules, error: scheduleInsertError } = await adminClient
@@ -286,15 +286,15 @@ export async function POST(request: NextRequest) {
                 successCount++;
               }
             }
-            console.log(`Fallback: inserted ${successCount}/${schedulesToInsert.length} schedules`);
+            logger.log(`Fallback: inserted ${successCount}/${schedulesToInsert.length} schedules`);
           } else {
-            console.log(`Successfully generated ${insertedSchedules?.length || 0} schedules for contract ${data.id}`);
+            logger.log(`Successfully generated ${insertedSchedules?.length || 0} schedules for contract ${data.id}`);
           }
         } else {
-          console.log('No schedules to insert - workSchedules:', JSON.stringify(workSchedules, null, 2));
+          logger.log('No schedules to insert - workSchedules:', JSON.stringify(workSchedules, null, 2));
         }
       } else {
-        console.log('No workSchedules provided in contract data');
+        logger.log('No workSchedules provided in contract data');
       }
     } catch (scheduleError) {
       console.error('Schedule generation error:', scheduleError);

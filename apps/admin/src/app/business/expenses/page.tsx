@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Calendar, Receipt, Tag, Search, CheckCircle, AlertCircle } from 'lucide-react';
+import { Plus, Calendar, Receipt, CheckCircle } from 'lucide-react';
 
 interface ExpenseTransaction {
   id: string;

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@abc/shared';
 
 /**
  * Toss POS Integration API
@@ -159,7 +160,7 @@ export async function PUT(request: NextRequest) {
     // - Process incoming POS data
     // - Update daily_sales table
 
-    console.log('Toss POS webhook received:', body);
+    logger.log('Toss POS webhook received:', body);
 
     return NextResponse.json({
       success: true,

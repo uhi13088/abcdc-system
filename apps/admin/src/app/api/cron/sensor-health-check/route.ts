@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { logger } from '@abc/shared';
 
 function getSupabaseClient() {
   return createClient(
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getSupabaseClient();
-  console.log('[Cron] Starting sensor health check...');
+  logger.log('[Cron] Starting sensor health check...');
 
   try {
     const now = new Date();
@@ -160,7 +161,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    console.log('[Cron] Sensor health check completed:', results);
+    logger.log('[Cron] Sensor health check completed:', results);
 
     return NextResponse.json({
       success: true,

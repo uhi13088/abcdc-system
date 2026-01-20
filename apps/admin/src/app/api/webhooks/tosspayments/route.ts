@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { logger } from '@abc/shared';
 
 function getSupabaseClient() {
   return createClient(
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
   try {
     const payload: TossWebhookPayload = await request.json();
 
-    console.log('[Toss Webhook] Received:', payload.eventType);
+    logger.log('[Toss Webhook] Received:', payload.eventType);
 
     switch (payload.eventType) {
       case 'PAYMENT_STATUS_CHANGED':
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        console.log('[Toss Webhook] Unhandled event:', payload.eventType);
+        logger.log('[Toss Webhook] Unhandled event:', payload.eventType);
     }
 
     return NextResponse.json({ success: true });
@@ -78,7 +79,7 @@ async function handlePaymentStatusChanged(data: TossWebhookPayload['data']) {
     .update({ status, updated_at: new Date().toISOString() })
     .eq('payment_key', paymentKey);
 
-  console.log(`[Toss Webhook] Payment ${paymentKey} status changed to ${status}`);
+  logger.log(`[Toss Webhook] Payment ${paymentKey} status changed to ${status}`);
 }
 
 /**
@@ -136,7 +137,7 @@ async function handleVirtualAccountDeposit(data: TossWebhookPayload['data']) {
     }
   }
 
-  console.log(`[Toss Webhook] Virtual account deposit received for ${paymentKey}`);
+  logger.log(`[Toss Webhook] Virtual account deposit received for ${paymentKey}`);
 }
 
 /**
@@ -164,5 +165,5 @@ async function handlePaymentCanceled(data: TossWebhookPayload['data']) {
       .eq('id', subscriptionId);
   }
 
-  console.log(`[Toss Webhook] Payment ${paymentKey} canceled`);
+  logger.log(`[Toss Webhook] Payment ${paymentKey} canceled`);
 }

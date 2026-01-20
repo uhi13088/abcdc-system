@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { DEFAULT_MINIMUM_WAGE, ALLOWANCE_RATES, DAILY_WORK_HOURS } from '@abc/shared';
 
 // POST /api/attendances/[id]/checkout - 퇴근 기록
 export async function POST(
@@ -48,9 +49,9 @@ export async function POST(
       .single();
 
     // Calculate overtime (over 8 hours)
-    const breakHours = workHours >= 8 ? 1 : workHours >= 4 ? 0.5 : 0;
+    const breakHours = workHours >= DAILY_WORK_HOURS ? 1 : workHours >= 4 ? 0.5 : 0;
     const actualWorkHours = Math.max(0, workHours - breakHours);
-    const overtimeHours = Math.max(0, actualWorkHours - 8);
+    const overtimeHours = Math.max(0, actualWorkHours - DAILY_WORK_HOURS);
 
     // Calculate night hours (10pm - 6am)
     let nightHours = 0;
@@ -60,10 +61,10 @@ export async function POST(
     }
 
     // Calculate pay (simplified)
-    const hourlyRate = store?.default_hourly_rate || 9860; // 2024 minimum wage
-    const basePay = Math.min(actualWorkHours, 8) * hourlyRate;
-    const overtimePay = overtimeHours * hourlyRate * 1.5;
-    const nightPay = nightHours * hourlyRate * 0.5;
+    const hourlyRate = store?.default_hourly_rate || DEFAULT_MINIMUM_WAGE;
+    const basePay = Math.min(actualWorkHours, DAILY_WORK_HOURS) * hourlyRate;
+    const overtimePay = overtimeHours * hourlyRate * ALLOWANCE_RATES.overtime;
+    const nightPay = nightHours * hourlyRate * ALLOWANCE_RATES.night;
 
     // Check if early leave
     let status = attendance.status;

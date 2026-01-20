@@ -522,6 +522,12 @@ export default function InvitationTemplatesPage() {
                       <span className="flex items-center gap-1">
                         <span className="h-4 w-4 flex items-center justify-center font-medium">₩</span>
                         {formatSalary(template.salary_type, template.salary_amount)}
+                        {template.salary_type === 'hourly' && template.salary_amount > 0 && template.salary_amount < DEFAULT_MINIMUM_WAGE && (
+                          <span className="flex items-center gap-0.5 text-amber-600 ml-1">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                            <span className="text-xs">최저임금 미만</span>
+                          </span>
+                        )}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-4 w-4" />

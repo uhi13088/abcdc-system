@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { DEFAULT_MINIMUM_WAGE, ALLOWANCE_RATES, DAILY_WORK_HOURS } from '@abc/shared';
 
 export const dynamic = 'force-dynamic';
 
@@ -113,18 +114,18 @@ async function notifyManagers(
 function calculateWorkHoursAndPay(
   checkIn: Date,
   checkOut: Date,
-  hourlyRate: number = 9860
+  hourlyRate: number = DEFAULT_MINIMUM_WAGE
 ) {
   const diffMs = checkOut.getTime() - checkIn.getTime();
   const rawHours = diffMs / (1000 * 60 * 60);
 
   // 휴게시간 계산 (4시간 초과: 30분, 8시간 초과: 1시간)
-  const breakHours = rawHours >= 8 ? 1 : rawHours >= 4 ? 0.5 : 0;
+  const breakHours = rawHours >= DAILY_WORK_HOURS ? 1 : rawHours >= 4 ? 0.5 : 0;
   const workHours = Math.max(0, rawHours - breakHours);
 
   // 연장근무 계산 (8시간 초과분)
-  const overtimeHours = Math.max(0, workHours - 8);
-  const regularHours = Math.min(workHours, 8);
+  const overtimeHours = Math.max(0, workHours - DAILY_WORK_HOURS);
+  const regularHours = Math.min(workHours, DAILY_WORK_HOURS);
 
   // 야간근무 계산 (22시-06시)
   const checkOutHour = checkOut.getHours();
@@ -134,8 +135,8 @@ function calculateWorkHoursAndPay(
   }
 
   const basePay = Math.round(regularHours * hourlyRate);
-  const overtimePay = Math.round(overtimeHours * hourlyRate * 1.5);
-  const nightPay = Math.round(nightHours * hourlyRate * 0.5);
+  const overtimePay = Math.round(overtimeHours * hourlyRate * ALLOWANCE_RATES.overtime);
+  const nightPay = Math.round(nightHours * hourlyRate * ALLOWANCE_RATES.night);
 
   return {
     workHours: Math.round(workHours * 100) / 100,

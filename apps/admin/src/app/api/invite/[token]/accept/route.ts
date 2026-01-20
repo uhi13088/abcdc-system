@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { logger } from '@abc/shared';
 
 // 가입 데이터 스키마 - 필수 필드 명확히 지정
 const AcceptInvitationSchema = z.object({
@@ -174,7 +175,7 @@ export async function POST(
         });
     } catch (e) {
       // profiles 테이블이 없거나 ssn_last 컬럼이 없을 수 있음 - 무시
-      console.log('[POST /api/invite/:token/accept] Profile upsert skipped:', e);
+      logger.log('[POST /api/invite/:token/accept] Profile upsert skipped:', e);
     }
 
     // 초대 상태 업데이트

@@ -4,7 +4,7 @@
  */
 
 // 2025년 기준 최저시급 (매년 업데이트 필요)
-export const DEFAULT_MINIMUM_WAGE = 9860;
+export const DEFAULT_MINIMUM_WAGE = 10030;
 
 // 4대보험 요율 (2025년 기준)
 export const INSURANCE_RATES = {
@@ -20,6 +20,15 @@ export const ALLOWANCE_RATES = {
   night: 0.5,       // 야간근로 50% 가산
   holiday: 1.5,     // 휴일근로 150%
 };
+
+// 월 소정근로시간 (주 40시간 기준)
+export const MONTHLY_WORK_HOURS = 209;
+
+// 1일 법정근로시간
+export const DAILY_WORK_HOURS = 8;
+
+// 주 법정근로시간
+export const WEEKLY_WORK_HOURS = 40;
 
 /**
  * 시급으로 일급 계산

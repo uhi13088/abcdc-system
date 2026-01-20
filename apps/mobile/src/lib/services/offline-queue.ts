@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { logger } from '@abc/shared';
 
 export interface OfflineAction {
   id: string;
@@ -48,7 +49,7 @@ class OfflineQueueService {
 
     // Try to sync immediately if online
     if (this.isOnline) {
-      this.sync();
+      void this.sync();
     }
   }
 
@@ -163,8 +164,8 @@ class OfflineQueueService {
    */
   private handleOnline(): void {
     this.isOnline = true;
-    console.log('Back online, syncing offline queue...');
-    this.sync();
+    logger.log('Back online, syncing offline queue...');
+    void this.sync();
   }
 
   /**
@@ -172,7 +173,7 @@ class OfflineQueueService {
    */
   private handleOffline(): void {
     this.isOnline = false;
-    console.log('Gone offline, queuing actions...');
+    logger.log('Gone offline, queuing actions...');
   }
 
   /**

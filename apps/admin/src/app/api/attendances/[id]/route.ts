@@ -5,6 +5,7 @@
 
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { DEFAULT_MINIMUM_WAGE, ALLOWANCE_RATES, DAILY_WORK_HOURS } from '@abc/shared';
 
 // 출퇴근 기록 상세 조회
 export async function GET(
@@ -139,21 +140,21 @@ export async function PATCH(
       const diffMs = checkOut.getTime() - checkIn.getTime();
       const rawHours = diffMs / (1000 * 60 * 60);
 
-      const breakHours = rawHours >= 8 ? 1 : rawHours >= 4 ? 0.5 : 0;
+      const breakHours = rawHours >= DAILY_WORK_HOURS ? 1 : rawHours >= 4 ? 0.5 : 0;
       workHours = Math.max(0, rawHours - breakHours);
 
-      const overtimeHours = Math.max(0, workHours - 8);
-      const hourlyRate = 9860;
+      const overtimeHours = Math.max(0, workHours - DAILY_WORK_HOURS);
+      const hourlyRate = DEFAULT_MINIMUM_WAGE;
 
-      basePay = Math.min(workHours, 8) * hourlyRate;
-      overtimePay = overtimeHours * hourlyRate * 1.5;
+      basePay = Math.min(workHours, DAILY_WORK_HOURS) * hourlyRate;
+      overtimePay = overtimeHours * hourlyRate * ALLOWANCE_RATES.overtime;
 
       const checkOutHour = checkOut.getHours();
       let nightHours = 0;
       if (checkOutHour >= 22 || checkOutHour < 6) {
         nightHours = Math.min(overtimeHours, 2);
       }
-      nightPay = nightHours * hourlyRate * 0.5;
+      nightPay = nightHours * hourlyRate * ALLOWANCE_RATES.night;
     }
 
     // Build update object

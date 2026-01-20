@@ -4,6 +4,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { DEFAULT_MINIMUM_WAGE, INSURANCE_RATES, ALLOWANCE_RATES, MONTHLY_WORK_HOURS } from '@abc/shared';
 
 // Types
 export interface LaborLawVersion {
@@ -178,16 +179,16 @@ export class SalaryCalculationService {
       // 기본값 반환 (2026년 기준)
       return {
         id: 'default',
-        version: '2026.01',
-        effectiveDate: new Date('2026-01-01'),
-        minimumWageHourly: 10030,
-        overtimeRate: 1.5,
-        nightRate: 0.5,
-        holidayRate: 1.5,
-        nationalPensionRate: 0.045,
-        healthInsuranceRate: 0.03545,
-        longTermCareRate: 0.1281,
-        employmentInsuranceRate: 0.009,
+        version: '2025.01',
+        effectiveDate: new Date('2025-01-01'),
+        minimumWageHourly: DEFAULT_MINIMUM_WAGE,
+        overtimeRate: ALLOWANCE_RATES.overtime,
+        nightRate: ALLOWANCE_RATES.night,
+        holidayRate: ALLOWANCE_RATES.holiday,
+        nationalPensionRate: INSURANCE_RATES.nationalPension,
+        healthInsuranceRate: INSURANCE_RATES.healthInsurance,
+        longTermCareRate: INSURANCE_RATES.longTermCare,
+        employmentInsuranceRate: INSURANCE_RATES.employmentInsurance,
         status: 'ACTIVE',
       };
     }
@@ -224,7 +225,7 @@ export class SalaryCalculationService {
         return baseSalaryAmount / contract.standardHoursPerDay;
       case 'MONTHLY':
         // 월급의 경우 (209시간 기준: 주 40시간 x 4.345주)
-        return baseSalaryAmount / 209;
+        return baseSalaryAmount / MONTHLY_WORK_HOURS;
       default:
         return baseSalaryAmount;
     }

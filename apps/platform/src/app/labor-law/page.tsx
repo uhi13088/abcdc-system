@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import { DEFAULT_MINIMUM_WAGE, INSURANCE_RATES, ALLOWANCE_RATES } from '@abc/shared';
 
 interface LaborLawVersion {
   id: string;
@@ -29,14 +30,14 @@ export default function LaborLawPage() {
   const [formData, setFormData] = useState({
     version: '',
     effectiveDate: '',
-    minimumWageHourly: 10030,
-    overtimeRate: 1.5,
-    nightRate: 0.5,
-    holidayRate: 1.5,
-    nationalPensionRate: 4.5,
-    healthInsuranceRate: 3.545,
-    longTermCareRate: 12.81,
-    employmentInsuranceRate: 0.9,
+    minimumWageHourly: DEFAULT_MINIMUM_WAGE,
+    overtimeRate: ALLOWANCE_RATES.overtime,
+    nightRate: ALLOWANCE_RATES.night,
+    holidayRate: ALLOWANCE_RATES.holiday,
+    nationalPensionRate: INSURANCE_RATES.nationalPension * 100, // %로 표시
+    healthInsuranceRate: INSURANCE_RATES.healthInsurance * 100,
+    longTermCareRate: INSURANCE_RATES.longTermCare * 100,
+    employmentInsuranceRate: INSURANCE_RATES.employmentInsurance * 100,
   });
 
   useEffect(() => {
@@ -182,14 +183,14 @@ export default function LaborLawPage() {
             setFormData({
               version: '',
               effectiveDate: '',
-              minimumWageHourly: 10030,
-              overtimeRate: 1.5,
-              nightRate: 0.5,
-              holidayRate: 1.5,
-              nationalPensionRate: 4.5,
-              healthInsuranceRate: 3.545,
-              longTermCareRate: 12.81,
-              employmentInsuranceRate: 0.9,
+              minimumWageHourly: DEFAULT_MINIMUM_WAGE,
+              overtimeRate: ALLOWANCE_RATES.overtime,
+              nightRate: ALLOWANCE_RATES.night,
+              holidayRate: ALLOWANCE_RATES.holiday,
+              nationalPensionRate: INSURANCE_RATES.nationalPension * 100,
+              healthInsuranceRate: INSURANCE_RATES.healthInsurance * 100,
+              longTermCareRate: INSURANCE_RATES.longTermCare * 100,
+              employmentInsuranceRate: INSURANCE_RATES.employmentInsurance * 100,
             });
             setIsCreateOpen(true);
           }}

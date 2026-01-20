@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { format, subDays } from 'date-fns';
 import { tossPOSService } from '@/lib/services/toss-pos.service';
+import { logger } from '@abc/shared';
 
 function getSupabaseClient() {
   return createClient(
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
 
   const supabase = getSupabaseClient();
   try {
-    console.log('[Cron] Starting Toss POS sync...');
+    logger.log('[Cron] Starting Toss POS sync...');
 
     // 활성화된 토스 POS 소스 조회
     const { data: sources, error: sourcesError } = await supabase
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!sources || sources.length === 0) {
-      console.log('[Cron] No active Toss POS sources found');
+      logger.log('[Cron] No active Toss POS sources found');
       return NextResponse.json({
         success: true,
         message: 'No sources to sync',
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    console.log(`[Cron] Found ${sources.length} sources to sync`);
+    logger.log(`[Cron] Found ${sources.length} sources to sync`);
 
     const results: { sourceId: string; success: boolean; syncedDays?: number; error?: string }[] = [];
 
@@ -59,13 +60,13 @@ export async function GET(request: NextRequest) {
 
     for (const source of sources) {
       try {
-        console.log(`[Cron] Syncing source ${source.id} for company ${source.company_id}`);
+        logger.log(`[Cron] Syncing source ${source.id} for company ${source.company_id}`);
 
         const tokens = source.connection_data;
 
         // 토큰 만료 확인 및 갱신
         if (new Date(tokens.expiresAt) < new Date()) {
-          console.log(`[Cron] Refreshing token for source ${source.id}`);
+          logger.log(`[Cron] Refreshing token for source ${source.id}`);
           const newTokens = await tossPOSService.refreshToken(tokens.refreshToken);
 
           await supabase
@@ -121,7 +122,7 @@ export async function GET(request: NextRequest) {
           syncedDays,
         });
 
-        console.log(`[Cron] Successfully synced ${syncedDays} days for source ${source.id}`);
+        logger.log(`[Cron] Successfully synced ${syncedDays} days for source ${source.id}`);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error(`[Cron] Error syncing source ${source.id}:`, errorMessage);
@@ -142,7 +143,7 @@ export async function GET(request: NextRequest) {
           .limit(5);
 
         if (failureLogs && failureLogs.length >= 5) {
-          console.log(`[Cron] Disabling source ${source.id} due to repeated failures`);
+          logger.log(`[Cron] Disabling source ${source.id} due to repeated failures`);
           await supabase
             .from('revenue_sources')
             .update({ is_active: false })
@@ -163,7 +164,7 @@ export async function GET(request: NextRequest) {
     const successCount = results.filter(r => r.success).length;
     const failureCount = results.filter(r => !r.success).length;
 
-    console.log(`[Cron] Toss POS sync completed: ${successCount} success, ${failureCount} failures`);
+    logger.log(`[Cron] Toss POS sync completed: ${successCount} success, ${failureCount} failures`);
 
     return NextResponse.json({
       success: true,

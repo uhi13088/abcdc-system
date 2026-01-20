@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { logger } from '@abc/shared';
 
 function getSupabaseClient() {
   return createClient(
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getSupabaseClient();
-  console.log('[Cron] Starting labor law update check...');
+  logger.log('[Cron] Starting labor law update check...');
 
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!versionsToActivate || versionsToActivate.length === 0) {
-      console.log('[Cron] No labor law updates to apply');
+      logger.log('[Cron] No labor law updates to apply');
       return NextResponse.json({
         success: true,
         message: 'No updates to apply',
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    console.log(`[Cron] Applied labor law version: ${latestVersion.version}`);
+    logger.log(`[Cron] Applied labor law version: ${latestVersion.version}`);
 
     return NextResponse.json({
       success: true,

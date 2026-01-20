@@ -2,6 +2,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { ResignationService } from '@/lib/services/resignation.service';
 import { pushNotificationService } from '@abc/shared/server';
+import { logger } from '@abc/shared';
 
 // POST /api/approvals/[id]/process - 승인/거부 처리
 export async function POST(
@@ -200,7 +201,7 @@ async function handleApprovalActions(
         approvalId,
         approval.company_id || companyId
       );
-      console.log('Resignation processed:', result);
+      logger.log('Resignation processed:', result);
       break;
 
     case 'LEAVE':

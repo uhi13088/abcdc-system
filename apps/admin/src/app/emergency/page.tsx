@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Plus, AlertTriangle, Clock, Users, DollarSign, X } from 'lucide-react';
+import { DEFAULT_MINIMUM_WAGE } from '@abc/shared';
 
 interface EmergencyShift {
   id: string;
@@ -39,7 +40,7 @@ export default function EmergencyPage() {
     end_time: '18:00',
     position: '',
     required_count: 1,
-    hourly_rate: 10030,
+    hourly_rate: DEFAULT_MINIMUM_WAGE,
     bonus: 0,
     deadline: '',
   });
@@ -82,7 +83,7 @@ export default function EmergencyPage() {
           end_time: '18:00',
           position: '',
           required_count: 1,
-          hourly_rate: 10030,
+          hourly_rate: DEFAULT_MINIMUM_WAGE,
           bonus: 0,
           deadline: '',
         });

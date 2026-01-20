@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 파일명 생성
-    const fileExt = file.name.split('.').pop();
+    const fileExt = file.name.split('.').pop() || 'bin';
     const fileName = `${userData.id}/${type}_${Date.now()}.${fileExt}`;
 
     // Supabase Storage에 업로드

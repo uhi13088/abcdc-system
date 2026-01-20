@@ -18,7 +18,7 @@ import {
   Label,
   Alert,
 } from '@/components/ui';
-import { Plus, ChevronLeft, ChevronRight, Calendar, Clock, User } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 
 interface Schedule {
   id: string;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { logger } from '@abc/shared';
 
 // POST /api/integrations/toss-pos/disconnect - Toss POS 연결 해제
 export async function POST(request: NextRequest) {
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
           },
         });
       } catch (revokeError) {
-        console.log('Token revoke failed (may already be invalid):', revokeError);
+        logger.log('Token revoke failed (may already be invalid):', revokeError);
       }
     }
 
