@@ -27,8 +27,9 @@ import {
   Card,
   CardContent,
 } from '@/components/ui';
-import { Building2, Plus, Edit, Trash2, MapPin, Phone, QrCode, Users, Factory } from 'lucide-react';
+import { Building2, Plus, Edit, Trash2, MapPin, Phone, QrCode, Users, Factory, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { DEFAULT_MINIMUM_WAGE } from '@abc/shared';
 
 interface Store {
   id: string;
@@ -556,11 +557,17 @@ function StoresPageContent() {
                   onChange={(e) =>
                     setNewStore({
                       ...newStore,
-                      defaultHourlyRate: parseInt(e.target.value) || 9860,
+                      defaultHourlyRate: parseInt(e.target.value) || DEFAULT_MINIMUM_WAGE,
                     })
                   }
                   className="mt-1"
                 />
+                {newStore.defaultHourlyRate < DEFAULT_MINIMUM_WAGE && (
+                  <div className="flex items-center gap-1 mt-1 text-amber-600">
+                    <AlertTriangle className="h-3 w-3" />
+                    <p className="text-xs">최저임금({DEFAULT_MINIMUM_WAGE.toLocaleString()}원) 미만입니다</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -686,9 +693,15 @@ function StoresPageContent() {
                   <Input
                     type="number"
                     value={editForm.defaultHourlyRate}
-                    onChange={(e) => setEditForm({ ...editForm, defaultHourlyRate: parseInt(e.target.value) || 9860 })}
+                    onChange={(e) => setEditForm({ ...editForm, defaultHourlyRate: parseInt(e.target.value) || DEFAULT_MINIMUM_WAGE })}
                     className="mt-1"
                   />
+                  {editForm.defaultHourlyRate < DEFAULT_MINIMUM_WAGE && (
+                    <div className="flex items-center gap-1 mt-1 text-amber-600">
+                      <AlertTriangle className="h-3 w-3" />
+                      <p className="text-xs">최저임금({DEFAULT_MINIMUM_WAGE.toLocaleString()}원) 미만입니다</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
