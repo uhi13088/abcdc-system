@@ -638,7 +638,7 @@ export class SalaryCalculationService {
       .select('id')
       .eq('company_id', companyId)
       .eq('status', 'ACTIVE')
-      .in('role', ['STAFF', 'MANAGER', 'ADMIN']);
+      .in('role', ['staff', 'manager', 'store_manager', 'team_leader']);
 
     if (error || !staffList) {
       throw new Error('Failed to fetch staff list');
