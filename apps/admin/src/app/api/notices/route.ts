@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createServerClient();
     const { searchParams } = new URL(request.url);
     const is_important = searchParams.get('is_important');
+    const store_id = searchParams.get('store_id');
 
     // Get user info for company filtering
     const { data: userData } = await supabase.auth.getUser();
@@ -24,7 +25,8 @@ export async function GET(request: NextRequest) {
       .from('notices')
       .select(`
         *,
-        users:created_by (name)
+        users:created_by (name),
+        stores:store_id (name)
       `)
       .order('is_pinned', { ascending: false })
       .order('created_at', { ascending: false });
@@ -38,6 +40,15 @@ export async function GET(request: NextRequest) {
       query = query.eq('is_important', true);
     }
 
+    // 매장 필터
+    if (store_id === 'null') {
+      // 공통 공지만 (store_id가 null인 것)
+      query = query.is('store_id', null);
+    } else if (store_id) {
+      // 특정 매장 공지만
+      query = query.eq('store_id', store_id);
+    }
+
     const { data, error } = await query;
 
     if (error) {
@@ -48,6 +59,7 @@ export async function GET(request: NextRequest) {
     const notices = data?.map((notice: any) => ({
       ...notice,
       author_name: notice.users?.name,
+      store_name: notice.stores?.name,
     })) || [];
 
     return NextResponse.json(notices);
