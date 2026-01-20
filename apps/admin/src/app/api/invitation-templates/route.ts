@@ -63,14 +63,14 @@ export async function GET(request: NextRequest) {
     // 먼저 stores 조인 포함해서 시도
     let { data: templates, error } = await adminClient
       .from('invitation_templates')
-      .select('*, stores(id, name, opening_time, closing_time)')
+      .select('*, stores:store_id(id, name, opening_time, closing_time)')
       .eq('company_id', userData.company_id)
       .eq('is_active', true)
       .order('created_at', { ascending: false });
 
     // store_id 컬럼이 없는 경우 (마이그레이션 전) 기본 쿼리로 폴백
-    if (error && error.message.includes('store_id')) {
-      console.warn('[GET /api/invitation-templates] store_id column not found, using fallback query');
+    if (error && (error.message.includes('store_id') || error.message.includes('stores') || error.code === 'PGRST204')) {
+      console.warn('[GET /api/invitation-templates] store relation not found, using fallback query');
       const fallbackResult = await adminClient
         .from('invitation_templates')
         .select('*')
@@ -78,7 +78,8 @@ export async function GET(request: NextRequest) {
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      templates = fallbackResult.data;
+      // 폴백 결과에 store_id, stores 추가
+      templates = (fallbackResult.data || []).map(t => ({ ...t, store_id: null, stores: null }));
       error = fallbackResult.error;
     }
 
