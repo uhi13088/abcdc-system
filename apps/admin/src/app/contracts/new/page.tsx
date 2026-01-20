@@ -588,7 +588,7 @@ export default function NewContractPage() {
               </div>
             </div>
             <div>
-              <Label>담당 업무</Label>
+              <Label required>담당 업무</Label>
               {/* 이전에 사용한 업무내용 태그 */}
               {previousDuties.length > 0 && (
                 <div className="mt-2 mb-3">
@@ -691,7 +691,7 @@ export default function NewContractPage() {
             {!formData.perDayMode ? (
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label>출근 시간</Label>
+                  <Label required>출근 시간</Label>
                   <Input
                     type="time"
                     value={formData.workSchedules[0].startTime}
@@ -707,7 +707,7 @@ export default function NewContractPage() {
                   />
                 </div>
                 <div>
-                  <Label>퇴근 시간</Label>
+                  <Label required>퇴근 시간</Label>
                   <Input
                     type="time"
                     value={formData.workSchedules[0].endTime}
