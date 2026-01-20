@@ -13,6 +13,8 @@ const DayScheduleSchema = z.object({
 const CreateTemplateSchema = z.object({
   name: z.string().min(1, '템플릿명을 입력해주세요').max(100),
   description: z.string().optional(),
+  storeId: z.string().uuid().optional().nullable(), // 매장 연결 (null이면 회사 전체)
+  useStoreHours: z.boolean().optional().default(false), // 매장 운영시간 사용
   role: z.string().default('staff'),
   position: z.string().optional(),
   contractType: z.enum(['정규직', '계약직', '아르바이트', '인턴']).optional(),
@@ -60,7 +62,7 @@ export async function GET(request: NextRequest) {
 
     const { data: templates, error } = await adminClient
       .from('invitation_templates')
-      .select('*')
+      .select('*, stores(id, name, opening_time, closing_time)')
       .eq('company_id', userData.company_id)
       .eq('is_active', true)
       .order('created_at', { ascending: false });
@@ -121,6 +123,8 @@ export async function POST(request: NextRequest) {
       .from('invitation_templates')
       .insert({
         company_id: userData.company_id,
+        store_id: validation.data.storeId || null,
+        use_store_hours: validation.data.useStoreHours || false,
         name: validation.data.name,
         description: validation.data.description || null,
         role: validation.data.role,
@@ -136,7 +140,7 @@ export async function POST(request: NextRequest) {
         required_documents: validation.data.requiredDocuments,
         custom_fields: validation.data.customFields,
       })
-      .select()
+      .select('*, stores(id, name, opening_time, closing_time)')
       .single();
 
     if (error) {

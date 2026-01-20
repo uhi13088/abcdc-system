@@ -13,6 +13,8 @@ const DayScheduleSchema = z.object({
 const UpdateTemplateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().optional(),
+  storeId: z.string().uuid().nullable().optional(),
+  useStoreHours: z.boolean().optional(),
   role: z.string().optional(),
   position: z.string().optional(),
   contractType: z.enum(['정규직', '계약직', '아르바이트', '인턴']).nullable().optional(),
@@ -116,6 +118,8 @@ export async function PATCH(
     const updateData: Record<string, unknown> = {};
     if (validation.data.name !== undefined) updateData.name = validation.data.name;
     if (validation.data.description !== undefined) updateData.description = validation.data.description;
+    if (validation.data.storeId !== undefined) updateData.store_id = validation.data.storeId;
+    if (validation.data.useStoreHours !== undefined) updateData.use_store_hours = validation.data.useStoreHours;
     if (validation.data.role !== undefined) updateData.role = validation.data.role;
     if (validation.data.position !== undefined) updateData.position = validation.data.position;
     if (validation.data.contractType !== undefined) updateData.contract_type = validation.data.contractType;

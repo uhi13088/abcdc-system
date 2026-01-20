@@ -15,7 +15,8 @@ import {
   Label,
   Alert,
 } from '@/components/ui';
-import { Plus, Edit, Trash2, FileText, Clock, ArrowLeft } from 'lucide-react';
+import { Plus, Edit, Trash2, FileText, Clock, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { DEFAULT_MINIMUM_WAGE } from '@abc/shared';
 
 interface DaySchedule {
   startTime: string;
@@ -23,10 +24,20 @@ interface DaySchedule {
   breakMinutes: number;
 }
 
+interface Store {
+  id: string;
+  name: string;
+  opening_time: string | null;
+  closing_time: string | null;
+}
+
 interface Template {
   id: string;
   name: string;
   description: string | null;
+  store_id: string | null;
+  use_store_hours: boolean;
+  stores: Store | null;
   role: string;
   position: string | null;
   contract_type: string | null;
@@ -48,7 +59,7 @@ const roleLabels: Record<string, string> = {
   team_leader: '팀장',
   store_manager: '매장 관리자',
   manager: '본사 관리자',
-  company_admin: '회사 관리자',
+  // company_admin은 회사 내 최고 권한이므로 초대 템플릿에서 제외
 };
 
 const salaryTypeLabels: Record<string, string> = {
@@ -77,12 +88,14 @@ const documentOptions = [
 export default function InvitationTemplatesPage() {
   const router = useRouter();
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [hasInviteFormData, setHasInviteFormData] = useState(false);
+  const [storeFilter, setStoreFilter] = useState<string>('all'); // 'all', 'common', 또는 store_id
 
   // sessionStorage에 저장된 초대 폼 데이터가 있는지 확인
   useEffect(() => {
@@ -90,14 +103,29 @@ export default function InvitationTemplatesPage() {
     setHasInviteFormData(!!savedData);
   }, []);
 
+  // 매장 목록 가져오기
+  const fetchStores = async () => {
+    try {
+      const response = await fetch('/api/stores');
+      if (response.ok) {
+        const data = await response.json();
+        setStores(data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch stores:', err);
+    }
+  };
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    storeId: '' as string,
+    useStoreHours: false,
     role: 'staff',
     position: '',
     contractType: '' as '' | '정규직' | '계약직' | '아르바이트' | '인턴',
     salaryType: 'hourly' as 'hourly' | 'daily' | 'monthly',
-    salaryAmount: 0,
+    salaryAmount: DEFAULT_MINIMUM_WAGE, // 시급 기본값: 최저임금
     workDays: [1, 2, 3, 4, 5],
     workStartTime: '09:00',
     workEndTime: '18:00',
@@ -124,17 +152,20 @@ export default function InvitationTemplatesPage() {
 
   useEffect(() => {
     fetchTemplates();
+    fetchStores();
   }, []);
 
   const resetForm = () => {
     setFormData({
       name: '',
       description: '',
+      storeId: '',
+      useStoreHours: false,
       role: 'staff',
       position: '',
       contractType: '',
       salaryType: 'hourly',
-      salaryAmount: 0,
+      salaryAmount: DEFAULT_MINIMUM_WAGE, // 시급 기본값: 최저임금
       workDays: [1, 2, 3, 4, 5],
       workStartTime: '09:00',
       workEndTime: '18:00',
@@ -158,6 +189,8 @@ export default function InvitationTemplatesPage() {
     setFormData({
       name: template.name,
       description: template.description || '',
+      storeId: template.store_id || '',
+      useStoreHours: template.use_store_hours || false,
       role: template.role,
       position: template.position || '',
       contractType: (template.contract_type as '' | '정규직' | '계약직' | '아르바이트' | '인턴') || '',
@@ -188,6 +221,8 @@ export default function InvitationTemplatesPage() {
       const dataToSend = {
         name: formData.name,
         description: formData.description,
+        storeId: formData.storeId || null,
+        useStoreHours: formData.useStoreHours,
         role: formData.role,
         position: formData.position,
         contractType: formData.contractType || null,
@@ -346,31 +381,87 @@ export default function InvitationTemplatesPage() {
     }
   };
 
+  // 매장별 필터링된 템플릿
+  const filteredTemplates = templates.filter((template) => {
+    if (storeFilter === 'all') return true;
+    if (storeFilter === 'common') return !template.store_id;
+    return template.store_id === storeFilter;
+  });
+
+  // 매장별 템플릿 개수 계산
+  const getTemplateCount = (storeId: string | null) => {
+    if (storeId === null) {
+      return templates.filter((t) => !t.store_id).length;
+    }
+    return templates.filter((t) => t.store_id === storeId).length;
+  };
+
   return (
     <div>
       <Header title="초대 템플릿 관리" />
 
       <div className="p-6">
-        <div className="mb-6 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            {hasInviteFormData && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => router.push('/employees/invite')}
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                직원 초대로 돌아가기
-              </Button>
-            )}
-            <p className="text-gray-600">
-              자주 사용하는 초대 조건을 템플릿으로 저장하면 초대 시 간편하게 사용할 수 있습니다.
-            </p>
+        <div className="mb-6 space-y-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              {hasInviteFormData && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/employees/invite')}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  직원 초대로 돌아가기
+                </Button>
+              )}
+              <p className="text-gray-600">
+                자주 사용하는 초대 조건을 템플릿으로 저장하면 초대 시 간편하게 사용할 수 있습니다.
+              </p>
+            </div>
+            <Button onClick={openCreateDialog}>
+              <Plus className="h-4 w-4 mr-2" />
+              템플릿 추가
+            </Button>
           </div>
-          <Button onClick={openCreateDialog}>
-            <Plus className="h-4 w-4 mr-2" />
-            템플릿 추가
-          </Button>
+
+          {/* 매장별 필터 */}
+          {stores.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setStoreFilter('all')}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  storeFilter === 'all'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                전체 ({templates.length})
+              </button>
+              <button
+                onClick={() => setStoreFilter('common')}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  storeFilter === 'common'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                공통 템플릿 ({getTemplateCount(null)})
+              </button>
+              {stores.map((store) => (
+                <button
+                  key={store.id}
+                  onClick={() => setStoreFilter(store.id)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    storeFilter === store.id
+                      ? 'bg-green-600 text-white'
+                      : 'bg-green-50 text-green-700 hover:bg-green-100'
+                  }`}
+                >
+                  {store.name} ({getTemplateCount(store.id)})
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {loading ? (
@@ -386,9 +477,22 @@ export default function InvitationTemplatesPage() {
               첫 템플릿 만들기
             </Button>
           </div>
+        ) : filteredTemplates.length === 0 ? (
+          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+            <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 mb-4">
+              {storeFilter === 'common'
+                ? '공통 템플릿이 없습니다.'
+                : '선택한 매장의 템플릿이 없습니다.'}
+            </p>
+            <Button onClick={openCreateDialog}>
+              <Plus className="h-4 w-4 mr-2" />
+              템플릿 만들기
+            </Button>
+          </div>
         ) : (
           <div className="grid gap-4">
-            {templates.map((template) => (
+            {filteredTemplates.map((template) => (
               <div
                 key={template.id}
                 className="bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-300 transition-colors"
@@ -397,6 +501,11 @@ export default function InvitationTemplatesPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold">{template.name}</h3>
+                      {template.stores && (
+                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-sm rounded">
+                          {template.stores.name}
+                        </span>
+                      )}
                       <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-sm rounded">
                         {roleLabels[template.role] || template.role}
                       </span>
@@ -454,6 +563,67 @@ export default function InvitationTemplatesPage() {
           {error && <Alert variant="error" className="mb-4">{error}</Alert>}
 
           <div className="space-y-6">
+            {/* 매장 연결 */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-gray-900">매장 연결</h4>
+              <p className="text-sm text-gray-500">특정 매장에 연결하면 해당 매장의 운영시간을 근무시간으로 사용할 수 있습니다.</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>연결 매장</Label>
+                  <Select
+                    value={formData.storeId}
+                    onChange={(e) => {
+                      const newStoreId = e.target.value;
+                      const selectedStore = stores.find(s => s.id === newStoreId);
+                      setFormData({
+                        ...formData,
+                        storeId: newStoreId,
+                        // 매장 선택 시 운영시간으로 자동 설정
+                        useStoreHours: !!newStoreId,
+                        workStartTime: selectedStore?.opening_time || formData.workStartTime,
+                        workEndTime: selectedStore?.closing_time || formData.workEndTime,
+                      });
+                    }}
+                    options={[
+                      { value: '', label: '전체 (회사 공통 템플릿)' },
+                      ...stores.map((s) => ({ value: s.id, label: s.name })),
+                    ]}
+                    className="mt-1"
+                  />
+                </div>
+                {formData.storeId && (
+                  <div className="flex items-center">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.useStoreHours}
+                        onChange={(e) => {
+                          const useStore = e.target.checked;
+                          const selectedStore = stores.find(s => s.id === formData.storeId);
+                          setFormData({
+                            ...formData,
+                            useStoreHours: useStore,
+                            workStartTime: useStore && selectedStore?.opening_time ? selectedStore.opening_time : formData.workStartTime,
+                            workEndTime: useStore && selectedStore?.closing_time ? selectedStore.closing_time : formData.workEndTime,
+                          });
+                        }}
+                        className="h-4 w-4 rounded"
+                      />
+                      <span className="text-sm">매장 운영시간 사용</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+              {formData.storeId && formData.useStoreHours && (
+                <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                  {(() => {
+                    const store = stores.find(s => s.id === formData.storeId);
+                    return store ? `${store.name} 운영시간: ${store.opening_time || '09:00'} ~ ${store.closing_time || '22:00'}` : '';
+                  })()}
+                </div>
+              )}
+            </div>
+
             {/* 기본 정보 */}
             <div className="space-y-4">
               <h4 className="font-medium text-gray-900">기본 정보</h4>
@@ -521,7 +691,12 @@ export default function InvitationTemplatesPage() {
                   <Label required>급여 유형</Label>
                   <Select
                     value={formData.salaryType}
-                    onChange={(e) => setFormData({ ...formData, salaryType: e.target.value as 'hourly' | 'daily' | 'monthly' })}
+                    onChange={(e) => {
+                      const newType = e.target.value as 'hourly' | 'daily' | 'monthly';
+                      // 시급 선택 시 최저임금 프리필, 그 외는 0
+                      const newAmount = newType === 'hourly' ? DEFAULT_MINIMUM_WAGE : 0;
+                      setFormData({ ...formData, salaryType: newType, salaryAmount: newAmount });
+                    }}
                     options={Object.entries(salaryTypeLabels).map(([value, label]) => ({ value, label }))}
                     className="mt-1"
                   />
@@ -532,9 +707,15 @@ export default function InvitationTemplatesPage() {
                     type="number"
                     value={formData.salaryAmount}
                     onChange={(e) => setFormData({ ...formData, salaryAmount: parseInt(e.target.value) || 0 })}
-                    placeholder="10030"
+                    placeholder={formData.salaryType === 'hourly' ? DEFAULT_MINIMUM_WAGE.toString() : '0'}
                     className="mt-1"
                   />
+                  {formData.salaryType === 'hourly' && formData.salaryAmount > 0 && formData.salaryAmount < DEFAULT_MINIMUM_WAGE && (
+                    <div className="flex items-center gap-1 mt-1 text-amber-600">
+                      <AlertTriangle className="h-3 w-3" />
+                      <p className="text-xs">최저임금({DEFAULT_MINIMUM_WAGE.toLocaleString()}원) 미만입니다</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
