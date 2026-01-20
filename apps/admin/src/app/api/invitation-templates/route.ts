@@ -135,14 +135,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 기본 insert 데이터 (store_id 컬럼 없을 수 있음)
-    const baseInsertData = {
+    // 최소 insert 데이터 (기존 컬럼만)
+    const minimalInsertData = {
       company_id: userData.company_id,
       name: validation.data.name,
       description: validation.data.description || null,
       role: validation.data.role,
       position: validation.data.position || null,
-      contract_type: validation.data.contractType || null,
       salary_type: validation.data.salaryType,
       salary_amount: validation.data.salaryAmount,
       work_days: validation.data.workDays,
@@ -154,7 +153,13 @@ export async function POST(request: NextRequest) {
       custom_fields: validation.data.customFields,
     };
 
-    // store_id와 use_store_hours 추가 (마이그레이션 후에만 작동)
+    // contract_type 추가 (마이그레이션 030 이후)
+    const baseInsertData = {
+      ...minimalInsertData,
+      contract_type: validation.data.contractType || null,
+    };
+
+    // store_id와 use_store_hours 추가 (마이그레이션 029 이후)
     const insertData = {
       ...baseInsertData,
       store_id: validation.data.storeId || null,
@@ -167,7 +172,7 @@ export async function POST(request: NextRequest) {
       .select('*, stores(id, name, opening_time, closing_time)')
       .single();
 
-    // store_id 컬럼 오류 시 폴백
+    // store_id/use_store_hours 컬럼 오류 시 contract_type만 포함한 데이터로 폴백
     if (error && (error.message.includes('store_id') || error.message.includes('use_store_hours'))) {
       console.warn('[POST /api/invitation-templates] store columns not found, using fallback insert');
       const fallbackResult = await adminClient
@@ -178,6 +183,19 @@ export async function POST(request: NextRequest) {
 
       data = fallbackResult.data;
       error = fallbackResult.error;
+    }
+
+    // contract_type 컬럼 오류 시 최소 데이터로 폴백
+    if (error && error.message.includes('contract_type')) {
+      console.warn('[POST /api/invitation-templates] contract_type column not found, using minimal insert');
+      const minimalResult = await adminClient
+        .from('invitation_templates')
+        .insert(minimalInsertData)
+        .select('*')
+        .single();
+
+      data = minimalResult.data;
+      error = minimalResult.error;
     }
 
     if (error) {
