@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const searchParams = request.nextUrl.searchParams;
     const staffId = searchParams.get('staffId');
+    const storeId = searchParams.get('storeId');
     const year = searchParams.get('year');
     const month = searchParams.get('month');
     const status = searchParams.get('status');
@@ -40,12 +41,20 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Use inner join when storeId filter is provided
+    const selectQuery = storeId
+      ? `
+        *,
+        staff:users!inner(id, name, email, position, store_id)
+      `
+      : `
+        *,
+        staff:users!salaries_staff_id_fkey(id, name, email, position, store_id)
+      `;
+
     let query = supabase
       .from('salaries')
-      .select(`
-        *,
-        staff:users!salaries_staff_id_fkey(id, name, email, position)
-      `, { count: 'exact' })
+      .select(selectQuery, { count: 'exact' })
       .order('year', { ascending: false })
       .order('month', { ascending: false });
 
@@ -61,6 +70,7 @@ export async function GET(request: NextRequest) {
 
     // Additional filters
     if (staffId) query = query.eq('staff_id', staffId);
+    if (storeId) query = query.eq('staff.store_id', storeId);
     if (year) query = query.eq('year', parseInt(year));
     if (month) query = query.eq('month', parseInt(month));
     if (status) query = query.eq('status', status);
@@ -82,6 +92,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch summary totals for ALL salaries matching the filter (not just current page)
+    // If storeId filter is provided, first get staff IDs for that store
+    let storeStaffIds: string[] = [];
+    if (storeId) {
+      const { data: storeStaff } = await supabase
+        .from('users')
+        .select('id')
+        .eq('store_id', storeId);
+      storeStaffIds = (storeStaff || []).map(s => s.id);
+    }
+
     let summaryQuery = supabase
       .from('salaries')
       .select('total_gross_pay, total_deductions, net_pay');
@@ -96,6 +116,21 @@ export async function GET(request: NextRequest) {
     }
 
     if (staffId) summaryQuery = summaryQuery.eq('staff_id', staffId);
+    if (storeId && storeStaffIds.length > 0) {
+      summaryQuery = summaryQuery.in('staff_id', storeStaffIds);
+    } else if (storeId && storeStaffIds.length === 0) {
+      // No staff in this store, return empty summary
+      return NextResponse.json({
+        data: data || [],
+        pagination: {
+          page,
+          limit,
+          total: count || 0,
+          totalPages: Math.ceil((count || 0) / limit),
+        },
+        summary: { totalGross: 0, totalDeductions: 0, totalNet: 0 },
+      });
+    }
     if (year) summaryQuery = summaryQuery.eq('year', parseInt(year));
     if (month) summaryQuery = summaryQuery.eq('month', parseInt(month));
     if (status) summaryQuery = summaryQuery.eq('status', status);
