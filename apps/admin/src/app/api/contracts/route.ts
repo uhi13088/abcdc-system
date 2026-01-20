@@ -249,6 +249,7 @@ export async function POST(request: NextRequest) {
           break_minutes: number;
           status: string;
           generated_by: string;
+          position?: string;
         }> = [];
 
         let currentDate = new Date(startDate);
@@ -270,6 +271,7 @@ export async function POST(request: NextRequest) {
                 break_minutes: ws.breakMinutes || 60,
                 status: 'SCHEDULED',
                 generated_by: 'CONTRACT',
+                position: validation.data.position || undefined,
               });
             }
           }
