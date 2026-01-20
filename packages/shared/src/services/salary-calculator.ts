@@ -4,6 +4,7 @@
  */
 
 import { Database } from '@abc/database';
+import { MONTHLY_WORK_HOURS, DAILY_WORK_HOURS } from '../utils/salary';
 
 type Attendance = Database['public']['Tables']['attendances']['Row'];
 type Contract = Database['public']['Tables']['contracts']['Row'];
@@ -100,10 +101,10 @@ function calculateHourlyRate(contract: Contract, laborLaw: LaborLaw): number {
     return salaryConfig.baseSalaryAmount;
   } else if (salaryConfig.baseSalaryType === 'monthly') {
     // 월급제 → 시급 환산 (월급 / 209시간)
-    return Math.round(salaryConfig.baseSalaryAmount / 209);
+    return Math.round(salaryConfig.baseSalaryAmount / MONTHLY_WORK_HOURS);
   } else if (salaryConfig.baseSalaryType === 'daily') {
     // 일급제 → 시급 환산 (일급 / 8시간)
-    return Math.round(salaryConfig.baseSalaryAmount / 8);
+    return Math.round(salaryConfig.baseSalaryAmount / DAILY_WORK_HOURS);
   }
 
   // 기본값: 최저시급

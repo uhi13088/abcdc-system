@@ -1,6 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { DEFAULT_MINIMUM_WAGE } from '@abc/shared';
+import { DEFAULT_MINIMUM_WAGE, INSURANCE_RATES, ALLOWANCE_RATES, MONTHLY_WORK_HOURS, DAILY_WORK_HOURS } from '@abc/shared';
 
 // GET /api/salaries - 급여 목록 조회
 export async function GET(request: NextRequest) {
@@ -254,10 +254,10 @@ export async function POST(request: NextRequest) {
         hourlyRate = salaryConfig.baseSalaryAmount || hourlyRate;
       } else if (salaryConfig.baseSalaryType === 'MONTHLY') {
         // Monthly salary → hourly (월급 / 209시간)
-        hourlyRate = Math.round((salaryConfig.baseSalaryAmount || 0) / 209);
+        hourlyRate = Math.round((salaryConfig.baseSalaryAmount || 0) / MONTHLY_WORK_HOURS);
       }
 
-      const standardHoursPerDay = contract?.standard_hours_per_day || 8;
+      const standardHoursPerDay = contract?.standard_hours_per_day || DAILY_WORK_HOURS;
 
       // Calculate totals (include records without checkout using scheduled time)
       const totals = records.reduce(
@@ -281,12 +281,12 @@ export async function POST(request: NextRequest) {
 
             const diffMs = checkOut.getTime() - checkIn.getTime();
             workHours = Math.max(0, diffMs / (1000 * 60 * 60));
-            const breakHours = workHours >= 8 ? 1 : workHours >= 4 ? 0.5 : 0;
+            const breakHours = workHours >= DAILY_WORK_HOURS ? 1 : workHours >= 4 ? 0.5 : 0;
             const actualWorkHours = Math.max(0, workHours - breakHours);
-            const overtimeHours = Math.max(0, actualWorkHours - 8);
+            const overtimeHours = Math.max(0, actualWorkHours - DAILY_WORK_HOURS);
 
-            basePay = Math.min(actualWorkHours, 8) * hourlyRate;
-            overtimePay = overtimeHours * hourlyRate * 1.5;
+            basePay = Math.min(actualWorkHours, DAILY_WORK_HOURS) * hourlyRate;
+            overtimePay = overtimeHours * hourlyRate * ALLOWANCE_RATES.overtime;
             workHours = actualWorkHours;
           }
 
@@ -303,10 +303,10 @@ export async function POST(request: NextRequest) {
 
       // Calculate deductions (simplified)
       const grossPay = totals.basePay + totals.overtimePay + totals.nightPay;
-      const nationalPension = Math.round(grossPay * 0.045);
-      const healthInsurance = Math.round(grossPay * 0.03545);
-      const longTermCare = Math.round(healthInsurance * 0.1281);
-      const employmentInsurance = Math.round(grossPay * 0.009);
+      const nationalPension = Math.round(grossPay * INSURANCE_RATES.nationalPension);
+      const healthInsurance = Math.round(grossPay * INSURANCE_RATES.healthInsurance);
+      const longTermCare = Math.round(healthInsurance * INSURANCE_RATES.longTermCare);
+      const employmentInsurance = Math.round(grossPay * INSURANCE_RATES.employmentInsurance);
       const incomeTax = Math.round(grossPay * 0.03); // Simplified
       const localIncomeTax = Math.round(incomeTax * 0.1);
 

@@ -5,7 +5,7 @@
 
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { DEFAULT_MINIMUM_WAGE } from '@abc/shared';
+import { DEFAULT_MINIMUM_WAGE, ALLOWANCE_RATES, DAILY_WORK_HOURS } from '@abc/shared';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,11 +18,11 @@ function calculateWorkHoursAndPay(
   const diffMs = checkOut.getTime() - checkIn.getTime();
   const rawHours = diffMs / (1000 * 60 * 60);
 
-  const breakHours = rawHours >= 8 ? 1 : rawHours >= 4 ? 0.5 : 0;
+  const breakHours = rawHours >= DAILY_WORK_HOURS ? 1 : rawHours >= 4 ? 0.5 : 0;
   const workHours = Math.max(0, rawHours - breakHours);
 
-  const overtimeHours = Math.max(0, workHours - 8);
-  const regularHours = Math.min(workHours, 8);
+  const overtimeHours = Math.max(0, workHours - DAILY_WORK_HOURS);
+  const regularHours = Math.min(workHours, DAILY_WORK_HOURS);
 
   const checkOutHour = checkOut.getHours();
   let nightHours = 0;
@@ -31,8 +31,8 @@ function calculateWorkHoursAndPay(
   }
 
   const basePay = Math.round(regularHours * hourlyRate);
-  const overtimePay = Math.round(overtimeHours * hourlyRate * 1.5);
-  const nightPay = Math.round(nightHours * hourlyRate * 0.5);
+  const overtimePay = Math.round(overtimeHours * hourlyRate * ALLOWANCE_RATES.overtime);
+  const nightPay = Math.round(nightHours * hourlyRate * ALLOWANCE_RATES.night);
 
   return {
     workHours: Math.round(workHours * 100) / 100,
