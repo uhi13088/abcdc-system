@@ -19,8 +19,8 @@ import {
   Alert,
   ButtonLoading,
 } from '@/components/ui';
-import { ArrowLeft, ArrowRight, Check, Plus, X } from 'lucide-react';
-import { ContractType, SalaryType } from '@abc/shared';
+import { ArrowLeft, ArrowRight, Check, Plus, X, AlertTriangle } from 'lucide-react';
+import { ContractType, SalaryType, DEFAULT_MINIMUM_WAGE, checkMinimumWage } from '@abc/shared';
 
 interface Staff {
   id: string;
@@ -85,6 +85,9 @@ export default function NewContractPage() {
   const [previousDuties, setPreviousDuties] = useState<string[]>([]); // 이전에 사용한 업무내용 태그
 
   // Form state
+  // 사용자가 급여 설정을 직접 수정했는지 추적
+  const [salaryManuallyEdited, setSalaryManuallyEdited] = useState(false);
+
   const [formData, setFormData] = useState({
     staffId: '',
     storeId: '',
@@ -194,39 +197,41 @@ export default function NewContractPage() {
         updates.contractType = staff.contract_type as ContractType;
       }
 
-      // 급여 설정 프리필 (직원 개인 시급 + 매장 설정 조합)
-      const newSalaryConfig = { ...formData.salaryConfig };
+      // 급여 설정 프리필 (사용자가 직접 수정하지 않은 경우에만)
+      if (!salaryManuallyEdited) {
+        const newSalaryConfig = { ...formData.salaryConfig };
 
-      // 직원 개인 시급이 있으면 우선 적용
-      if (staff.default_hourly_rate && staff.default_hourly_rate > 0) {
-        newSalaryConfig.baseSalaryType = SalaryType.HOURLY;
-        newSalaryConfig.baseSalaryAmount = staff.default_hourly_rate;
-      }
+        // 직원 개인 시급이 있으면 우선 적용
+        if (staff.default_hourly_rate && staff.default_hourly_rate > 0) {
+          newSalaryConfig.baseSalaryType = SalaryType.HOURLY;
+          newSalaryConfig.baseSalaryAmount = staff.default_hourly_rate;
+        }
 
-      // 직원의 매장 설정도 함께 적용 (급여일, 수당 옵션)
-      if (staff.store_id) {
-        const store = storeList.find((s) => s.id === staff.store_id);
-        if (store) {
-          // 급여 지급일
-          if (store.pay_day) {
-            newSalaryConfig.paymentDate = store.pay_day;
-          }
-          // 수당 옵션
-          newSalaryConfig.allowances = {
-            ...newSalaryConfig.allowances,
-            overtimeAllowance: store.allowance_overtime ?? newSalaryConfig.allowances.overtimeAllowance,
-            nightAllowance: store.allowance_night ?? newSalaryConfig.allowances.nightAllowance,
-            holidayAllowance: store.allowance_holiday ?? newSalaryConfig.allowances.holidayAllowance,
-          };
-          // 직원 개인 시급이 없고 매장 기본 시급이 있으면 매장 시급 적용
-          if (!staff.default_hourly_rate && store.default_hourly_rate && store.default_hourly_rate > 0) {
-            newSalaryConfig.baseSalaryType = SalaryType.HOURLY;
-            newSalaryConfig.baseSalaryAmount = store.default_hourly_rate;
+        // 직원의 매장 설정도 함께 적용 (급여일, 수당 옵션)
+        if (staff.store_id) {
+          const store = storeList.find((s) => s.id === staff.store_id);
+          if (store) {
+            // 급여 지급일
+            if (store.pay_day) {
+              newSalaryConfig.paymentDate = store.pay_day;
+            }
+            // 수당 옵션
+            newSalaryConfig.allowances = {
+              ...newSalaryConfig.allowances,
+              overtimeAllowance: store.allowance_overtime ?? newSalaryConfig.allowances.overtimeAllowance,
+              nightAllowance: store.allowance_night ?? newSalaryConfig.allowances.nightAllowance,
+              holidayAllowance: store.allowance_holiday ?? newSalaryConfig.allowances.holidayAllowance,
+            };
+            // 직원 개인 시급이 없고 매장 기본 시급이 있으면 매장 시급 적용
+            if (!staff.default_hourly_rate && store.default_hourly_rate && store.default_hourly_rate > 0) {
+              newSalaryConfig.baseSalaryType = SalaryType.HOURLY;
+              newSalaryConfig.baseSalaryAmount = store.default_hourly_rate;
+            }
           }
         }
-      }
 
-      updates.salaryConfig = newSalaryConfig;
+        updates.salaryConfig = newSalaryConfig;
+      }
 
       setFormData({ ...formData, ...updates });
     }
@@ -317,6 +322,22 @@ export default function NewContractPage() {
 
       if (response.ok) {
         const contract = await response.json();
+
+        // 스케줄 생성 결과 확인
+        if (contract._scheduleResult) {
+          const sr = contract._scheduleResult;
+          if (!sr.success) {
+            console.warn('Schedule generation issue:', sr);
+            // 스케줄 생성 실패해도 계약서는 생성됨 - 경고만 표시
+            if (sr.error) {
+              alert(`계약서는 생성되었지만 스케줄 생성에 문제가 있습니다:\n${sr.error}\n\n시도: ${sr.attempted}개, 생성: ${sr.created}개\n\n디버그 정보는 콘솔을 확인하세요.`);
+              console.log('Schedule debug info:', sr.debug);
+            }
+          } else {
+            console.log(`Successfully created ${sr.created} schedules`);
+          }
+        }
+
         router.push(`/contracts/${contract.id}`);
       } else {
         const data = await response.json();
@@ -339,33 +360,35 @@ export default function NewContractPage() {
         companyId: store.company_id,
       };
 
-      // 급여 설정 프리필 (매장 기본 시급, 급여일, 수당 옵션)
-      const newSalaryConfig = { ...formData.salaryConfig };
+      // 급여 설정 프리필 (사용자가 직접 수정하지 않은 경우에만)
+      if (!salaryManuallyEdited) {
+        const newSalaryConfig = { ...formData.salaryConfig };
 
-      // 직원 개인 시급 확인 (직원 개인 시급이 있으면 매장 기본 시급을 덮어쓰지 않음)
-      const selectedStaff = staffList.find((s) => s.id === formData.staffId);
-      const hasStaffRate = selectedStaff?.default_hourly_rate && selectedStaff.default_hourly_rate > 0;
+        // 직원 개인 시급 확인 (직원 개인 시급이 있으면 매장 기본 시급을 덮어쓰지 않음)
+        const selectedStaff = staffList.find((s) => s.id === formData.staffId);
+        const hasStaffRate = selectedStaff?.default_hourly_rate && selectedStaff.default_hourly_rate > 0;
 
-      // 매장 기본 시급이 있고, 직원 개인 시급이 없을 때만 매장 시급 적용
-      if (store.default_hourly_rate && store.default_hourly_rate > 0 && !hasStaffRate) {
-        newSalaryConfig.baseSalaryType = SalaryType.HOURLY;
-        newSalaryConfig.baseSalaryAmount = store.default_hourly_rate;
+        // 매장 기본 시급이 있고, 직원 개인 시급이 없을 때만 매장 시급 적용
+        if (store.default_hourly_rate && store.default_hourly_rate > 0 && !hasStaffRate) {
+          newSalaryConfig.baseSalaryType = SalaryType.HOURLY;
+          newSalaryConfig.baseSalaryAmount = store.default_hourly_rate;
+        }
+
+        // 급여 지급일 (항상 매장 설정 사용)
+        if (store.pay_day) {
+          newSalaryConfig.paymentDate = store.pay_day;
+        }
+
+        // 수당 옵션 (항상 매장 설정 사용)
+        newSalaryConfig.allowances = {
+          ...formData.salaryConfig.allowances,
+          overtimeAllowance: store.allowance_overtime ?? formData.salaryConfig.allowances.overtimeAllowance,
+          nightAllowance: store.allowance_night ?? formData.salaryConfig.allowances.nightAllowance,
+          holidayAllowance: store.allowance_holiday ?? formData.salaryConfig.allowances.holidayAllowance,
+        };
+
+        updates.salaryConfig = newSalaryConfig;
       }
-
-      // 급여 지급일 (항상 매장 설정 사용)
-      if (store.pay_day) {
-        newSalaryConfig.paymentDate = store.pay_day;
-      }
-
-      // 수당 옵션 (항상 매장 설정 사용)
-      newSalaryConfig.allowances = {
-        ...formData.salaryConfig.allowances,
-        overtimeAllowance: store.allowance_overtime ?? formData.salaryConfig.allowances.overtimeAllowance,
-        nightAllowance: store.allowance_night ?? formData.salaryConfig.allowances.nightAllowance,
-        holidayAllowance: store.allowance_holiday ?? formData.salaryConfig.allowances.holidayAllowance,
-      };
-
-      updates.salaryConfig = newSalaryConfig;
 
       setFormData({ ...formData, ...updates });
     }
@@ -810,22 +833,44 @@ export default function NewContractPage() {
         );
 
       case 5:
+        // 최저시급 검증 (시급제인 경우)
+        const isHourly = formData.salaryConfig.baseSalaryType === SalaryType.HOURLY;
+        const hourlyAmount = formData.salaryConfig.baseSalaryAmount;
+        const minimumWageCheck = isHourly && hourlyAmount > 0 ? checkMinimumWage(hourlyAmount) : null;
+
         return (
           <div className="space-y-6">
+            {/* 최저시급 미달 경고 */}
+            {minimumWageCheck && !minimumWageCheck.isCompliant && (
+              <Alert variant="error">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-500" />
+                  <div>
+                    <p className="font-medium">최저시급 미달!</p>
+                    <p className="text-sm">
+                      현재 시급 {hourlyAmount.toLocaleString()}원은 최저시급 {DEFAULT_MINIMUM_WAGE.toLocaleString()}원보다
+                      {' '}{Math.abs(minimumWageCheck.difference).toLocaleString()}원 부족합니다.
+                    </p>
+                  </div>
+                </div>
+              </Alert>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label required>급여 유형</Label>
                 <Select
                   value={formData.salaryConfig.baseSalaryType}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    setSalaryManuallyEdited(true);
                     setFormData({
                       ...formData,
                       salaryConfig: {
                         ...formData.salaryConfig,
                         baseSalaryType: e.target.value as SalaryType,
                       },
-                    })
-                  }
+                    });
+                  }}
                   options={Object.entries(SalaryType).map(([key, value]) => ({
                     value,
                     label: value,
@@ -838,18 +883,24 @@ export default function NewContractPage() {
                 <Input
                   type="number"
                   value={formData.salaryConfig.baseSalaryAmount}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    setSalaryManuallyEdited(true);
                     setFormData({
                       ...formData,
                       salaryConfig: {
                         ...formData.salaryConfig,
                         baseSalaryAmount: parseInt(e.target.value) || 0,
                       },
-                    })
-                  }
+                    });
+                  }}
                   placeholder="0"
                   className="mt-2"
                 />
+                {isHourly && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    2025년 최저시급: {DEFAULT_MINIMUM_WAGE.toLocaleString()}원
+                  </p>
+                )}
               </div>
             </div>
 
@@ -987,15 +1038,16 @@ export default function NewContractPage() {
                 <Label>급여일</Label>
                 <Select
                   value={formData.salaryConfig.paymentDate.toString()}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    setSalaryManuallyEdited(true);
                     setFormData({
                       ...formData,
                       salaryConfig: {
                         ...formData.salaryConfig,
                         paymentDate: parseInt(e.target.value),
                       },
-                    })
-                  }
+                    });
+                  }}
                   options={Array.from({ length: 31 }, (_, i) => ({
                     value: (i + 1).toString(),
                     label: `${i + 1}일`,
@@ -1007,15 +1059,16 @@ export default function NewContractPage() {
                 <Label>지급 방식</Label>
                 <Select
                   value={formData.salaryConfig.paymentMethod}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    setSalaryManuallyEdited(true);
                     setFormData({
                       ...formData,
                       salaryConfig: {
                         ...formData.salaryConfig,
                         paymentMethod: e.target.value as '계좌이체' | '현금' | '혼합',
                       },
-                    })
-                  }
+                    });
+                  }}
                   options={[
                     { value: '계좌이체', label: '계좌이체' },
                     { value: '현금', label: '현금' },
@@ -1290,9 +1343,28 @@ export default function NewContractPage() {
       case 8:
         const selectedStaff = staffList.find((s) => s.id === formData.staffId);
         const selectedStore = storeList.find((s) => s.id === formData.storeId);
+        const finalIsHourly = formData.salaryConfig.baseSalaryType === SalaryType.HOURLY;
+        const finalHourlyAmount = formData.salaryConfig.baseSalaryAmount;
+        const finalMinimumWageCheck = finalIsHourly && finalHourlyAmount > 0 ? checkMinimumWage(finalHourlyAmount) : null;
 
         return (
           <div className="space-y-6">
+            {/* 최저시급 미달 경고 */}
+            {finalMinimumWageCheck && !finalMinimumWageCheck.isCompliant && (
+              <Alert variant="error">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-red-500" />
+                  <div>
+                    <p className="font-medium">최저시급 미달 경고!</p>
+                    <p className="text-sm">
+                      설정된 시급 {finalHourlyAmount.toLocaleString()}원은 최저시급 {DEFAULT_MINIMUM_WAGE.toLocaleString()}원보다 낮습니다.
+                      계약서를 저장하기 전에 시급을 확인해주세요.
+                    </p>
+                  </div>
+                </div>
+              </Alert>
+            )}
+
             <Alert variant="info">
               계약서 내용을 확인하고 저장하세요. 저장 후 직원에게 발송할 수 있습니다.
             </Alert>
