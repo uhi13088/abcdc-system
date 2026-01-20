@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Label } from '@/components/ui/label';
 
 // Daum Postcode API 타입 정의
 declare global {
@@ -296,9 +297,7 @@ export default function RegisterPage() {
 
             {/* 이메일 */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                이메일 <span className="text-red-500">*</span>
-              </label>
+              <Label htmlFor="email" required className="block text-gray-700">이메일</Label>
               <input
                 id="email"
                 name="email"
@@ -314,9 +313,7 @@ export default function RegisterPage() {
 
             {/* 이름 */}
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                이름 <span className="text-red-500">*</span>
-              </label>
+              <Label htmlFor="name" required className="block text-gray-700">이름</Label>
               <input
                 id="name"
                 name="name"
@@ -332,9 +329,7 @@ export default function RegisterPage() {
 
             {/* 전화번호 */}
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                전화번호 <span className="text-red-500">*</span>
-              </label>
+              <Label htmlFor="phone" required className="block text-gray-700">전화번호</Label>
               <input
                 id="phone"
                 name="phone"
@@ -350,9 +345,7 @@ export default function RegisterPage() {
 
             {/* 주민등록번호 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                주민등록번호 <span className="text-red-500">*</span>
-              </label>
+              <Label required className="block text-gray-700">주민등록번호</Label>
               <div className="mt-1 flex items-center space-x-2">
                 <input
                   name="ssn1"
@@ -387,9 +380,7 @@ export default function RegisterPage() {
 
             {/* 주소 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700">
-                주소 <span className="text-red-500">*</span>
-              </label>
+              <Label required className="block text-gray-700">주소</Label>
               <div className="mt-1 flex space-x-2">
                 <input
                   name="zonecode"
@@ -529,9 +520,7 @@ export default function RegisterPage() {
 
             {/* 비밀번호 */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                비밀번호 <span className="text-red-500">*</span>
-              </label>
+              <Label htmlFor="password" required className="block text-gray-700">비밀번호</Label>
               <div className="relative mt-1">
                 <input
                   id="password"
@@ -590,9 +579,7 @@ export default function RegisterPage() {
 
             {/* 비밀번호 확인 */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                비밀번호 확인 <span className="text-red-500">*</span>
-              </label>
+              <Label htmlFor="confirmPassword" required className="block text-gray-700">비밀번호 확인</Label>
               <div className="relative mt-1">
                 <input
                   id="confirmPassword"

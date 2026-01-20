@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Camera, Check, Upload, FileText, CreditCard, Shield, GraduationCap, Contact2, AlertCircle } from 'lucide-react';
 import { logger } from '@abc/shared';
+import { Label } from '@/components/ui/label';
 
 interface DocumentType {
   id: string;
@@ -412,9 +413,7 @@ export default function DocumentsPage() {
             <div className="p-4 space-y-6">
               {/* 사진 업로드 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  사진 <span className="text-red-500">*</span>
-                </label>
+                <Label required className="mb-2">사진</Label>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -451,9 +450,7 @@ export default function DocumentsPage() {
               {/* 보건증 추가 정보 */}
               {DOCUMENT_TYPES[selectedDoc]?.hasExpiry && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    유효기간 <span className="text-red-500">*</span>
-                  </label>
+                  <Label required className="mb-2">유효기간</Label>
                   <input
                     type="date"
                     value={expiryDate}
@@ -467,9 +464,7 @@ export default function DocumentsPage() {
               {DOCUMENT_TYPES[selectedDoc]?.hasBankInfo && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      은행 <span className="text-red-500">*</span>
-                    </label>
+                    <Label required className="mb-2">은행</Label>
                     <select
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
@@ -482,9 +477,7 @@ export default function DocumentsPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      계좌번호 <span className="text-red-500">*</span>
-                    </label>
+                    <Label required className="mb-2">계좌번호</Label>
                     <input
                       type="text"
                       value={accountNumber}
@@ -494,9 +487,7 @@ export default function DocumentsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      예금주 <span className="text-red-500">*</span>
-                    </label>
+                    <Label required className="mb-2">예금주</Label>
                     <input
                       type="text"
                       value={accountHolder}

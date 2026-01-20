@@ -6,6 +6,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Plus, Search, MoreVertical, Building2, Users, MapPin, Edit, Trash2, X } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { Label } from '@/components/ui/label';
 
 interface Company {
   id: string;
@@ -360,9 +361,7 @@ function CompaniesContent() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  회사명 <span className="text-red-500">*</span>
-                </label>
+                <Label required>회사명</Label>
                 <input
                   type="text"
                   required

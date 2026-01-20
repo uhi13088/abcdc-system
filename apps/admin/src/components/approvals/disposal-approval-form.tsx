@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Camera, X } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 interface DisposalApprovalFormProps {
   onSubmit: (data: DisposalApprovalData) => void;
@@ -116,9 +117,7 @@ export function DisposalApprovalForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* 분류 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          분류 <span className="text-red-500">*</span>
-        </label>
+        <Label required className="block text-gray-700 mb-2">분류</Label>
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
@@ -133,9 +132,7 @@ export function DisposalApprovalForm({
 
       {/* 품목명 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          품목명 <span className="text-red-500">*</span>
-        </label>
+        <Label required className="block text-gray-700 mb-2">품목명</Label>
         <input
           type="text"
           value={itemName}
@@ -149,9 +146,7 @@ export function DisposalApprovalForm({
       {/* 수량 */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            수량 <span className="text-red-500">*</span>
-          </label>
+          <Label required className="block text-gray-700 mb-2">수량</Label>
           <input
             type="number"
             value={quantity}
@@ -199,9 +194,7 @@ export function DisposalApprovalForm({
 
       {/* 폐기 사유 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          폐기 사유 <span className="text-red-500">*</span>
-        </label>
+        <Label required className="block text-gray-700 mb-2">폐기 사유</Label>
         <select
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -226,9 +219,7 @@ export function DisposalApprovalForm({
 
       {/* 처리 방법 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          처리 방법 <span className="text-red-500">*</span>
-        </label>
+        <Label required className="block text-gray-700 mb-2">처리 방법</Label>
         <div className="grid grid-cols-2 gap-3">
           {DISPOSAL_METHODS.map(method => (
             <label
@@ -258,10 +249,10 @@ export function DisposalApprovalForm({
 
       {/* 폐기 대상 사진 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          폐기 대상 사진 <span className="text-red-500">*</span>
-          <span className="text-gray-500 font-normal"> (최대 5장)</span>
-        </label>
+        <Label required className="block text-gray-700 mb-2">
+          폐기 대상 사진
+          <span className="text-gray-500 font-normal ml-1">(최대 5장)</span>
+        </Label>
 
         <div className="grid grid-cols-5 gap-3">
           {photoUrls.map((url, index) => (
