@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { DEFAULT_MINIMUM_WAGE } from '@abc/shared';
 
 // GET /api/salaries - 급여 목록 조회
 export async function GET(request: NextRequest) {
@@ -247,7 +248,7 @@ export async function POST(request: NextRequest) {
       // Get hourly rate from contract
       const contract = contractMap[staffId];
       const salaryConfig = contract?.salary_config || {};
-      let hourlyRate = 9860; // 2024 minimum wage default
+      let hourlyRate = DEFAULT_MINIMUM_WAGE;
 
       if (salaryConfig.baseSalaryType === 'HOURLY') {
         hourlyRate = salaryConfig.baseSalaryAmount || hourlyRate;

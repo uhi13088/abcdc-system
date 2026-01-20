@@ -5,6 +5,7 @@
 
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { DEFAULT_MINIMUM_WAGE } from '@abc/shared';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic';
 function calculateWorkHoursAndPay(
   checkIn: Date,
   checkOut: Date,
-  hourlyRate: number = 9860
+  hourlyRate: number = DEFAULT_MINIMUM_WAGE
 ) {
   const diffMs = checkOut.getTime() - checkIn.getTime();
   const rawHours = diffMs / (1000 * 60 * 60);

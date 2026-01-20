@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { DEFAULT_MINIMUM_WAGE } from '@abc/shared';
 
 // POST /api/attendances/[id]/checkout - 퇴근 기록
 export async function POST(
@@ -60,7 +61,7 @@ export async function POST(
     }
 
     // Calculate pay (simplified)
-    const hourlyRate = store?.default_hourly_rate || 9860; // 2024 minimum wage
+    const hourlyRate = store?.default_hourly_rate || DEFAULT_MINIMUM_WAGE;
     const basePay = Math.min(actualWorkHours, 8) * hourlyRate;
     const overtimePay = overtimeHours * hourlyRate * 1.5;
     const nightPay = nightHours * hourlyRate * 0.5;

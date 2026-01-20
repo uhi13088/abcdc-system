@@ -5,6 +5,7 @@
 
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { DEFAULT_MINIMUM_WAGE } from '@abc/shared';
 
 // 출퇴근 기록 상세 조회
 export async function GET(
@@ -143,7 +144,7 @@ export async function PATCH(
       workHours = Math.max(0, rawHours - breakHours);
 
       const overtimeHours = Math.max(0, workHours - 8);
-      const hourlyRate = 9860;
+      const hourlyRate = DEFAULT_MINIMUM_WAGE;
 
       basePay = Math.min(workHours, 8) * hourlyRate;
       overtimePay = overtimeHours * hourlyRate * 1.5;

@@ -4,7 +4,7 @@
  */
 
 // 2025년 기준 최저시급 (매년 업데이트 필요)
-export const DEFAULT_MINIMUM_WAGE = 9860;
+export const DEFAULT_MINIMUM_WAGE = 10030;
 
 // 4대보험 요율 (2025년 기준)
 export const INSURANCE_RATES = {
