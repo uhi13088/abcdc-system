@@ -194,14 +194,39 @@ export default function NewContractPage() {
         updates.contractType = staff.contract_type as ContractType;
       }
 
-      // 시급 → 월급 변환 (주 40시간 기준)
-      if (staff.default_hourly_rate) {
-        updates.salaryConfig = {
-          ...formData.salaryConfig,
-          baseSalaryType: SalaryType.HOURLY,
-          baseSalaryAmount: staff.default_hourly_rate,
-        };
+      // 급여 설정 프리필 (직원 개인 시급 + 매장 설정 조합)
+      const newSalaryConfig = { ...formData.salaryConfig };
+
+      // 직원 개인 시급이 있으면 우선 적용
+      if (staff.default_hourly_rate && staff.default_hourly_rate > 0) {
+        newSalaryConfig.baseSalaryType = SalaryType.HOURLY;
+        newSalaryConfig.baseSalaryAmount = staff.default_hourly_rate;
       }
+
+      // 직원의 매장 설정도 함께 적용 (급여일, 수당 옵션)
+      if (staff.store_id) {
+        const store = storeList.find((s) => s.id === staff.store_id);
+        if (store) {
+          // 급여 지급일
+          if (store.pay_day) {
+            newSalaryConfig.paymentDate = store.pay_day;
+          }
+          // 수당 옵션
+          newSalaryConfig.allowances = {
+            ...newSalaryConfig.allowances,
+            overtimeAllowance: store.allowance_overtime ?? newSalaryConfig.allowances.overtimeAllowance,
+            nightAllowance: store.allowance_night ?? newSalaryConfig.allowances.nightAllowance,
+            holidayAllowance: store.allowance_holiday ?? newSalaryConfig.allowances.holidayAllowance,
+          };
+          // 직원 개인 시급이 없고 매장 기본 시급이 있으면 매장 시급 적용
+          if (!staff.default_hourly_rate && store.default_hourly_rate && store.default_hourly_rate > 0) {
+            newSalaryConfig.baseSalaryType = SalaryType.HOURLY;
+            newSalaryConfig.baseSalaryAmount = store.default_hourly_rate;
+          }
+        }
+      }
+
+      updates.salaryConfig = newSalaryConfig;
 
       setFormData({ ...formData, ...updates });
     }
@@ -307,26 +332,40 @@ export default function NewContractPage() {
   const handleStoreChange = (storeId: string) => {
     const store = storeList.find((s) => s.id === storeId);
     if (store) {
-      // 매장 설정에서 수당/급여일 프리필
+      // 매장 설정에서 수당/급여일/시급 프리필
       const updates: Partial<typeof formData> = {
         storeId,
         brandId: store.brand_id,
         companyId: store.company_id,
       };
 
-      // 급여 설정 프리필
-      if (store.pay_day || store.allowance_overtime !== undefined) {
-        updates.salaryConfig = {
-          ...formData.salaryConfig,
-          paymentDate: store.pay_day || formData.salaryConfig.paymentDate,
-          allowances: {
-            ...formData.salaryConfig.allowances,
-            overtimeAllowance: store.allowance_overtime ?? formData.salaryConfig.allowances.overtimeAllowance,
-            nightAllowance: store.allowance_night ?? formData.salaryConfig.allowances.nightAllowance,
-            holidayAllowance: store.allowance_holiday ?? formData.salaryConfig.allowances.holidayAllowance,
-          },
-        };
+      // 급여 설정 프리필 (매장 기본 시급, 급여일, 수당 옵션)
+      const newSalaryConfig = { ...formData.salaryConfig };
+
+      // 직원 개인 시급 확인 (직원 개인 시급이 있으면 매장 기본 시급을 덮어쓰지 않음)
+      const selectedStaff = staffList.find((s) => s.id === formData.staffId);
+      const hasStaffRate = selectedStaff?.default_hourly_rate && selectedStaff.default_hourly_rate > 0;
+
+      // 매장 기본 시급이 있고, 직원 개인 시급이 없을 때만 매장 시급 적용
+      if (store.default_hourly_rate && store.default_hourly_rate > 0 && !hasStaffRate) {
+        newSalaryConfig.baseSalaryType = SalaryType.HOURLY;
+        newSalaryConfig.baseSalaryAmount = store.default_hourly_rate;
       }
+
+      // 급여 지급일 (항상 매장 설정 사용)
+      if (store.pay_day) {
+        newSalaryConfig.paymentDate = store.pay_day;
+      }
+
+      // 수당 옵션 (항상 매장 설정 사용)
+      newSalaryConfig.allowances = {
+        ...formData.salaryConfig.allowances,
+        overtimeAllowance: store.allowance_overtime ?? formData.salaryConfig.allowances.overtimeAllowance,
+        nightAllowance: store.allowance_night ?? formData.salaryConfig.allowances.nightAllowance,
+        holidayAllowance: store.allowance_holiday ?? formData.salaryConfig.allowances.holidayAllowance,
+      };
+
+      updates.salaryConfig = newSalaryConfig;
 
       setFormData({ ...formData, ...updates });
     }
