@@ -73,6 +73,7 @@ export async function POST(request: NextRequest) {
       bonus,
       benefits,
       deadline,
+      show_bonus_in_notification = false,
     } = body;
 
     // Get user's company_id for authorization
@@ -148,7 +149,8 @@ export async function POST(request: NextRequest) {
       const invitedIds = await sendEmergencyNotifications(
         serviceSupabase,
         data,
-        storeData
+        storeData,
+        show_bonus_in_notification
       );
 
       // 초대된 직원 ID 업데이트
@@ -178,7 +180,8 @@ export async function POST(request: NextRequest) {
 async function sendEmergencyNotifications(
   supabase: ReturnType<typeof getServiceSupabaseClient>,
   shift: any,
-  storeData: { id: string; company_id: string; brand_id: string }
+  storeData: { id: string; company_id: string; brand_id: string },
+  showBonusInNotification: boolean
 ): Promise<string[]> {
   const workDate = shift.work_date;
   const maxInvites = 50; // 최대 초대 인원
@@ -219,7 +222,10 @@ async function sendEmergencyNotifications(
   const formattedDate = format(new Date(shift.work_date), 'M월 d일');
   const startTime = shift.start_time.substring(0, 5); // HH:mm
   const endTime = shift.end_time.substring(0, 5);
-  const bonusText = shift.bonus && shift.bonus > 0 ? ` (+${shift.bonus.toLocaleString()}원 보너스)` : '';
+  // 보너스 알림 노출은 showBonusInNotification이 true이고 보너스가 있을 때만
+  const bonusText = showBonusInNotification && shift.bonus && shift.bonus > 0
+    ? ` (+${shift.bonus.toLocaleString()}원 보너스)`
+    : '';
 
   // 매장 이름 조회
   const { data: storeInfo } = await supabase

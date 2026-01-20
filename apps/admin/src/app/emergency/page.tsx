@@ -50,6 +50,7 @@ export default function EmergencyPage() {
     hourly_rate: DEFAULT_MINIMUM_WAGE,
     bonus: 0,
     deadline: '',
+    show_bonus_in_notification: false,
   });
 
   const fetchStores = async () => {
@@ -113,6 +114,7 @@ export default function EmergencyPage() {
           hourly_rate: DEFAULT_MINIMUM_WAGE,
           bonus: 0,
           deadline: '',
+          show_bonus_in_notification: false,
         });
       } else {
         const error = await response.json();
@@ -335,11 +337,25 @@ export default function EmergencyPage() {
                   <input
                     type="number"
                     value={formData.bonus}
-                    onChange={(e) => setFormData({ ...formData, bonus: parseInt(e.target.value) })}
+                    onChange={(e) => setFormData({ ...formData, bonus: parseInt(e.target.value) || 0 })}
                     className="w-full px-3 py-2 border rounded-lg"
                   />
                 </div>
               </div>
+              {formData.bonus > 0 && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="show_bonus_in_notification"
+                    checked={formData.show_bonus_in_notification}
+                    onChange={(e) => setFormData({ ...formData, show_bonus_in_notification: e.target.checked })}
+                    className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                  />
+                  <label htmlFor="show_bonus_in_notification" className="text-sm text-gray-700">
+                    알림에 보너스 금액 표시
+                  </label>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">필요 인원</label>
                 <input
