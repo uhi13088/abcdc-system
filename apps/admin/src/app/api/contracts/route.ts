@@ -271,7 +271,7 @@ export async function POST(request: NextRequest) {
                 break_minutes: ws.breakMinutes || 60,
                 status: 'SCHEDULED',
                 generated_by: 'CONTRACT',
-                position: validation.data.position,
+                position: validation.data.position || undefined,
               });
             }
           }
