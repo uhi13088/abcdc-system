@@ -134,13 +134,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('id, role, company_id, name')
       .eq('auth_id', user.id)
@@ -154,8 +155,6 @@ export async function POST(request: NextRequest) {
 
     // Auto-create company if user doesn't have one
     if (!companyId && userData?.role !== 'super_admin') {
-      const adminClient = createAdminClient();
-
       const { data: newCompany, error: companyError } = await adminClient
         .from('companies')
         .insert({
@@ -180,8 +179,8 @@ export async function POST(request: NextRequest) {
       companyId = newCompany.id;
     }
 
-    // If still no company, return error
-    if (!companyId && userData?.role !== 'super_admin') {
+    // If still no company, return error (super_admin also needs company_id for salary calculation)
+    if (!companyId) {
       return NextResponse.json(
         { error: '회사 정보가 필요합니다. 먼저 브랜드/매장을 생성해주세요.' },
         { status: 400 }
@@ -202,7 +201,7 @@ export async function POST(request: NextRequest) {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
     const endDate = new Date(year, month, 0).toISOString().split('T')[0];
 
-    let attendanceQuery = supabase
+    let attendanceQuery = adminClient
       .from('attendances')
       .select('*')
       .eq('company_id', companyId)
@@ -235,11 +234,11 @@ export async function POST(request: NextRequest) {
 
     // Get contracts for hourly rate lookup
     const staffIds = Object.keys(staffAttendances);
-    const { data: contracts } = await supabase
+    const { data: contracts } = await adminClient
       .from('contracts')
       .select('staff_id, salary_config, standard_hours_per_day')
       .in('staff_id', staffIds)
-      .in('status', ['ACTIVE', 'SIGNED', 'DRAFT']);
+      .in('status', ['SIGNED', 'DRAFT']);
 
     const contractMap = (contracts || []).reduce((acc, c) => {
       acc[c.staff_id] = c;
@@ -317,7 +316,7 @@ export async function POST(request: NextRequest) {
       const netPay = grossPay - totalDeductions;
 
       // Check if salary record already exists
-      const { data: existingSalary } = await supabase
+      const { data: existingSalary } = await adminClient
         .from('salaries')
         .select('id')
         .eq('staff_id', staffId)
@@ -353,22 +352,30 @@ export async function POST(request: NextRequest) {
       };
 
       if (existingSalary) {
-        const { data, error } = await supabase
+        const { data, error } = await adminClient
           .from('salaries')
           .update(salaryData)
           .eq('id', existingSalary.id)
           .select()
           .single();
 
-        if (!error) results.push(data);
+        if (error) {
+          console.error('Salary update error:', error);
+        } else {
+          results.push(data);
+        }
       } else {
-        const { data, error } = await supabase
+        const { data, error } = await adminClient
           .from('salaries')
           .insert(salaryData)
           .select()
           .single();
 
-        if (!error) results.push(data);
+        if (error) {
+          console.error('Salary insert error:', error);
+        } else {
+          results.push(data);
+        }
       }
     }
 

@@ -25,7 +25,10 @@ function getKoreanFontPath(): string {
   // 대체 경로들
   const alternativePaths = [
     path.join(process.cwd(), 'apps', 'admin', 'public', 'fonts', 'NotoSansKR-Regular.otf'),
+    path.join(process.cwd(), 'apps', 'mobile', 'public', 'fonts', 'NotoSansKR-Regular.otf'),
     '/var/task/public/fonts/NotoSansKR-Regular.otf',
+    '/var/task/apps/mobile/public/fonts/NotoSansKR-Regular.otf',
+    '/var/task/apps/admin/public/fonts/NotoSansKR-Regular.otf',
     '/fonts/NotoSansKR-Regular.otf',
   ];
 
@@ -98,13 +101,13 @@ export class PDFGenerator {
         doc.registerFont('Korean', fontPath);
         doc.font('Korean');
       } else {
-        console.warn(`Korean font not found at: ${fontPath}, using Helvetica`);
-        doc.font('Helvetica');
+        console.warn(`Korean font not found at: ${fontPath}`);
+        // Vercel 환경에서는 Helvetica .afm 파일이 없을 수 있으므로 에러 발생시킴
+        throw new Error(`Font file not found. Please ensure NotoSansKR-Regular.otf exists in public/fonts/`);
       }
     } catch (error) {
-      console.warn('Failed to load Korean font, using Helvetica:', error);
-      // 폰트가 없으면 기본 폰트 사용
-      doc.font('Helvetica');
+      console.error('Failed to load Korean font:', error);
+      throw new Error(`PDF generation failed: Korean font not available. Searched path: ${fontPath}`);
     }
 
     return doc;
