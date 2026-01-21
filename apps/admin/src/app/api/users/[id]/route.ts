@@ -69,12 +69,12 @@ async function checkUserAccess(
 // GET /api/users/[id] - 직원 상세 조회
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: userId } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
-    const userId = params.id;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -118,12 +118,12 @@ export async function GET(
 // PUT /api/users/[id] - 직원 정보 수정
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: userId } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
-    const userId = params.id;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -209,12 +209,12 @@ export async function PUT(
 // DELETE /api/users/[id] - 직원 삭제 (비활성화)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: userId } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
-    const userId = params.id;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
