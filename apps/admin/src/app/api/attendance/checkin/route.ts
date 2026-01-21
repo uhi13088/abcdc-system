@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
       .eq('work_date', today)
       .maybeSingle();
 
-    // 지각 여부 판단
+    // 출근 상태 판단
     let status = 'NORMAL';
     let isLate = false;
 
@@ -192,6 +192,9 @@ export async function POST(request: NextRequest) {
       ) {
         status = 'EARLY';
       }
+    } else {
+      // 스케줄 없이 출근한 경우 미배정 출근으로 처리
+      status = 'UNSCHEDULED';
     }
 
     // 이미 출근한 기록이 있는지 확인

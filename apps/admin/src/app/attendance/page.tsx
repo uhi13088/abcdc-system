@@ -25,7 +25,7 @@ interface Attendance {
   scheduled_check_out: string | null;
   actual_check_in: string | null;
   actual_check_out: string | null;
-  status: 'WORKING' | 'NORMAL' | 'LATE' | 'EARLY_CHECK_IN' | 'EARLY_LEAVE' | 'LATE_AND_EARLY_LEAVE' | 'OVERTIME' | 'ABSENT' | 'NO_SHOW' | 'VACATION' | null;
+  status: 'WORKING' | 'NORMAL' | 'LATE' | 'EARLY_CHECK_IN' | 'EARLY_LEAVE' | 'LATE_AND_EARLY_LEAVE' | 'OVERTIME' | 'ABSENT' | 'NO_SHOW' | 'VACATION' | 'UNSCHEDULED' | null;
   work_hours: number | null;
   overtime_hours: number | null;
 }
@@ -46,6 +46,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   ABSENT: { label: '결근', color: 'bg-red-100 text-red-800', icon: XCircle },
   NO_SHOW: { label: '미출근', color: 'bg-red-100 text-red-800', icon: XCircle },
   VACATION: { label: '휴가', color: 'bg-indigo-100 text-indigo-800', icon: Clock },
+  UNSCHEDULED: { label: '미배정 출근', color: 'bg-gray-100 text-gray-800', icon: AlertCircle },
 };
 
 export default function AttendancePage() {
@@ -491,6 +492,7 @@ export default function AttendancePage() {
                   <option value="ABSENT">결근</option>
                   <option value="NO_SHOW">미출근</option>
                   <option value="VACATION">휴가</option>
+                  <option value="UNSCHEDULED">미배정 출근</option>
                 </select>
               </div>
 
