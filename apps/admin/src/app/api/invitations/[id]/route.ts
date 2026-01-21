@@ -4,9 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET /api/invitations/:id - 초대 상세 조회
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
@@ -33,7 +34,7 @@ export async function GET(
         invitation_templates(id, name),
         users(id, name, email)
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('company_id', userData.company_id)
       .single();
 
@@ -56,9 +57,10 @@ export async function GET(
 // DELETE /api/invitations/:id - 초대 취소
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
@@ -85,7 +87,7 @@ export async function DELETE(
     const { data: invitation } = await adminClient
       .from('invitations')
       .select('status')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('company_id', userData.company_id)
       .single();
 
@@ -101,7 +103,7 @@ export async function DELETE(
     const { error } = await adminClient
       .from('invitations')
       .update({ status: 'CANCELLED' })
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('company_id', userData.company_id);
 
     if (error) {

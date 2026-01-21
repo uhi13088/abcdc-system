@@ -5,11 +5,12 @@ import { DEFAULT_MINIMUM_WAGE, ALLOWANCE_RATES, DAILY_WORK_HOURS } from '@abc/sh
 // POST /api/attendances/[id]/checkout - 퇴근 기록
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
-    const attendanceId = params.id;
+    const attendanceId = id;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

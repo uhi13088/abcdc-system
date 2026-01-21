@@ -9,12 +9,13 @@ import { NextRequest, NextResponse } from 'next/server';
 // 수정 요청 상세 조회
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
-    const requestId = params.id;
+    const requestId = id;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -81,12 +82,13 @@ export async function GET(
 // 수정 요청 승인/거절
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
-    const requestId = params.id;
+    const requestId = id;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

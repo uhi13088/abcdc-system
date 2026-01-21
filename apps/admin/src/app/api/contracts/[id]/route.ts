@@ -64,11 +64,12 @@ async function checkContractAccess(
 // GET /api/contracts/[id] - 계약서 상세 조회
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
-    const contractId = params.id;
+    const contractId = id;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -110,11 +111,12 @@ export async function GET(
 // PUT /api/contracts/[id] - 계약서 수정
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
-    const contractId = params.id;
+    const contractId = id;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -170,11 +172,12 @@ export async function PUT(
 // DELETE /api/contracts/[id] - 계약서 삭제
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
-    const contractId = params.id;
+    const contractId = id;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

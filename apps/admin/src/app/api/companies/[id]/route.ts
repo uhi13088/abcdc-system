@@ -4,9 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET /api/companies/[id]
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -26,14 +27,14 @@ export async function GET(
     }
 
     // 회사 격리 체크 - super_admin이 아니면 본인 회사만 조회 가능
-    if (userData.role !== 'super_admin' && userData.company_id !== params.id) {
+    if (userData.role !== 'super_admin' && userData.company_id !== id) {
       return NextResponse.json({ error: '자신의 회사만 조회할 수 있습니다.' }, { status: 403 });
     }
 
     const { data, error } = await supabase
       .from('companies')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) {
@@ -55,9 +56,10 @@ export async function GET(
 // PUT /api/companies/[id]
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -77,7 +79,7 @@ export async function PUT(
     }
 
     // 회사 격리 체크 - super_admin이 아니면 본인 회사만 수정 가능
-    if (userData?.role !== 'super_admin' && userData?.company_id !== params.id) {
+    if (userData?.role !== 'super_admin' && userData?.company_id !== id) {
       return NextResponse.json({ error: '자신의 회사만 수정할 수 있습니다.' }, { status: 403 });
     }
 
@@ -93,7 +95,7 @@ export async function PUT(
     const { data, error } = await supabase
       .from('companies')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 

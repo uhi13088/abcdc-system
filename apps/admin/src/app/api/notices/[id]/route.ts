@@ -4,11 +4,11 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 // GET /api/notices/[id] - 공지사항 상세 조회
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerClient();
-    const { id } = params;
 
     // Increment view count
     await supabase.rpc('increment_notice_view', { notice_id: id });
@@ -44,11 +44,11 @@ export async function GET(
 // DELETE /api/notices/[id] - 공지사항 삭제
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerClient();
-    const { id } = params;
 
     // Get user info
     const { data: userData } = await supabase.auth.getUser();

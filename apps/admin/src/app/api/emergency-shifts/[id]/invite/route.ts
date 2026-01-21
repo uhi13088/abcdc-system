@@ -30,12 +30,13 @@ interface StaffCandidate {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = getSupabaseClient();
 
   try {
-    const shiftId = params.id;
+    const { id } = await params;
+    const shiftId = id;
     const body = await request.json();
     const { staffIds, inviteAll = false, maxInvites = 20 } = body;
 

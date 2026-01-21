@@ -17,11 +17,12 @@ function getSupabaseClient() {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = getSupabaseClient();
   try {
-    const contractId = params.id;
+    const { id } = await params;
+    const contractId = id;
 
     // 계약서 정보 조회
     const { data: contract, error: contractError } = await supabase
@@ -165,11 +166,12 @@ export async function POST(
 // 리마인더 발송
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = getSupabaseClient();
   try {
-    const contractId = params.id;
+    const { id } = await params;
+    const contractId = id;
 
     const { data: contract, error } = await supabase
       .from('contracts')

@@ -18,10 +18,11 @@ function getSupabaseClient() {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = getSupabaseClient();
   try {
+    const { id } = await params;
     // 인증 검증
     const authClient = await createAuthClient();
     const { data: { user } } = await authClient.auth.getUser();
@@ -29,7 +30,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const contractId = params.id;
+    const contractId = id;
     const body = await request.json();
     const { signature, signerId, signerType = 'EMPLOYEE', deviceInfo, ipAddress } = body;
 
@@ -293,11 +294,12 @@ export async function POST(
 // 계약서 상세 조회 (서명 화면용)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = getSupabaseClient();
   try {
-    const contractId = params.id;
+    const { id } = await params;
+    const contractId = id;
 
     const { data: contract, error } = await supabase
       .from('contracts')

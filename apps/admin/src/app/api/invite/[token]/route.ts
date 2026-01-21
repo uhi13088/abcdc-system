@@ -4,9 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET /api/invite/:token - 초대 정보 조회 (공개 - 인증 불필요)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
   try {
+    const { token } = await params;
     const adminClient = createAdminClient();
 
     const { data: invitation, error } = await adminClient
@@ -30,7 +31,7 @@ export async function GET(
         stores(id, name, brands(id, name)),
         companies(id, name)
       `)
-      .eq('token', params.token)
+      .eq('token', token)
       .single();
 
     if (error || !invitation) {

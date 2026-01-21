@@ -7,12 +7,13 @@ import { logger } from '@abc/shared';
 // POST /api/approvals/[id]/process - 승인/거부 처리
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
-    const approvalId = params.id;
+    const approvalId = id;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

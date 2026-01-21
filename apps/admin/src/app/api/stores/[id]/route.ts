@@ -4,9 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET /api/stores/[id]
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -21,7 +22,7 @@ export async function GET(
         brands(id, name),
         companies(id, name)
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) {
@@ -43,9 +44,10 @@ export async function GET(
 // PUT /api/stores/[id]
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -79,7 +81,7 @@ export async function PUT(
     const { data, error } = await adminClient
       .from('stores')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -99,9 +101,10 @@ export async function PUT(
 // DELETE /api/stores/[id]
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -113,7 +116,7 @@ export async function DELETE(
     const { count: employeeCount } = await supabase
       .from('users')
       .select('*', { count: 'exact', head: true })
-      .eq('store_id', params.id);
+      .eq('store_id', id);
 
     if (employeeCount && employeeCount > 0) {
       return NextResponse.json(
@@ -127,7 +130,7 @@ export async function DELETE(
     const { error } = await adminClient
       .from('stores')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

@@ -37,9 +37,10 @@ const UpdateTemplateSchema = z.object({
 // GET /api/invitation-templates/:id - 템플릿 상세 조회
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
@@ -61,7 +62,7 @@ export async function GET(
     const { data: template, error } = await adminClient
       .from('invitation_templates')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('company_id', userData.company_id)
       .single();
 
@@ -79,9 +80,10 @@ export async function GET(
 // PATCH /api/invitation-templates/:id - 템플릿 수정
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
@@ -143,7 +145,7 @@ export async function PATCH(
     let { data, error } = await adminClient
       .from('invitation_templates')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('company_id', userData.company_id)
       .select()
       .single();
@@ -154,7 +156,7 @@ export async function PATCH(
       const fallbackResult = await adminClient
         .from('invitation_templates')
         .update(baseUpdateData)
-        .eq('id', params.id)
+        .eq('id', id)
         .eq('company_id', userData.company_id)
         .select()
         .single();
@@ -169,7 +171,7 @@ export async function PATCH(
       const minimalResult = await adminClient
         .from('invitation_templates')
         .update(minimalUpdateData)
-        .eq('id', params.id)
+        .eq('id', id)
         .eq('company_id', userData.company_id)
         .select()
         .single();
@@ -203,9 +205,10 @@ export async function PATCH(
 // DELETE /api/invitation-templates/:id - 템플릿 삭제 (소프트 삭제)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
@@ -232,7 +235,7 @@ export async function DELETE(
     const { error } = await adminClient
       .from('invitation_templates')
       .update({ is_active: false })
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('company_id', userData.company_id);
 
     if (error) {

@@ -11,9 +11,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
@@ -38,7 +39,7 @@ export async function GET(
     const { data: contract, error } = await adminClient
       .from('contracts')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error || !contract) {
@@ -61,10 +62,10 @@ export async function GET(
     let pdfBuffer: Buffer;
 
     if (type === 'draft') {
-      pdfBuffer = await contractPDFService.generateDraft(params.id);
+      pdfBuffer = await contractPDFService.generateDraft(id);
     } else {
       // 모든 상태에서 PDF 생성 가능 (서명 정보는 있는 만큼만 포함)
-      pdfBuffer = await contractPDFService.generate(params.id);
+      pdfBuffer = await contractPDFService.generate(id);
     }
 
     // 파일명 생성
@@ -89,9 +90,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
@@ -116,7 +118,7 @@ export async function POST(
     const { data: contract } = await adminClient
       .from('contracts')
       .select('company_id, status')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (!contract || contract.company_id !== userData.company_id) {
@@ -128,13 +130,13 @@ export async function POST(
 
     let pdfBuffer: Buffer;
     if (type === 'signed') {
-      pdfBuffer = await contractPDFService.generateSigned(params.id);
+      pdfBuffer = await contractPDFService.generateSigned(id);
     } else {
-      pdfBuffer = await contractPDFService.generateDraft(params.id);
+      pdfBuffer = await contractPDFService.generateDraft(id);
     }
 
     // Storage에 저장
-    const url = await contractPDFService.saveToStorage(params.id, pdfBuffer, type);
+    const url = await contractPDFService.saveToStorage(id, pdfBuffer, type);
 
     return NextResponse.json({
       message: 'PDF 생성 및 저장 완료',

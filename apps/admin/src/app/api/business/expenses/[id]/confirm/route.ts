@@ -4,11 +4,11 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 // POST /api/business/expenses/[id]/confirm
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerClient();
-    const { id } = params;
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {

@@ -16,11 +16,12 @@ function getSupabaseClient() {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = getSupabaseClient();
   try {
-    const salaryId = params.id;
+    const { id } = await params;
+    const salaryId = id;
 
     // 급여 정보 조회
     const { data: salary, error: salaryError } = await supabase
