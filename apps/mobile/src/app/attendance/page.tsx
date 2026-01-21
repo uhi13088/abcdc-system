@@ -149,6 +149,7 @@ export default function AttendancePage() {
       ABSENT: 'bg-red-100 text-red-700',
       NO_SHOW: 'bg-red-100 text-red-700',
       VACATION: 'bg-indigo-100 text-indigo-700',
+      UNSCHEDULED: 'bg-gray-100 text-gray-700',
     };
     const labels: Record<string, string> = {
       WORKING: '근무중',
@@ -161,6 +162,7 @@ export default function AttendancePage() {
       ABSENT: '결근',
       NO_SHOW: '미출근',
       VACATION: '휴가',
+      UNSCHEDULED: '미배정',
     };
     return (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${styles[displayStatus] || 'bg-gray-100 text-gray-700'}`}>
