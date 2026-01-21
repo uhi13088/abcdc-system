@@ -14,16 +14,44 @@ interface Contract {
   position: string;
   department: string;
   status: string;
+  probation_months?: number;
   employee_signed_at?: string;
   employer_signed_at?: string;
   employee_signature?: string;
+  employer_signature?: string;
   salary_config?: {
     baseSalaryType: string;
     baseSalaryAmount: number;
+    paymentDate?: number;
+    paymentMethod?: string;
   };
   standard_hours_per_week?: number;
-  stores: { name: string } | null;
-  companies?: { name: string } | null;
+  standard_hours_per_day?: number;
+  annual_leave_days?: number;
+  work_schedules?: Array<{
+    daysOfWeek: number[];
+    startTime: string;
+    endTime: string;
+    breakMinutes: number;
+  }>;
+  duties?: string[];
+  terms?: {
+    specialTerms?: string;
+  };
+  created_at?: string;
+  stores: { name: string; address?: string } | null;
+  companies?: {
+    name: string;
+    business_number?: string;
+    ceo_name?: string;
+    address?: string;
+  } | null;
+  staff?: {
+    name: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+  } | null;
 }
 
 export default function ContractPage() {
@@ -68,13 +96,22 @@ export default function ContractPage() {
           position,
           department,
           status,
+          probation_months,
           employee_signed_at,
           employer_signed_at,
           employee_signature,
+          employer_signature,
           salary_config,
           standard_hours_per_week,
-          stores(name),
-          companies(name)
+          standard_hours_per_day,
+          annual_leave_days,
+          work_schedules,
+          duties,
+          terms,
+          created_at,
+          stores(name, address),
+          companies(name, business_number, ceo_name, address),
+          staff:users!contracts_staff_id_fkey(name, address, phone, email)
         `)
         .eq('staff_id', userData.id)
         .in('status', ['DRAFT', 'SENT', 'SIGNED', 'ACTIVE'])
@@ -91,10 +128,14 @@ export default function ContractPage() {
       if (contractData) {
         const storeData = Array.isArray(contractData.stores) ? contractData.stores[0] : contractData.stores;
         const companyData = Array.isArray(contractData.companies) ? contractData.companies[0] : contractData.companies;
+        const staffData = Array.isArray((contractData as Record<string, unknown>).staff)
+          ? ((contractData as Record<string, unknown>).staff as Record<string, unknown>[])[0]
+          : (contractData as Record<string, unknown>).staff;
         setContract({
           ...contractData,
           stores: storeData || null,
           companies: companyData || null,
+          staff: (staffData as Contract['staff']) || null,
         } as Contract);
       }
     } catch (error) {
@@ -422,6 +463,15 @@ export default function ContractPage() {
               onClick={() => {
                 if (!contract) return;
 
+                const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
+                const statusLabels: Record<string, string> = {
+                  DRAFT: '초안',
+                  SENT: '발송됨',
+                  SIGNED: '서명완료',
+                  ACTIVE: '유효',
+                  REJECTED: '거부됨',
+                };
+
                 const content = `
                   <!DOCTYPE html>
                   <html>
@@ -434,69 +484,115 @@ export default function ContractPage() {
                         font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
                         padding: 20px;
                         font-size: 12px;
-                        line-height: 1.8;
+                        line-height: 1.6;
                       }
                       h1 { text-align: center; margin-bottom: 30px; font-size: 24px; }
-                      .header { text-align: center; margin-bottom: 20px; color: #666; font-size: 11px; }
+                      h2 { font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 8px; margin-top: 24px; margin-bottom: 12px; }
+                      .header { text-align: center; margin-bottom: 20px; }
+                      .badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 11px; margin-right: 8px; }
+                      .badge-draft { background: #e5e5e5; color: #666; }
+                      .badge-sent { background: #dbeafe; color: #1d4ed8; }
+                      .badge-signed, .badge-active { background: #d1fae5; color: #059669; }
+                      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px; }
+                      .label { color: #666; font-size: 11px; margin-bottom: 4px; }
+                      .value { font-weight: 500; }
                       .section { margin-bottom: 24px; }
-                      .section-title { font-size: 14px; font-weight: bold; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #333; }
                       table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-                      th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-                      th { background-color: #f5f5f5; font-weight: 600; width: 30%; }
-                      .signature-section { margin-top: 40px; display: flex; justify-content: space-between; }
-                      .signature-box { width: 45%; text-align: center; }
-                      .signature-line { border-top: 1px solid #333; margin-top: 60px; padding-top: 8px; }
-                      .footer { margin-top: 40px; text-align: center; font-size: 10px; color: #999; }
+                      th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                      th { background-color: #f5f5f5; font-weight: 600; }
+                      .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; border-top: 1px solid #ddd; padding-top: 24px; }
+                      .signature-box { text-align: center; }
+                      .signature-placeholder { height: 80px; border: 2px dashed #ccc; display: flex; align-items: center; justify-content: center; color: #999; margin: 16px 0; }
+                      .signature-img { height: 60px; margin: 16px auto; display: block; }
+                      .footer { text-align: center; margin-top: 40px; padding-top: 16px; border-top: 1px solid #ddd; color: #666; }
                       @media print { body { padding: 0; } }
                     </style>
                   </head>
                   <body>
                     <h1>근 로 계 약 서</h1>
-                    <p class="header">계약번호: ${contract.contract_number} | 생성일: ${new Date().toLocaleDateString('ko-KR')}</p>
-
-                    <div class="section">
-                      <div class="section-title">계약 정보</div>
-                      <table>
-                        ${contract.companies?.name ? `<tr><th>회사명</th><td>${contract.companies.name}</td></tr>` : ''}
-                        <tr><th>계약 유형</th><td>${getContractTypeLabel(contract.contract_type)}</td></tr>
-                        ${contract.stores?.name ? `<tr><th>근무지</th><td>${contract.stores.name}</td></tr>` : ''}
-                        ${contract.position ? `<tr><th>직책</th><td>${contract.position}</td></tr>` : ''}
-                        ${contract.department ? `<tr><th>부서</th><td>${contract.department}</td></tr>` : ''}
-                      </table>
+                    <div class="header">
+                      <span class="badge badge-${contract.status.toLowerCase()}">${statusLabels[contract.status] || contract.status}</span>
+                      <span style="color: #666;">${contract.contract_number}</span>
                     </div>
 
-                    <div class="section">
-                      <div class="section-title">계약 기간</div>
-                      <table>
-                        <tr><th>시작일</th><td>${formatDate(contract.start_date)}</td></tr>
-                        <tr><th>종료일</th><td>${contract.end_date ? formatDate(contract.end_date) : '무기한'}</td></tr>
-                      </table>
+                    <h2>제1조 【계약 당사자】</h2>
+                    <div class="grid">
+                      <div>
+                        <div class="label">사업주 (갑)</div>
+                        <div class="value">${contract.companies?.name || '-'}</div>
+                        <div style="font-size:11px; color:#666;">
+                          ${contract.companies?.address || '-'}<br>
+                          대표자: ${contract.companies?.ceo_name || '-'}<br>
+                          사업자번호: ${contract.companies?.business_number || '-'}
+                        </div>
+                      </div>
+                      <div>
+                        <div class="label">근로자 (을)</div>
+                        <div class="value">${contract.staff?.name || '-'}</div>
+                        <div style="font-size:11px; color:#666;">
+                          ${contract.staff?.address || '-'}<br>
+                          연락처: ${contract.staff?.phone || '-'}<br>
+                          이메일: ${contract.staff?.email || '-'}
+                        </div>
+                      </div>
                     </div>
 
-                    ${contract.salary_config || contract.standard_hours_per_week ? `
-                    <div class="section">
-                      <div class="section-title">급여 정보</div>
-                      <table>
-                        ${contract.salary_config?.baseSalaryType === 'HOURLY' && contract.salary_config?.baseSalaryAmount > 0
-                          ? `<tr><th>시급</th><td>${formatCurrency(contract.salary_config.baseSalaryAmount)}</td></tr>` : ''}
-                        ${contract.salary_config?.baseSalaryType === 'MONTHLY' && contract.salary_config?.baseSalaryAmount > 0
-                          ? `<tr><th>월급</th><td>${formatCurrency(contract.salary_config.baseSalaryAmount)}</td></tr>` : ''}
-                        ${contract.standard_hours_per_week && contract.standard_hours_per_week > 0
-                          ? `<tr><th>주당 근무시간</th><td>${contract.standard_hours_per_week}시간</td></tr>` : ''}
-                      </table>
-                    </div>
+                    <h2>제2조 【계약 조건】</h2>
+                    <table>
+                      <tr><th style="width:25%">계약 유형</th><td>${getContractTypeLabel(contract.contract_type)}</td><th style="width:25%">근무지</th><td>${contract.stores?.name || '-'}</td></tr>
+                      <tr><th>계약 기간</th><td>${formatDate(contract.start_date)}${contract.end_date ? ' ~ ' + formatDate(contract.end_date) : ' (정함이 없음)'}</td><th>수습 기간</th><td>${contract.probation_months || 0}개월</td></tr>
+                      <tr><th>직책</th><td>${contract.position || '-'}</td><th>부서</th><td>${contract.department || '-'}</td></tr>
+                    </table>
+
+                    <h2>제3조 【근로시간】</h2>
+                    <table>
+                      <tr><th style="width:25%">주당 근로시간</th><td>${contract.standard_hours_per_week || 0}시간</td><th style="width:25%">1일 근로시간</th><td>${contract.standard_hours_per_day || 0}시간</td></tr>
+                      ${contract.work_schedules?.map((s, i) => `
+                        <tr><th>근무 요일${(contract.work_schedules?.length || 0) > 1 ? ' (' + (i + 1) + ')' : ''}</th><td>${s.daysOfWeek.map(d => DAYS[d]).join(', ')}</td><th>근무 시간</th><td>${s.startTime} ~ ${s.endTime} (휴게 ${s.breakMinutes}분)</td></tr>
+                      `).join('') || '<tr><td colspan="4">근무 스케줄 없음</td></tr>'}
+                    </table>
+
+                    <h2>제4조 【임금】</h2>
+                    <table>
+                      <tr><th style="width:25%">기본급</th><td>${contract.salary_config?.baseSalaryType || ''} ${formatCurrency(contract.salary_config?.baseSalaryAmount || 0)}</td></tr>
+                      <tr><th>지급일</th><td>매월 ${contract.salary_config?.paymentDate || '-'}일 (${contract.salary_config?.paymentMethod || '계좌이체'})</td></tr>
+                    </table>
+
+                    <h2>제5조 【휴가】</h2>
+                    <table>
+                      <tr><th style="width:25%">연차휴가</th><td>${contract.annual_leave_days || 15}일</td></tr>
+                    </table>
+
+                    ${contract.duties && contract.duties.length > 0 ? `
+                    <h2>제6조 【담당 업무】</h2>
+                    <ul>${contract.duties.map(d => '<li>' + d + '</li>').join('')}</ul>
                     ` : ''}
 
-                    <div class="section">
-                      <div class="section-title">서명 정보</div>
-                      <table>
-                        <tr><th>근로자 서명일</th><td>${contract.employee_signed_at ? formatDate(contract.employee_signed_at) : '미서명'}</td></tr>
-                        <tr><th>사용자 서명일</th><td>${contract.employer_signed_at ? formatDate(contract.employer_signed_at) : '미서명'}</td></tr>
-                      </table>
+                    ${contract.terms?.specialTerms ? `
+                    <h2>특약사항</h2>
+                    <div style="background:#f9f9f9; padding:12px; border-radius:4px; white-space:pre-wrap;">${contract.terms.specialTerms}</div>
+                    ` : ''}
+
+                    <div class="signatures">
+                      <div class="signature-box">
+                        <div class="label">사업주 (갑)</div>
+                        ${contract.employer_signature
+                          ? '<img src="' + contract.employer_signature + '" class="signature-img" alt="사업주 서명"><div style="font-size:10px; color:#999;">' + (contract.employer_signed_at ? new Date(contract.employer_signed_at).toLocaleString('ko-KR') : '') + '</div>'
+                          : '<div class="signature-placeholder">서명 대기중</div>'}
+                        <div class="value">${contract.companies?.ceo_name || ''}</div>
+                      </div>
+                      <div class="signature-box">
+                        <div class="label">근로자 (을)</div>
+                        ${contract.employee_signature
+                          ? '<img src="' + contract.employee_signature + '" class="signature-img" alt="근로자 서명"><div style="font-size:10px; color:#999;">' + (contract.employee_signed_at ? new Date(contract.employee_signed_at).toLocaleString('ko-KR') : '') + '</div>'
+                          : '<div class="signature-placeholder">서명 대기중</div>'}
+                        <div class="value">${contract.staff?.name || ''}</div>
+                      </div>
                     </div>
 
                     <div class="footer">
-                      본 계약서는 「근로기준법」에 의거하여 작성되었습니다.
+                      <p>본 계약서는 「근로기준법」에 의거하여 작성되었으며, 상기 내용에 동의하고 서명합니다.</p>
+                      <p style="margin-top:12px;">${contract.created_at ? formatDate(contract.created_at) : formatDate(new Date().toISOString())}</p>
                     </div>
                   </body>
                   </html>
