@@ -18,7 +18,7 @@ function getSupabaseClient() {
 
 // 미출근(결근) 스케줄 조회 - 스케줄이 있었는데 출근하지 않은 날짜
 async function getMissedShifts(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ReturnType<typeof getSupabaseClient>,
   staffId: string,
   companyId: string,
   today: string
