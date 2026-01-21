@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FileText, TrendingUp, TrendingDown, Download, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ProfitLossStatement {
@@ -29,11 +29,7 @@ export default function ProfitLossPage() {
   const [periodType, setPeriodType] = useState<'MONTHLY' | 'QUARTERLY' | 'YEARLY'>('MONTHLY');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchStatements();
-  }, [selectedYear, periodType]);
-
-  const fetchStatements = async () => {
+  const fetchStatements = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/business/profit-loss?year=${selectedYear}&type=${periodType}`);
@@ -45,9 +41,80 @@ export default function ProfitLossPage() {
       }
     } catch (error) {
       console.error('Failed to fetch statements:', error);
+      setStatements([]);
     } finally {
       setLoading(false);
     }
+  }, [selectedYear, periodType]);
+
+  useEffect(() => {
+    fetchStatements();
+  }, [fetchStatements]);
+
+  const handleDownloadPDF = async () => {
+    if (statements.length === 0) {
+      alert('다운로드할 손익계산서가 없습니다.');
+      return;
+    }
+
+    // Generate simple HTML-based print/PDF
+    const periodLabel = periodType === 'MONTHLY' ? '월간' : periodType === 'QUARTERLY' ? '분기' : '연간';
+
+    const content = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>손익계산서 - ${selectedYear}년 ${periodLabel}</title>
+        <style>
+          body { font-family: 'Malgun Gothic', sans-serif; padding: 40px; }
+          h1 { text-align: center; margin-bottom: 30px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          th, td { border: 1px solid #ddd; padding: 12px; text-align: right; }
+          th { background-color: #f5f5f5; text-align: center; }
+          .text-left { text-align: left; }
+          .total { font-weight: bold; background-color: #f9f9f9; }
+          .positive { color: green; }
+          .negative { color: red; }
+          .header { margin-bottom: 20px; text-align: center; color: #666; }
+        </style>
+      </head>
+      <body>
+        <h1>손익계산서</h1>
+        <p class="header">${selectedYear}년 ${periodLabel} | 생성일: ${new Date().toLocaleDateString('ko-KR')}</p>
+        ${statements.map(stmt => `
+          <h3>${getPeriodLabel(stmt)} ${stmt.is_finalized ? '(확정)' : ''}</h3>
+          <table>
+            <tr><th colspan="2">수익</th></tr>
+            ${stmt.revenue_breakdown ? Object.entries(stmt.revenue_breakdown).map(([k, v]) =>
+              `<tr><td class="text-left">${k}</td><td>${formatCurrency(v as number)}</td></tr>`
+            ).join('') : ''}
+            <tr class="total"><td class="text-left">총 수익</td><td class="positive">${formatCurrency(stmt.total_revenue || 0)}</td></tr>
+            <tr><th colspan="2">비용</th></tr>
+            ${stmt.expense_breakdown ? Object.entries(stmt.expense_breakdown).map(([k, v]) =>
+              `<tr><td class="text-left">${k}</td><td>${formatCurrency(v as number)}</td></tr>`
+            ).join('') : ''}
+            <tr><td class="text-left">인건비</td><td>${formatCurrency(stmt.payroll_expense || 0)}</td></tr>
+            <tr class="total"><td class="text-left">총 비용</td><td class="negative">${formatCurrency((stmt.total_expense || 0) + (stmt.payroll_expense || 0))}</td></tr>
+            <tr class="total"><td class="text-left">순이익</td><td class="${(stmt.net_profit || 0) >= 0 ? 'positive' : 'negative'}">${formatCurrency(stmt.net_profit || 0)}</td></tr>
+            <tr class="total"><td class="text-left">영업이익률</td><td>${safeToFixed(stmt.profit_margin, 1)}%</td></tr>
+          </table>
+        `).join('')}
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(content);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
+  const safeToFixed = (value: number | null | undefined, digits: number): string => {
+    if (value === null || value === undefined || isNaN(value)) return '0';
+    return value.toFixed(digits);
   };
 
   const formatCurrency = (amount: number) => {
@@ -73,7 +140,10 @@ export default function ProfitLossPage() {
           <h1 className="text-2xl font-bold text-gray-900">손익계산서</h1>
           <p className="mt-1 text-sm text-gray-500">월별/분기별/연간 손익 현황을 확인합니다</p>
         </div>
-        <button className="inline-flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50">
+        <button
+          onClick={handleDownloadPDF}
+          className="inline-flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50"
+        >
           <Download className="w-4 h-4" />
           PDF 다운로드
         </button>
@@ -140,7 +210,7 @@ export default function ProfitLossPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-gray-500">영업이익률</p>
-                      <p className="text-xl font-bold">{stmt.profit_margin.toFixed(1)}%</p>
+                      <p className="text-xl font-bold">{safeToFixed(stmt.profit_margin, 1)}%</p>
                     </div>
                     {expandedId === stmt.id ? (
                       <ChevronUp className="w-5 h-5 text-gray-400" />
@@ -155,27 +225,27 @@ export default function ProfitLossPage() {
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-green-500" />
                     <span className="text-sm">매출: {formatCurrency(stmt.total_revenue)}</span>
-                    {stmt.revenue_change !== null && (
+                    {stmt.revenue_change != null && !isNaN(stmt.revenue_change) && (
                       <span className={`text-xs ${stmt.revenue_change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        ({stmt.revenue_change >= 0 ? '+' : ''}{stmt.revenue_change.toFixed(1)}%)
+                        ({stmt.revenue_change >= 0 ? '+' : ''}{safeToFixed(stmt.revenue_change, 1)}%)
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
                     <TrendingDown className="w-4 h-4 text-red-500" />
                     <span className="text-sm">비용: {formatCurrency(stmt.total_expense + stmt.payroll_expense)}</span>
-                    {stmt.expense_change !== null && (
+                    {stmt.expense_change != null && !isNaN(stmt.expense_change) && (
                       <span className={`text-xs ${stmt.expense_change <= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        ({stmt.expense_change >= 0 ? '+' : ''}{stmt.expense_change.toFixed(1)}%)
+                        ({stmt.expense_change >= 0 ? '+' : ''}{safeToFixed(stmt.expense_change, 1)}%)
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
                     <FileText className="w-4 h-4 text-blue-500" />
                     <span className="text-sm">전기대비 이익변화</span>
-                    {stmt.profit_change !== null && (
+                    {stmt.profit_change != null && !isNaN(stmt.profit_change) && (
                       <span className={`text-xs font-medium ${stmt.profit_change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {stmt.profit_change >= 0 ? '+' : ''}{stmt.profit_change.toFixed(1)}%
+                        {stmt.profit_change >= 0 ? '+' : ''}{safeToFixed(stmt.profit_change, 1)}%
                       </span>
                     )}
                   </div>

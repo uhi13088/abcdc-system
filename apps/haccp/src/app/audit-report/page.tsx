@@ -239,7 +239,131 @@ export default function AuditReportPage() {
                 <button className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded">
                   수정
                 </button>
-                <button className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    const severityText: Record<string, string> = {
+                      'MINOR': '경미',
+                      'MAJOR': '중대',
+                      'CRITICAL': '치명적',
+                    };
+                    const statusText: Record<string, string> = {
+                      'OPEN': '미결',
+                      'IN_PROGRESS': '진행중',
+                      'CLOSED': '완료',
+                    };
+
+                    const content = `
+                      <!DOCTYPE html>
+                      <html>
+                      <head>
+                        <meta charset="UTF-8">
+                        <title>HACCP 감사 보고서 - ${report.report_date}</title>
+                        <style>
+                          @page { size: A4; margin: 15mm; }
+                          body {
+                            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+                            padding: 20px;
+                            font-size: 12px;
+                            line-height: 1.6;
+                          }
+                          h1 { text-align: center; margin-bottom: 20px; font-size: 22px; }
+                          .header { text-align: center; margin-bottom: 20px; color: #666; }
+                          .info-box { background: #f5f5f5; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
+                          .info-row { display: flex; margin-bottom: 8px; }
+                          .info-label { font-weight: 600; width: 100px; }
+                          .score-box { text-align: center; padding: 20px; margin-bottom: 20px; }
+                          .score { font-size: 48px; font-weight: bold; color: ${report.overall_score && report.overall_score >= 90 ? '#16a34a' : report.overall_score && report.overall_score >= 70 ? '#ca8a04' : '#dc2626'}; }
+                          .section-title { font-size: 14px; font-weight: bold; margin: 20px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #333; }
+                          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                          th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+                          th { background-color: #f5f5f5; font-weight: 600; }
+                          .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+                          .minor { background: #fef3c7; color: #92400e; }
+                          .major { background: #ffedd5; color: #9a3412; }
+                          .critical { background: #fee2e2; color: #991b1b; }
+                          .open { color: #dc2626; }
+                          .in-progress { color: #ca8a04; }
+                          .closed { color: #16a34a; }
+                          .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #999; }
+                          @media print { body { padding: 0; } }
+                        </style>
+                      </head>
+                      <body>
+                        <h1>HACCP 감사 보고서</h1>
+                        <p class="header">${reportTypeText[report.report_type]} | ${report.report_date}</p>
+
+                        <div class="info-box">
+                          <div class="info-row">
+                            <span class="info-label">감사 유형</span>
+                            <span>${reportTypeText[report.report_type]}</span>
+                          </div>
+                          <div class="info-row">
+                            <span class="info-label">감사일</span>
+                            <span>${report.report_date}</span>
+                          </div>
+                          <div class="info-row">
+                            <span class="info-label">감사자</span>
+                            <span>${report.auditor_name}${report.auditor_company ? ` (${report.auditor_company})` : ''}</span>
+                          </div>
+                          <div class="info-row">
+                            <span class="info-label">상태</span>
+                            <span>${report.status === 'FINAL' ? '완료' : '작성중'}</span>
+                          </div>
+                        </div>
+
+                        ${report.overall_score ? `
+                        <div class="score-box">
+                          <div class="score">${report.overall_score}</div>
+                          <div style="color: #666;">종합 점수</div>
+                        </div>
+                        ` : ''}
+
+                        <div class="section-title">감사 요약</div>
+                        <p style="margin-bottom: 20px;">${report.summary}</p>
+
+                        ${report.findings.length > 0 ? `
+                        <div class="section-title">발견 사항 (${report.findings.length}건)</div>
+                        <table>
+                          <thead>
+                            <tr>
+                              <th style="width: 15%;">분류</th>
+                              <th style="width: 45%;">내용</th>
+                              <th style="width: 20%;">심각도</th>
+                              <th style="width: 20%;">상태</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${report.findings.map(f => `
+                              <tr>
+                                <td>${f.category}</td>
+                                <td>${f.finding}</td>
+                                <td><span class="badge ${f.severity.toLowerCase()}">${severityText[f.severity]}</span></td>
+                                <td class="${f.status.toLowerCase().replace('_', '-')}">${statusText[f.status]}</td>
+                              </tr>
+                            `).join('')}
+                          </tbody>
+                        </table>
+                        ` : '<p>발견 사항 없음</p>'}
+
+                        <div class="footer">
+                          본 보고서는 HACCP 시스템에서 자동 생성되었습니다.<br/>
+                          생성일: ${new Date().toLocaleDateString('ko-KR')}
+                        </div>
+                      </body>
+                      </html>
+                    `;
+
+                    const printWindow = window.open('', '_blank');
+                    if (printWindow) {
+                      printWindow.document.write(content);
+                      printWindow.document.close();
+                      printWindow.print();
+                    } else {
+                      alert('팝업이 차단되었습니다. 팝업을 허용해주세요.');
+                    }
+                  }}
+                  className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded flex items-center gap-1"
+                >
                   <Download className="w-4 h-4" />
                   PDF 다운로드
                 </button>
