@@ -7,6 +7,65 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { ExcelGenerator, PayrollReportData } from '@abc/shared/server';
 import { z } from 'zod';
 import { logger } from '@abc/shared';
+import crypto from 'crypto';
+
+// 주민번호 복호화
+function decryptSSN(encrypted: string): string {
+  try {
+    if (!encrypted) return '';
+    const parts = encrypted.split(':');
+    if (parts.length !== 3) return '';
+
+    const [ivHex, authTagHex, encryptedData] = parts;
+    const algorithm = 'aes-256-gcm';
+    const secretKey = process.env.SSN_ENCRYPTION_KEY || 'default-key-change-in-production-32';
+    const key = crypto.scryptSync(secretKey, 'salt', 32);
+    const iv = Buffer.from(ivHex, 'hex');
+    const authTag = Buffer.from(authTagHex, 'hex');
+
+    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+
+    // 주민번호 포맷팅 (123456-1234567)
+    if (decrypted.length === 13) {
+      return `${decrypted.slice(0, 6)}-${decrypted.slice(6)}`;
+    }
+    return decrypted;
+  } catch {
+    return '';
+  }
+}
+
+// 공제유형 라벨 변환
+function getDeductionTypeLabel(deductionConfig: any): string {
+  if (!deductionConfig) return '-';
+
+  const type = deductionConfig.deduction_type || deductionConfig.deductionType;
+  if (type) {
+    const labels: Record<string, string> = {
+      full: '전체적용',
+      employment_only: '고용보험만',
+      freelancer: '프리랜서',
+      none: '없음',
+    };
+    return labels[type] || type;
+  }
+
+  // fallback: 개별 필드로 판단
+  const hasPension = deductionConfig.national_pension ?? deductionConfig.nationalPension;
+  const hasHealth = deductionConfig.health_insurance ?? deductionConfig.healthInsurance;
+  const hasEmployment = deductionConfig.employment_insurance ?? deductionConfig.employmentInsurance;
+  const hasIncomeTax = deductionConfig.income_tax ?? deductionConfig.incomeTax;
+
+  if (hasPension && hasHealth && hasEmployment) return '전체적용';
+  if (!hasPension && !hasHealth && hasEmployment) return '고용보험만';
+  if (!hasPension && !hasHealth && !hasEmployment && hasIncomeTax) return '프리랜서';
+  if (!hasPension && !hasHealth && !hasEmployment && !hasIncomeTax) return '없음';
+
+  return '-';
+}
 
 const PayrollExcelSchema = z.object({
   year: z.number().int().min(2020).max(2100),
@@ -81,6 +140,7 @@ export async function POST(request: NextRequest) {
           position,
           birth_date,
           address,
+          ssn_encrypted,
           stores(id, name)
         )
       `)
@@ -88,6 +148,18 @@ export async function POST(request: NextRequest) {
       .eq('year', year)
       .eq('month', month)
       .in('status', ['CONFIRMED', 'PAID']);
+
+    // 직원들의 현재 계약 정보 조회 (공제유형)
+    const staffIds = salaries?.map(s => s.staff_id) || [];
+    const { data: contracts } = await adminClient
+      .from('contracts')
+      .select('staff_id, deduction_config')
+      .in('staff_id', staffIds)
+      .eq('status', 'ACTIVE');
+
+    const contractMap = new Map(
+      (contracts || []).map(c => [c.staff_id, c.deduction_config])
+    );
 
     if (error) {
       throw error;
@@ -113,14 +185,23 @@ export async function POST(request: NextRequest) {
     // 직원 이름순 정렬
     validSalaries.sort((a, b) => a.staff.name.localeCompare(b.staff.name, 'ko'));
 
-    // 생년월일 포맷팅 함수
+    // 생년월일 포맷팅 함수 (주민번호 없을 때 fallback)
     const formatBirthDate = (birthDate: string | null): string => {
       if (!birthDate) return '-';
       const date = new Date(birthDate);
-      const year = date.getFullYear().toString().slice(-2);
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}${month}${day}`;
+      const y = date.getFullYear().toString().slice(-2);
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}${m}${d}-*******`;
+    };
+
+    // 주민번호 가져오기 (복호화 -> fallback: 생년월일)
+    const getResidentNumber = (staff: any): string => {
+      if (staff.ssn_encrypted) {
+        const decrypted = decryptSSN(staff.ssn_encrypted);
+        if (decrypted) return decrypted;
+      }
+      return formatBirthDate(staff.birth_date);
     };
 
     // 급여 데이터 변환
@@ -128,8 +209,9 @@ export async function POST(request: NextRequest) {
       staffId: salary.staff_id,
       staffName: salary.staff.name,
       storeName: salary.staff.stores?.name || '-',
-      residentNumber: formatBirthDate(salary.staff.birth_date),
+      residentNumber: getResidentNumber(salary.staff),
       address: salary.staff.address || '-',
+      deductionType: getDeductionTypeLabel(contractMap.get(salary.staff_id)),
       department: salary.staff.department,
       position: salary.staff.position,
       baseSalary: salary.base_salary,

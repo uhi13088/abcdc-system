@@ -10,8 +10,9 @@ export interface PayrollReportData {
   staffId: string;
   staffName: string;
   storeName?: string;
-  residentNumber?: string; // 주민번호 (없으면 생년월일)
+  residentNumber?: string; // 주민번호 전체 (없으면 생년월일)
   address?: string;
+  deductionType?: string; // 공제유형
   department?: string;
   position?: string;
   baseSalary: number;
@@ -156,7 +157,7 @@ export class ExcelGenerator {
     });
 
     // 제목
-    sheet.mergeCells('A1:J1');
+    sheet.mergeCells('A1:I1');
     const titleCell = sheet.getCell('A1');
     titleCell.value = `${options.companyName} ${options.year}년 ${options.month}월 급여대장`;
     titleCell.font = { bold: true, size: 16 };
@@ -164,7 +165,7 @@ export class ExcelGenerator {
     sheet.getRow(1).height = 30;
 
     // 생성일
-    sheet.mergeCells('A2:J2');
+    sheet.mergeCells('A2:I2');
     const dateCell = sheet.getCell('A2');
     dateCell.value = `생성일: ${new Date().toLocaleDateString('ko-KR')}`;
     dateCell.alignment = { horizontal: 'right' };
@@ -173,11 +174,10 @@ export class ExcelGenerator {
     const headers = [
       { key: 'storeName', header: '매장명', width: 15 },
       { key: 'name', header: '직원명', width: 12 },
-      { key: 'residentNumber', header: '주민번호/생년월일', width: 18 },
+      { key: 'residentNumber', header: '주민번호', width: 16 },
       { key: 'address', header: '주소', width: 30 },
+      { key: 'deductionType', header: '공제유형', width: 14 },
       { key: 'baseSalary', header: '기본급', width: 14 },
-      { key: 'overtimePay', header: '연장수당', width: 14 },
-      { key: 'nightPay', header: '야간수당', width: 14 },
       { key: 'totalGross', header: '총지급액', width: 14 },
       { key: 'totalDeductions', header: '공제액', width: 14 },
       { key: 'netPay', header: '실지급액', width: 14 },
@@ -208,9 +208,8 @@ export class ExcelGenerator {
         row.staffName,
         row.residentNumber || '-',
         row.address || '-',
+        row.deductionType || '-',
         this.formatCurrency(row.baseSalary),
-        this.formatCurrency(row.overtimePay),
-        this.formatCurrency(row.nightPay),
         this.formatCurrency(row.totalGrossPay),
         this.formatCurrency(row.totalDeductions),
         this.formatCurrency(row.netPay),
@@ -219,7 +218,7 @@ export class ExcelGenerator {
       rowData.forEach((value, colIdx) => {
         const cell = dataRow.getCell(colIdx + 1);
         cell.value = value;
-        this.applyDataCellStyle(cell, colIdx >= 4);
+        this.applyDataCellStyle(cell, colIdx >= 5);
       });
 
       totalGrossSum += row.totalGrossPay;
@@ -231,13 +230,13 @@ export class ExcelGenerator {
     const sumRow = sheet.getRow(5 + data.length);
     sumRow.getCell(1).value = '합계';
     sumRow.getCell(1).font = { bold: true };
-    sheet.mergeCells(5 + data.length, 1, 5 + data.length, 4);
+    sheet.mergeCells(5 + data.length, 1, 5 + data.length, 5);
 
-    sumRow.getCell(8).value = this.formatCurrency(totalGrossSum);
-    sumRow.getCell(9).value = this.formatCurrency(totalDeductionsSum);
-    sumRow.getCell(10).value = this.formatCurrency(totalNetPaySum);
+    sumRow.getCell(7).value = this.formatCurrency(totalGrossSum);
+    sumRow.getCell(8).value = this.formatCurrency(totalDeductionsSum);
+    sumRow.getCell(9).value = this.formatCurrency(totalNetPaySum);
 
-    [8, 9, 10].forEach(col => {
+    [7, 8, 9].forEach(col => {
       const cell = sumRow.getCell(col);
       cell.font = { bold: true };
       this.applyDataCellStyle(cell, true);
