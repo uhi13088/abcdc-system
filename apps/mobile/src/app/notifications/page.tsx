@@ -31,7 +31,14 @@ const categoryLabels: Record<string, string> = {
   SALARY: '급여',
   NOTICE: '공지',
   EMERGENCY: '긴급',
+  EMERGENCY_SHIFT: '긴급근무',
+  CONTRACT: '계약',
+  APPROVAL: '승인',
+  BILLING: '결제',
+  HACCP: 'HACCP',
   SYSTEM: '시스템',
+  ESCALATION: '에스컬레이션',
+  REMINDER: '리마인더',
 };
 
 const categoryColors: Record<string, string> = {
@@ -40,7 +47,14 @@ const categoryColors: Record<string, string> = {
   SALARY: 'bg-purple-100 text-purple-700',
   NOTICE: 'bg-yellow-100 text-yellow-700',
   EMERGENCY: 'bg-red-100 text-red-700',
+  EMERGENCY_SHIFT: 'bg-red-100 text-red-700',
+  CONTRACT: 'bg-indigo-100 text-indigo-700',
+  APPROVAL: 'bg-orange-100 text-orange-700',
+  BILLING: 'bg-emerald-100 text-emerald-700',
+  HACCP: 'bg-cyan-100 text-cyan-700',
   SYSTEM: 'bg-gray-100 text-gray-700',
+  ESCALATION: 'bg-amber-100 text-amber-700',
+  REMINDER: 'bg-sky-100 text-sky-700',
 };
 
 export default function NotificationsPage() {
