@@ -109,6 +109,94 @@ async function notifyManagers(
   }
 }
 
+// 직원에게 알림 발송
+async function notifyEmployee(
+  adminClient: any,
+  userId: string,
+  title: string,
+  body: string,
+  category: string = 'ATTENDANCE',
+  priority: string = 'HIGH',
+  data?: Record<string, any>
+) {
+  try {
+    await adminClient.from('notifications').insert({
+      user_id: userId,
+      category,
+      priority,
+      title,
+      body,
+      data,
+    });
+  } catch (error) {
+    console.error('Failed to notify employee:', error);
+  }
+}
+
+// 미출근(결근) 스케줄 조회 - 스케줄이 있었는데 출근하지 않은 날짜
+async function getMissedShifts(
+  adminClient: any,
+  staffId: string,
+  companyId: string,
+  today: string
+): Promise<Array<{ work_date: string; start_time: string; end_time: string }>> {
+  try {
+    // 최근 7일간의 스케줄 중 출근하지 않은 것 조회
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+
+    // 스케줄 조회
+    const { data: schedules } = await adminClient
+      .from('schedules')
+      .select('work_date, start_time, end_time')
+      .eq('staff_id', staffId)
+      .gte('work_date', sevenDaysAgoStr)
+      .lt('work_date', today)
+      .in('status', ['SCHEDULED', 'CONFIRMED']);
+
+    if (!schedules || schedules.length === 0) {
+      return [];
+    }
+
+    // 해당 기간 출퇴근 기록 조회
+    const { data: attendances } = await adminClient
+      .from('attendances')
+      .select('work_date, status')
+      .eq('staff_id', staffId)
+      .gte('work_date', sevenDaysAgoStr)
+      .lt('work_date', today);
+
+    const attendedDates = new Set(
+      (attendances || [])
+        .filter((a: any) => a.status !== 'NO_SHOW' && a.status !== 'ABSENT')
+        .map((a: any) => a.work_date)
+    );
+
+    // 이미 결근 사유 승인 요청이 있는 날짜 조회
+    const { data: existingRequests } = await adminClient
+      .from('approval_requests')
+      .select('details')
+      .eq('requester_id', staffId)
+      .eq('type', 'ABSENCE_EXCUSE')
+      .gte('created_at', sevenDaysAgoStr);
+
+    const excusedDates = new Set(
+      (existingRequests || []).map((r: any) => r.details?.work_date)
+    );
+
+    // 스케줄은 있었는데 출근하지 않고, 아직 사유 제출하지 않은 날짜
+    const missedShifts = schedules.filter(
+      (s: any) => !attendedDates.has(s.work_date) && !excusedDates.has(s.work_date)
+    );
+
+    return missedShifts;
+  } catch (error) {
+    console.error('Failed to get missed shifts:', error);
+    return [];
+  }
+}
+
 export async function POST() {
   try {
     const supabase = await createClient();
@@ -226,7 +314,7 @@ export async function POST() {
 
     if (error) throw error;
 
-    // 미배정 출근인 경우 승인 요청 생성 및 관리자 알림
+    // 미배정 출근인 경우 승인 요청 생성 및 관리자/직원 알림
     if (isUnscheduled && userData.company_id) {
       // 매장 관리자 조회
       const { data: managers } = await adminClient
@@ -277,6 +365,21 @@ export async function POST() {
         data.id,
         today
       );
+
+      // 직원에게도 알림
+      await notifyEmployee(
+        adminClient,
+        userData.id,
+        '[미배정 출근] 승인 대기 중',
+        '오늘은 배정된 스케줄이 없는 날입니다. 관리자 승인 후 급여에 반영됩니다.',
+        'ATTENDANCE',
+        'HIGH',
+        {
+          type: 'UNSCHEDULED_CHECKIN',
+          attendance_id: data.id,
+          work_date: today,
+        }
+      );
     }
     // 이상 상황 시 관리자에게 알림 (지각, 조기출근)
     else if (isAbnormal && userData.company_id) {
@@ -291,12 +394,36 @@ export async function POST() {
         data.id,
         today
       );
+
+      // 직원에게도 알림
+      await notifyEmployee(
+        adminClient,
+        userData.id,
+        `[${statusLabel}] 출근 알림`,
+        message,
+        'ATTENDANCE',
+        'NORMAL',
+        {
+          type: status,
+          attendance_id: data.id,
+          work_date: today,
+        }
+      );
     }
+
+    // 미출근(결근) 스케줄 확인
+    const missedShifts = await getMissedShifts(
+      adminClient,
+      userData.id,
+      userData.company_id,
+      today
+    );
 
     return NextResponse.json({
       ...data,
       status_message: isAbnormal ? message : null,
       is_unscheduled: isUnscheduled,
+      missed_shifts: missedShifts,
     });
   } catch (error) {
     console.error('Error checking in:', error);
