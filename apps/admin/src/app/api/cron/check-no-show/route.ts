@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
       .select(`
         id,
         staff_id,
-        scheduled_start,
+        start_time,
         users!schedules_staff_id_fkey (
           id,
           name,
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
           store_id
         )
       `)
-      .eq('date', today)
+      .eq('work_date', today)
       .eq('status', 'SCHEDULED');
 
     if (scheduleError) {
@@ -138,9 +138,9 @@ export async function GET(request: NextRequest) {
     const noShowStaff: string[] = [];
 
     for (const schedule of todaySchedules) {
-      if (!schedule.scheduled_start || !schedule.users) continue;
+      if (!schedule.start_time || !schedule.users) continue;
 
-      const scheduledStart = new Date(schedule.scheduled_start);
+      const scheduledStart = new Date(schedule.start_time);
       const thresholdTime = new Date(scheduledStart.getTime() + NO_SHOW_THRESHOLD_MINUTES * 60 * 1000);
 
       // 아직 출근 시간 + threshold가 안 지났으면 스킵
@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
           staff.store_id,
           staff.id,
           staff.name,
-          schedule.scheduled_start,
+          schedule.start_time,
           today
         );
       }

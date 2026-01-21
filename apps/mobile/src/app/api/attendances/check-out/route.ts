@@ -6,12 +6,13 @@ import { getTodayKorea } from '@/lib/date-utils';
 export const dynamic = 'force-dynamic';
 
 // 퇴근 상태 판단 함수
+// 출근 시 상태(currentStatus)와 퇴근 시간을 바탕으로 최종 상태 결정
 function determineCheckOutStatus(
   checkOutTime: Date,
   scheduledCheckOut: Date | null,
   currentStatus: string
 ): { status: string; isAbnormal: boolean; message: string } {
-  // 이미 지각인 경우 유지
+  // 지각 상태인 경우
   if (currentStatus === 'LATE') {
     if (scheduledCheckOut) {
       const diffMinutes = (checkOutTime.getTime() - scheduledCheckOut.getTime()) / (1000 * 60);
@@ -24,12 +25,17 @@ function determineCheckOutStatus(
           message: `지각 후 예정 시간보다 ${earlyMinutes}분 일찍 퇴근했습니다.`,
         };
       }
+      // 지각 + 연장근무 → 지각 유지 (연장근무로 만회)
+      if (diffMinutes >= 120) {
+        return { status: 'LATE', isAbnormal: false, message: '' };
+      }
     }
     return { status: 'LATE', isAbnormal: false, message: '' };
   }
 
+  // 예정 퇴근 시간이 없으면 정상 처리
   if (!scheduledCheckOut) {
-    return { status: currentStatus || 'NORMAL', isAbnormal: false, message: '' };
+    return { status: 'NORMAL', isAbnormal: false, message: '' };
   }
 
   const diffMinutes = (checkOutTime.getTime() - scheduledCheckOut.getTime()) / (1000 * 60);
@@ -56,7 +62,8 @@ function determineCheckOutStatus(
     };
   }
 
-  return { status: currentStatus || 'NORMAL', isAbnormal: false, message: '' };
+  // WORKING, EARLY_CHECK_IN 등 → 정상 퇴근
+  return { status: 'NORMAL', isAbnormal: false, message: '' };
 }
 
 // 관리자들에게 알림 발송
