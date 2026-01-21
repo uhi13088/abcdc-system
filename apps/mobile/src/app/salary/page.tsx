@@ -196,24 +196,86 @@ export default function SalaryPage() {
 
           {/* Download Button */}
           <button
-            onClick={async () => {
-              try {
-                const response = await fetch(`/api/salaries/payslip?year=${selectedYear}&month=${selectedMonth}`);
-                if (!response.ok) {
-                  alert('급여명세서를 생성할 수 없습니다.');
-                  return;
-                }
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `급여명세서_${selectedYear}년_${selectedMonth}월.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-              } catch {
-                alert('다운로드 중 오류가 발생했습니다.');
+            onClick={() => {
+              if (!salary) return;
+
+              const formatCurrency = (amount: number) => amount.toLocaleString() + '원';
+
+              const content = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                  <meta charset="UTF-8">
+                  <title>급여명세서 - ${selectedYear}년 ${selectedMonth}월</title>
+                  <style>
+                    @page { size: A4; margin: 15mm; }
+                    body {
+                      font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+                      padding: 20px;
+                      font-size: 12px;
+                      line-height: 1.6;
+                    }
+                    h1 { text-align: center; margin-bottom: 20px; font-size: 22px; }
+                    .header { text-align: center; margin-bottom: 20px; color: #666; }
+                    .summary { text-align: center; margin-bottom: 24px; padding: 16px; background: #f0f9ff; border-radius: 8px; }
+                    .summary-amount { font-size: 28px; font-weight: bold; color: #2563eb; }
+                    .summary-info { font-size: 12px; color: #666; margin-top: 8px; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                    th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+                    th { background-color: #f5f5f5; font-weight: 600; width: 40%; }
+                    td { text-align: right; }
+                    .section-title { font-size: 14px; font-weight: bold; margin: 20px 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #333; }
+                    .total-row { background-color: #f9f9f9; font-weight: bold; }
+                    .negative { color: #dc2626; }
+                    .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #999; }
+                    @media print { body { padding: 0; } }
+                  </style>
+                </head>
+                <body>
+                  <h1>급 여 명 세 서</h1>
+                  <p class="header">${selectedYear}년 ${selectedMonth}월 | 생성일: ${new Date().toLocaleDateString('ko-KR')}</p>
+
+                  <div class="summary">
+                    <div class="summary-amount">${formatCurrency(salary.net_pay)}</div>
+                    <div class="summary-info">실수령액 | 근무일 ${salary.work_days}일 | 총 ${salary.total_hours}시간</div>
+                  </div>
+
+                  <div class="section-title">지급 내역</div>
+                  <table>
+                    <tr><th>기본급</th><td>${formatCurrency(salary.base_salary)}</td></tr>
+                    ${salary.overtime_pay > 0 ? `<tr><th>연장근로수당</th><td>${formatCurrency(salary.overtime_pay)}</td></tr>` : ''}
+                    ${salary.night_pay > 0 ? `<tr><th>야간근로수당</th><td>${formatCurrency(salary.night_pay)}</td></tr>` : ''}
+                    ${salary.holiday_pay > 0 ? `<tr><th>휴일근로수당</th><td>${formatCurrency(salary.holiday_pay)}</td></tr>` : ''}
+                    ${salary.weekly_holiday_pay > 0 ? `<tr><th>주휴수당</th><td>${formatCurrency(salary.weekly_holiday_pay)}</td></tr>` : ''}
+                    ${salary.meal_allowance > 0 ? `<tr><th>식대</th><td>${formatCurrency(salary.meal_allowance)}</td></tr>` : ''}
+                    <tr class="total-row"><th>총 지급액</th><td>${formatCurrency(salary.total_gross_pay)}</td></tr>
+                  </table>
+
+                  <div class="section-title">공제 내역</div>
+                  <table>
+                    <tr><th>국민연금</th><td class="negative">-${formatCurrency(salary.national_pension)}</td></tr>
+                    <tr><th>건강보험</th><td class="negative">-${formatCurrency(salary.health_insurance)}</td></tr>
+                    <tr><th>장기요양보험</th><td class="negative">-${formatCurrency(salary.long_term_care)}</td></tr>
+                    <tr><th>고용보험</th><td class="negative">-${formatCurrency(salary.employment_insurance)}</td></tr>
+                    <tr><th>소득세</th><td class="negative">-${formatCurrency(salary.income_tax)}</td></tr>
+                    <tr><th>지방소득세</th><td class="negative">-${formatCurrency(salary.local_income_tax)}</td></tr>
+                    <tr class="total-row"><th>총 공제액</th><td class="negative">-${formatCurrency(salary.total_deductions)}</td></tr>
+                  </table>
+
+                  <div class="footer">
+                    본 명세서는 「근로기준법」제48조에 의거하여 발급되었습니다.
+                  </div>
+                </body>
+                </html>
+              `;
+
+              const printWindow = window.open('', '_blank');
+              if (printWindow) {
+                printWindow.document.write(content);
+                printWindow.document.close();
+                printWindow.print();
+              } else {
+                alert('팝업이 차단되었습니다. 팝업을 허용해주세요.');
               }
             }}
             className="w-full py-4 bg-white border border-gray-200 rounded-2xl flex items-center justify-center gap-2 text-gray-700 font-medium shadow-sm"

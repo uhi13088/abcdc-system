@@ -419,23 +419,96 @@ export default function ContractPage() {
           {/* Download Button */}
           {!needsSignature && (
             <button
-              onClick={async () => {
-                try {
-                  const response = await fetch(`/api/contracts/${contract.id}/pdf`);
-                  if (!response.ok) {
-                    const error = await response.json();
-                    alert(error.error || 'PDF 다운로드에 실패했습니다.');
-                    return;
-                  }
-                  const { url } = await response.json();
-                  if (url) {
-                    window.open(url, '_blank');
-                  } else {
-                    alert('PDF 파일이 아직 생성되지 않았습니다.');
-                  }
-                } catch (err) {
-                  console.error('Download error:', err);
-                  alert('PDF 다운로드에 실패했습니다.');
+              onClick={() => {
+                if (!contract) return;
+
+                const content = `
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                    <meta charset="UTF-8">
+                    <title>근로계약서 - ${contract.contract_number}</title>
+                    <style>
+                      @page { size: A4; margin: 20mm; }
+                      body {
+                        font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+                        padding: 20px;
+                        font-size: 12px;
+                        line-height: 1.8;
+                      }
+                      h1 { text-align: center; margin-bottom: 30px; font-size: 24px; }
+                      .header { text-align: center; margin-bottom: 20px; color: #666; font-size: 11px; }
+                      .section { margin-bottom: 24px; }
+                      .section-title { font-size: 14px; font-weight: bold; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #333; }
+                      table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+                      th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+                      th { background-color: #f5f5f5; font-weight: 600; width: 30%; }
+                      .signature-section { margin-top: 40px; display: flex; justify-content: space-between; }
+                      .signature-box { width: 45%; text-align: center; }
+                      .signature-line { border-top: 1px solid #333; margin-top: 60px; padding-top: 8px; }
+                      .footer { margin-top: 40px; text-align: center; font-size: 10px; color: #999; }
+                      @media print { body { padding: 0; } }
+                    </style>
+                  </head>
+                  <body>
+                    <h1>근 로 계 약 서</h1>
+                    <p class="header">계약번호: ${contract.contract_number} | 생성일: ${new Date().toLocaleDateString('ko-KR')}</p>
+
+                    <div class="section">
+                      <div class="section-title">계약 정보</div>
+                      <table>
+                        ${contract.companies?.name ? `<tr><th>회사명</th><td>${contract.companies.name}</td></tr>` : ''}
+                        <tr><th>계약 유형</th><td>${getContractTypeLabel(contract.contract_type)}</td></tr>
+                        ${contract.stores?.name ? `<tr><th>근무지</th><td>${contract.stores.name}</td></tr>` : ''}
+                        ${contract.position ? `<tr><th>직책</th><td>${contract.position}</td></tr>` : ''}
+                        ${contract.department ? `<tr><th>부서</th><td>${contract.department}</td></tr>` : ''}
+                      </table>
+                    </div>
+
+                    <div class="section">
+                      <div class="section-title">계약 기간</div>
+                      <table>
+                        <tr><th>시작일</th><td>${formatDate(contract.start_date)}</td></tr>
+                        <tr><th>종료일</th><td>${contract.end_date ? formatDate(contract.end_date) : '무기한'}</td></tr>
+                      </table>
+                    </div>
+
+                    ${contract.salary_config || contract.standard_hours_per_week ? `
+                    <div class="section">
+                      <div class="section-title">급여 정보</div>
+                      <table>
+                        ${contract.salary_config?.baseSalaryType === 'HOURLY' && contract.salary_config?.baseSalaryAmount > 0
+                          ? `<tr><th>시급</th><td>${formatCurrency(contract.salary_config.baseSalaryAmount)}</td></tr>` : ''}
+                        ${contract.salary_config?.baseSalaryType === 'MONTHLY' && contract.salary_config?.baseSalaryAmount > 0
+                          ? `<tr><th>월급</th><td>${formatCurrency(contract.salary_config.baseSalaryAmount)}</td></tr>` : ''}
+                        ${contract.standard_hours_per_week && contract.standard_hours_per_week > 0
+                          ? `<tr><th>주당 근무시간</th><td>${contract.standard_hours_per_week}시간</td></tr>` : ''}
+                      </table>
+                    </div>
+                    ` : ''}
+
+                    <div class="section">
+                      <div class="section-title">서명 정보</div>
+                      <table>
+                        <tr><th>근로자 서명일</th><td>${contract.employee_signed_at ? formatDate(contract.employee_signed_at) : '미서명'}</td></tr>
+                        <tr><th>사용자 서명일</th><td>${contract.employer_signed_at ? formatDate(contract.employer_signed_at) : '미서명'}</td></tr>
+                      </table>
+                    </div>
+
+                    <div class="footer">
+                      본 계약서는 「근로기준법」에 의거하여 작성되었습니다.
+                    </div>
+                  </body>
+                  </html>
+                `;
+
+                const printWindow = window.open('', '_blank');
+                if (printWindow) {
+                  printWindow.document.write(content);
+                  printWindow.document.close();
+                  printWindow.print();
+                } else {
+                  alert('팝업이 차단되었습니다. 팝업을 허용해주세요.');
                 }
               }}
               className="w-full bg-gray-100 text-gray-700 rounded-xl py-4 font-medium flex items-center justify-center"
