@@ -5,15 +5,26 @@ import { getTodayKorea } from '@/lib/date-utils';
 export const dynamic = 'force-dynamic';
 
 // 출근 상태 판단 함수
-// 출근 시점에서는 WORKING(근무중), LATE(지각), EARLY_CHECK_IN(조기출근) 상태를 반환
+// 출근 시점에서는 WORKING(근무중), LATE(지각), EARLY_CHECK_IN(조기출근), UNSCHEDULED(미배정 출근) 상태를 반환
 // 퇴근 시 check-out API에서 최종 상태(NORMAL, OVERTIME, EARLY_LEAVE 등)로 업데이트
 function determineCheckInStatus(
   checkInTime: Date,
-  scheduledCheckIn: Date | null
-): { status: string; isAbnormal: boolean; message: string } {
+  scheduledCheckIn: Date | null,
+  hasSchedule: boolean
+): { status: string; isAbnormal: boolean; isUnscheduled: boolean; message: string } {
+  // 스케줄이 없으면 미배정 출근
+  if (!hasSchedule) {
+    return {
+      status: 'UNSCHEDULED',
+      isAbnormal: true,
+      isUnscheduled: true,
+      message: '미배정 출근입니다. 관리자 승인 후 급여에 반영됩니다.'
+    };
+  }
+
   // 예정 출근 시간이 없으면 근무중 상태
   if (!scheduledCheckIn) {
-    return { status: 'WORKING', isAbnormal: false, message: '' };
+    return { status: 'WORKING', isAbnormal: false, isUnscheduled: false, message: '' };
   }
 
   const diffMinutes = (checkInTime.getTime() - scheduledCheckIn.getTime()) / (1000 * 60);
@@ -24,6 +35,7 @@ function determineCheckInStatus(
     return {
       status: 'EARLY_CHECK_IN',
       isAbnormal: true,
+      isUnscheduled: false,
       message: `예정 시간보다 ${earlyMinutes}분 일찍 출근했습니다.`,
     };
   }
@@ -34,12 +46,13 @@ function determineCheckInStatus(
     return {
       status: 'LATE',
       isAbnormal: true,
+      isUnscheduled: false,
       message: `예정 시간보다 ${lateMinutes}분 늦게 출근했습니다.`,
     };
   }
 
   // 정상 시간 출근 = 근무중 (퇴근 시 NORMAL로 변경됨)
-  return { status: 'WORKING', isAbnormal: false, message: '' };
+  return { status: 'WORKING', isAbnormal: false, isUnscheduled: false, message: '' };
 }
 
 // 관리자들에게 알림 발송
@@ -188,7 +201,10 @@ export async function POST() {
       }
     }
 
-    const { status, isAbnormal, message } = determineCheckInStatus(now, scheduledCheckIn);
+    // 스케줄 존재 여부 확인 (schedules 테이블 또는 계약서의 work_schedules)
+    const hasSchedule = !!(todaySchedule || scheduledCheckIn);
+
+    const { status, isAbnormal, isUnscheduled, message } = determineCheckInStatus(now, scheduledCheckIn, hasSchedule);
 
     // Create or update attendance record using adminClient to bypass RLS
     const { data, error } = await adminClient
@@ -210,8 +226,60 @@ export async function POST() {
 
     if (error) throw error;
 
-    // 이상 상황 시 관리자에게 알림
-    if (isAbnormal && userData.company_id) {
+    // 미배정 출근인 경우 승인 요청 생성 및 관리자 알림
+    if (isUnscheduled && userData.company_id) {
+      // 매장 관리자 조회
+      const { data: managers } = await adminClient
+        .from('users')
+        .select('id, name, role')
+        .eq('company_id', userData.company_id)
+        .in('role', ['store_manager', 'manager', 'company_admin'])
+        .eq('status', 'ACTIVE');
+
+      // 승인 라인 생성
+      const approvalLine = (managers || []).map((manager: any, index: number) => ({
+        step: index + 1,
+        approver_id: manager.id,
+        approver_name: manager.name,
+        approver_role: manager.role,
+        status: 'PENDING',
+      }));
+
+      // 승인 요청 생성
+      if (approvalLine.length > 0) {
+        await adminClient.from('approval_requests').insert({
+          type: 'UNSCHEDULED_CHECKIN',
+          requester_id: userData.id,
+          requester_name: userData.name,
+          company_id: userData.company_id,
+          brand_id: userData.brand_id,
+          store_id: userData.store_id,
+          approval_line: approvalLine,
+          current_step: 1,
+          final_status: 'PENDING',
+          details: {
+            attendance_id: data.id,
+            work_date: today,
+            check_in_time: nowISO,
+            reason: '사유 미입력',
+          },
+        });
+      }
+
+      // 관리자들에게 알림
+      await notifyManagers(
+        adminClient,
+        userData.company_id,
+        userData.store_id,
+        userData.name,
+        `[미배정 출근] ${userData.name}`,
+        message,
+        data.id,
+        today
+      );
+    }
+    // 이상 상황 시 관리자에게 알림 (지각, 조기출근)
+    else if (isAbnormal && userData.company_id) {
       const statusLabel = status === 'LATE' ? '지각' : '조기출근';
       await notifyManagers(
         adminClient,
@@ -228,6 +296,7 @@ export async function POST() {
     return NextResponse.json({
       ...data,
       status_message: isAbnormal ? message : null,
+      is_unscheduled: isUnscheduled,
     });
   } catch (error) {
     console.error('Error checking in:', error);
