@@ -155,8 +155,6 @@ export async function POST() {
     // 스케줄이 없으면 계약서의 work_schedules에서 해당 요일 시간 가져오기
     if (!scheduledCheckIn || !scheduledCheckOut) {
       const dayOfWeek = now.getDay(); // 0=일, 1=월, ..., 6=토
-      const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-      const todayName = dayNames[dayOfWeek];
 
       const { data: contract } = await adminClient
         .from('contracts')
@@ -168,19 +166,20 @@ export async function POST() {
         .single();
 
       if (contract?.work_schedules && Array.isArray(contract.work_schedules)) {
+        // work_schedules 형식: { daysOfWeek: number[], startTime: string, endTime: string }
         const todayWorkSchedule = contract.work_schedules.find(
-          (ws: { day: string }) => ws.day === todayName
+          (ws: { daysOfWeek: number[] }) => ws.daysOfWeek?.includes(dayOfWeek)
         );
         if (todayWorkSchedule) {
           // work_schedules의 시간을 오늘 날짜에 적용
-          if (todayWorkSchedule.start && !scheduledCheckIn) {
-            const [hours, minutes] = todayWorkSchedule.start.split(':');
+          if (todayWorkSchedule.startTime && !scheduledCheckIn) {
+            const [hours, minutes] = todayWorkSchedule.startTime.split(':');
             const checkInTime = new Date(today);
             checkInTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
             scheduledCheckIn = checkInTime;
           }
-          if (todayWorkSchedule.end && !scheduledCheckOut) {
-            const [hours, minutes] = todayWorkSchedule.end.split(':');
+          if (todayWorkSchedule.endTime && !scheduledCheckOut) {
+            const [hours, minutes] = todayWorkSchedule.endTime.split(':');
             const checkOutTime = new Date(today);
             checkOutTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
             scheduledCheckOut = checkOutTime;
