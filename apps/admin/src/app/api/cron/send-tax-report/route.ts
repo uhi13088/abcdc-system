@@ -81,7 +81,10 @@ export async function GET(request: NextRequest) {
               id,
               name,
               department,
-              position
+              position,
+              birth_date,
+              address,
+              stores(id, name)
             )
           `)
           .eq('company_id', ta.company_id)
@@ -96,10 +99,23 @@ export async function GET(request: NextRequest) {
           continue;
         }
 
+        // 생년월일 포맷팅 함수
+        const formatBirthDate = (birthDate: string | null): string => {
+          if (!birthDate) return '-';
+          const date = new Date(birthDate);
+          const y = date.getFullYear().toString().slice(-2);
+          const m = String(date.getMonth() + 1).padStart(2, '0');
+          const d = String(date.getDate()).padStart(2, '0');
+          return `${y}${m}${d}`;
+        };
+
         // 데이터 변환
         const reportData: PayrollReportData[] = salaries.map((salary) => ({
           staffId: salary.staff_id,
           staffName: salary.staff?.name || 'Unknown',
+          storeName: salary.staff?.stores?.name || '-',
+          residentNumber: formatBirthDate(salary.staff?.birth_date),
+          address: salary.staff?.address || '-',
           department: salary.staff?.department,
           position: salary.staff?.position,
           baseSalary: salary.base_salary || 0,

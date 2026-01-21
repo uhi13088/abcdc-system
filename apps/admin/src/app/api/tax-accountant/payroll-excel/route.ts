@@ -78,7 +78,10 @@ export async function POST(request: NextRequest) {
           id,
           name,
           department,
-          position
+          position,
+          birth_date,
+          address,
+          stores(id, name)
         )
       `)
       .eq('company_id', targetCompanyId)
@@ -110,10 +113,23 @@ export async function POST(request: NextRequest) {
     // 직원 이름순 정렬
     validSalaries.sort((a, b) => a.staff.name.localeCompare(b.staff.name, 'ko'));
 
+    // 생년월일 포맷팅 함수
+    const formatBirthDate = (birthDate: string | null): string => {
+      if (!birthDate) return '-';
+      const date = new Date(birthDate);
+      const year = date.getFullYear().toString().slice(-2);
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}${month}${day}`;
+    };
+
     // 급여 데이터 변환
     const payrollData: PayrollReportData[] = validSalaries.map((salary) => ({
       staffId: salary.staff_id,
       staffName: salary.staff.name,
+      storeName: salary.staff.stores?.name || '-',
+      residentNumber: formatBirthDate(salary.staff.birth_date),
+      address: salary.staff.address || '-',
       department: salary.staff.department,
       position: salary.staff.position,
       baseSalary: salary.base_salary,
