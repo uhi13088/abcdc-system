@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/attendance-anomaly-check",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/auto-checkout",
+      "schedule": "0 2,23 * * *"
     }
   ]
 }
