@@ -139,7 +139,7 @@ export async function POST() {
       .select('start_time, end_time')
       .eq('staff_id', userData.id)
       .eq('work_date', today)
-      .single();
+      .maybeSingle();
 
     // 출근 상태 판단
     let scheduledCheckIn: Date | null = null;
