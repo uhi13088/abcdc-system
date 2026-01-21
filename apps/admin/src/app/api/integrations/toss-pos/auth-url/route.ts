@@ -33,22 +33,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate state token for security
-    const state = Buffer.from(JSON.stringify({
-      companyId: userProfile.company_id,
-      storeId: body.storeId,
-      timestamp: Date.now(),
-    })).toString('base64');
+    const state = crypto.randomUUID();
 
-    // Store state temporarily for validation
+    // Store state temporarily for validation in oauth_states table
+    // State expires in 10 minutes
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
     await supabase
-      .from('integrations')
-      .upsert({
-        company_id: userProfile.company_id,
-        integration_type: 'TOSS_POS',
-        state_token: state,
-        is_active: false,
-        created_at: new Date().toISOString(),
-      }, { onConflict: 'company_id,integration_type' });
+      .from('oauth_states')
+      .insert({
+        state,
+        user_id: userData.user.id,
+        provider: 'toss_pos',
+        expires_at: expiresAt,
+      });
 
     // Construct OAuth authorization URL
     const authUrl = new URL('https://api.tosspayments.com/v1/oauth/authorize');
@@ -60,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      auth_url: authUrl.toString(),
+      authUrl: authUrl.toString(),
       state,
     });
   } catch (error) {

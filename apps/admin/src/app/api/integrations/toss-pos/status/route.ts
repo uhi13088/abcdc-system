@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       .from('integrations')
       .select('*')
       .eq('company_id', userProfile.company_id)
-      .eq('integration_type', 'TOSS_POS')
+      .eq('provider', 'toss_pos')
       .single();
 
     if (error || !integration) {
@@ -47,15 +47,15 @@ export async function GET(request: NextRequest) {
       : true;
 
     return NextResponse.json({
-      connected: integration.is_active && !isExpired,
-      status: isExpired ? 'TOKEN_EXPIRED' : (integration.is_active ? 'CONNECTED' : 'DISCONNECTED'),
-      store_id: integration.external_id,
-      store_name: integration.store_name,
-      last_sync: integration.last_synced_at,
-      sync_enabled: integration.sync_enabled,
+      connected: integration.connected && !isExpired,
+      status: isExpired ? 'TOKEN_EXPIRED' : (integration.connected ? 'CONNECTED' : 'DISCONNECTED'),
+      store_id: integration.settings?.store_id,
+      store_name: integration.settings?.store_name,
+      last_sync: integration.last_sync_at,
+      sync_enabled: integration.enabled,
       message: isExpired
         ? '토큰이 만료되었습니다. 재연결이 필요합니다.'
-        : (integration.is_active ? '정상 연결됨' : '연결 해제됨'),
+        : (integration.connected ? '정상 연결됨' : '연결 해제됨'),
     });
   } catch (error) {
     console.error('Toss POS status error:', error);

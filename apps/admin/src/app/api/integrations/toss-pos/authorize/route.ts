@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 토스 OAuth 설정
-    const clientId = process.env.TOSS_CLIENT_ID;
+    const clientId = process.env.TOSS_POS_CLIENT_ID;
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin}/api/integrations/toss-pos/callback`;
 
     // 토스 OAuth가 아직 설정되지 않은 경우
