@@ -6,9 +6,11 @@
  *
  * 처리 기준:
  * 1. 어제 이전의 미퇴근 기록: 예정 퇴근 시간 또는 출근 후 8시간으로 자동 처리
- * 2. 오늘 기록 중 스케줄 종료 2시간 초과: 예정 퇴근 시간으로 자동 처리
+ * 2. 오늘 기록 중 스케줄 종료 5시간 초과: 예정 퇴근 시간으로 자동 처리
  *
  * 권장 실행 주기: 매일 새벽 2시 + 오후 11시
+ *
+ * 사용자 알림: 자동 퇴근 처리된 직원에게 다음 로그인 시 알림 발송
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -28,12 +30,16 @@ function getSupabaseClient() {
 
 interface ProcessedRecord {
   id: string;
+  staffId: string;
   staffName: string;
   workDate: string;
   checkInTime: string;
   autoCheckoutTime: string;
   reason: string;
 }
+
+// 자동 퇴근 처리 임계 시간 (시간 단위)
+const AUTO_CHECKOUT_THRESHOLD_HOURS = 5;
 
 /**
  * 근무시간 계산 (휴게시간 제외)
@@ -160,6 +166,7 @@ export async function GET(request: NextRequest) {
 
           processed.push({
             id: attendance.id,
+            staffId: attendance.staff_id,
             staffName: staff?.name || 'Unknown',
             workDate: attendance.work_date,
             checkInTime: attendance.actual_check_in,
@@ -172,7 +179,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 2. 오늘 기록 중 스케줄 종료 2시간 초과한 것 처리
+    // 2. 오늘 기록 중 스케줄 종료 5시간 초과한 것 처리
     const { data: todayPendingAttendances, error: todayError } = await supabase
       .from('attendances')
       .select(`
@@ -199,14 +206,15 @@ export async function GET(request: NextRequest) {
       for (const attendance of todayPendingAttendances) {
         try {
           const scheduledEnd = new Date(attendance.scheduled_check_out);
-          const autoCheckoutThreshold = addHours(scheduledEnd, 2);
+          const autoCheckoutThreshold = addHours(scheduledEnd, AUTO_CHECKOUT_THRESHOLD_HOURS);
 
-          // 예정 퇴근 시간 + 2시간이 지났으면 자동 퇴근
+          // 예정 퇴근 시간 + 5시간이 지났으면 자동 퇴근
           if (now >= autoCheckoutThreshold) {
             const checkInTime = new Date(attendance.actual_check_in);
             const autoCheckoutTime = scheduledEnd; // 예정 퇴근 시간으로 처리
             const workData = calculateWorkHours(checkInTime, autoCheckoutTime, 60);
             const staff = attendance.users as any;
+            const reason = `스케줄 종료 ${AUTO_CHECKOUT_THRESHOLD_HOURS}시간 초과 자동 처리`;
 
             await supabase
               .from('attendances')
@@ -218,7 +226,7 @@ export async function GET(request: NextRequest) {
                 status: 'NORMAL',
                 extensions: {
                   auto_checkout: true,
-                  auto_checkout_reason: '스케줄 종료 2시간 초과 자동 처리',
+                  auto_checkout_reason: reason,
                   auto_checkout_at: now.toISOString(),
                 },
               })
@@ -226,11 +234,12 @@ export async function GET(request: NextRequest) {
 
             processed.push({
               id: attendance.id,
+              staffId: attendance.staff_id,
               staffName: staff?.name || 'Unknown',
               workDate: attendance.work_date,
               checkInTime: attendance.actual_check_in,
               autoCheckoutTime: autoCheckoutTime.toISOString(),
-              reason: '스케줄 종료 2시간 초과 자동 처리',
+              reason,
             });
           }
         } catch (err) {
@@ -239,15 +248,33 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 3. 관리자에게 자동 처리 결과 알림 (처리된 기록이 있을 경우)
+    // 3. 자동 처리된 직원에게 알림 발송 (다음 로그인 시 확인 가능)
     if (processed.length > 0) {
-      // 회사별로 그룹화하여 관리자에게 알림
+      // 직원 개인에게 알림
+      const staffNotifications = processed.map((record) => ({
+        user_id: record.staffId,
+        category: 'ATTENDANCE',
+        priority: 'HIGH',
+        title: '퇴근이 자동 처리되었습니다',
+        body: `${record.workDate} 퇴근 기록이 없어 예정 퇴근 시간(${format(new Date(record.autoCheckoutTime), 'HH:mm')})으로 자동 처리되었습니다. 실제 퇴근 시간이 다르면 근태 수정을 요청해주세요.`,
+        deep_link: `/attendance/${record.id}`,
+        data: {
+          attendance_id: record.id,
+          work_date: record.workDate,
+          auto_checkout_time: record.autoCheckoutTime,
+          auto_checkout: true,
+        },
+      }));
+
+      await supabase.from('notifications').insert(staffNotifications);
+
+      // 4. 관리자에게도 요약 알림
       const companyIds = new Set<string>();
       for (const record of processed) {
         const { data: staff } = await supabase
           .from('users')
           .select('company_id')
-          .eq('name', record.staffName)
+          .eq('id', record.staffId)
           .single();
         if (staff?.company_id) {
           companyIds.add(staff.company_id);
@@ -262,6 +289,15 @@ export async function GET(request: NextRequest) {
           .in('role', ['COMPANY_ADMIN', 'company_admin']);
 
         if (managers && managers.length > 0) {
+          const companyProcessed = processed.filter(async (r) => {
+            const { data } = await supabase
+              .from('users')
+              .select('company_id')
+              .eq('id', r.staffId)
+              .single();
+            return data?.company_id === companyId;
+          });
+
           const notifications = managers.map((manager) => ({
             user_id: manager.id,
             category: 'ATTENDANCE',
@@ -390,6 +426,7 @@ export async function POST(request: NextRequest) {
 
         processed.push({
           id: attendance.id,
+          staffId: attendance.staff_id,
           staffName: staff?.name || 'Unknown',
           workDate: attendance.work_date,
           checkInTime: attendance.actual_check_in,
@@ -399,6 +436,27 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         errors.push(`Failed to process ${attendance.id}: ${err}`);
       }
+    }
+
+    // 일괄 처리된 직원들에게도 알림 발송
+    if (processed.length > 0) {
+      const staffNotifications = processed.map((record) => ({
+        user_id: record.staffId,
+        category: 'ATTENDANCE',
+        priority: 'HIGH',
+        title: '퇴근이 자동 처리되었습니다',
+        body: `${record.workDate} 퇴근 기록이 없어 예정 퇴근 시간(${format(new Date(record.autoCheckoutTime), 'HH:mm')})으로 자동 처리되었습니다. 실제 퇴근 시간이 다르면 근태 수정을 요청해주세요.`,
+        deep_link: `/attendance/${record.id}`,
+        data: {
+          attendance_id: record.id,
+          work_date: record.workDate,
+          auto_checkout_time: record.autoCheckoutTime,
+          auto_checkout: true,
+          batch_processed: true,
+        },
+      }));
+
+      await supabase.from('notifications').insert(staffNotifications);
     }
 
     return NextResponse.json({
