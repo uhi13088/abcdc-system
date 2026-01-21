@@ -41,6 +41,10 @@ interface WeeklyStats {
   lateCount: number;
 }
 
+interface NotificationCount {
+  unreadCount: number;
+}
+
 export default function HomePage() {
   const router = useRouter();
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -50,6 +54,7 @@ export default function HomePage() {
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
   const [recentNotices, setRecentNotices] = useState<Notice[]>([]);
   const [weeklyStats, setWeeklyStats] = useState<WeeklyStats>({ totalHours: 0, workDays: 0, lateCount: 0 });
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -71,11 +76,12 @@ export default function HomePage() {
       setUser(userData);
 
       // Fetch all data in parallel via API routes
-      const [scheduleRes, attendanceRes, weeklyRes, noticesRes] = await Promise.all([
+      const [scheduleRes, attendanceRes, weeklyRes, noticesRes, notificationsRes] = await Promise.all([
         fetch('/api/schedules/today'),
         fetch('/api/attendances/today'),
         fetch('/api/attendances/weekly'),
         fetch('/api/notices?limit=3'),
+        fetch('/api/notifications?limit=1'),
       ]);
 
       if (scheduleRes.ok) {
@@ -100,6 +106,11 @@ export default function HomePage() {
       if (noticesRes.ok) {
         const noticesData = await noticesRes.json();
         setRecentNotices(noticesData);
+      }
+
+      if (notificationsRes.ok) {
+        const notificationsData = await notificationsRes.json();
+        setUnreadNotifications(notificationsData.unreadCount || 0);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -145,6 +156,17 @@ export default function HomePage() {
             <h1 className="text-xl font-bold">{user?.name || '사용자'}님, 안녕하세요!</h1>
           </div>
           <div className="flex items-center gap-3">
+            <Link
+              href="/notifications"
+              className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center relative"
+            >
+              <Bell className="w-5 h-5" />
+              {unreadNotifications > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs font-bold">
+                  {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                </span>
+              )}
+            </Link>
             <Link
               href="/messages"
               className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center"
