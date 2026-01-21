@@ -25,7 +25,7 @@ interface Attendance {
   scheduled_check_out: string | null;
   actual_check_in: string | null;
   actual_check_out: string | null;
-  status: 'NORMAL' | 'LATE' | 'EARLY_LEAVE' | 'ABSENT' | 'VACATION' | null;
+  status: 'WORKING' | 'NORMAL' | 'LATE' | 'EARLY_CHECK_IN' | 'EARLY_LEAVE' | 'LATE_AND_EARLY_LEAVE' | 'OVERTIME' | 'ABSENT' | 'NO_SHOW' | 'VACATION' | null;
   work_hours: number | null;
   overtime_hours: number | null;
 }
@@ -36,11 +36,16 @@ interface EditModalData {
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
+  WORKING: { label: '근무중', color: 'bg-blue-100 text-blue-800', icon: Clock },
   NORMAL: { label: '정상', color: 'bg-green-100 text-green-800', icon: CheckCircle },
   LATE: { label: '지각', color: 'bg-yellow-100 text-yellow-800', icon: AlertCircle },
+  EARLY_CHECK_IN: { label: '조기출근', color: 'bg-cyan-100 text-cyan-800', icon: Clock },
   EARLY_LEAVE: { label: '조퇴', color: 'bg-orange-100 text-orange-800', icon: AlertCircle },
+  LATE_AND_EARLY_LEAVE: { label: '지각+조퇴', color: 'bg-red-100 text-red-800', icon: XCircle },
+  OVERTIME: { label: '연장근무', color: 'bg-purple-100 text-purple-800', icon: Clock },
   ABSENT: { label: '결근', color: 'bg-red-100 text-red-800', icon: XCircle },
-  VACATION: { label: '휴가', color: 'bg-blue-100 text-blue-800', icon: Clock },
+  NO_SHOW: { label: '미출근', color: 'bg-red-100 text-red-800', icon: XCircle },
+  VACATION: { label: '휴가', color: 'bg-indigo-100 text-indigo-800', icon: Clock },
 };
 
 export default function AttendancePage() {
@@ -316,7 +321,12 @@ export default function AttendancePage() {
                 </tr>
               ) : (
                 attendances.map((attendance) => {
-                  const statusInfo = attendance.status ? statusConfig[attendance.status] : null;
+                  // 퇴근을 안 찍었으면 "근무중"으로 표시
+                  let displayStatus = attendance.status;
+                  if (attendance.actual_check_in && !attendance.actual_check_out) {
+                    displayStatus = 'WORKING';
+                  }
+                  const statusInfo = displayStatus ? statusConfig[displayStatus] : null;
                   return (
                     <tr key={attendance.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -471,10 +481,15 @@ export default function AttendancePage() {
                   onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
+                  <option value="WORKING">근무중</option>
                   <option value="NORMAL">정상</option>
                   <option value="LATE">지각</option>
+                  <option value="EARLY_CHECK_IN">조기출근</option>
                   <option value="EARLY_LEAVE">조퇴</option>
+                  <option value="LATE_AND_EARLY_LEAVE">지각+조퇴</option>
+                  <option value="OVERTIME">연장근무</option>
                   <option value="ABSENT">결근</option>
+                  <option value="NO_SHOW">미출근</option>
                   <option value="VACATION">휴가</option>
                 </select>
               </div>

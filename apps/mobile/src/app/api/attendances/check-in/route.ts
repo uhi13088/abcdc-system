@@ -5,12 +5,15 @@ import { getTodayKorea } from '@/lib/date-utils';
 export const dynamic = 'force-dynamic';
 
 // 출근 상태 판단 함수
+// 출근 시점에서는 WORKING(근무중), LATE(지각), EARLY_CHECK_IN(조기출근) 상태를 반환
+// 퇴근 시 check-out API에서 최종 상태(NORMAL, OVERTIME, EARLY_LEAVE 등)로 업데이트
 function determineCheckInStatus(
   checkInTime: Date,
   scheduledCheckIn: Date | null
 ): { status: string; isAbnormal: boolean; message: string } {
+  // 예정 출근 시간이 없으면 근무중 상태
   if (!scheduledCheckIn) {
-    return { status: 'NORMAL', isAbnormal: false, message: '' };
+    return { status: 'WORKING', isAbnormal: false, message: '' };
   }
 
   const diffMinutes = (checkInTime.getTime() - scheduledCheckIn.getTime()) / (1000 * 60);
@@ -35,7 +38,8 @@ function determineCheckInStatus(
     };
   }
 
-  return { status: 'NORMAL', isAbnormal: false, message: '' };
+  // 정상 시간 출근 = 근무중 (퇴근 시 NORMAL로 변경됨)
+  return { status: 'WORKING', isAbnormal: false, message: '' };
 }
 
 // 관리자들에게 알림 발송
@@ -132,20 +136,57 @@ export async function POST() {
     // 오늘 스케줄 조회
     const { data: todaySchedule } = await adminClient
       .from('schedules')
-      .select('scheduled_start, scheduled_end')
+      .select('start_time, end_time')
       .eq('staff_id', userData.id)
-      .eq('date', today)
+      .eq('work_date', today)
       .single();
 
     // 출근 상태 판단
     let scheduledCheckIn: Date | null = null;
     let scheduledCheckOut: Date | null = null;
 
-    if (todaySchedule?.scheduled_start) {
-      scheduledCheckIn = new Date(todaySchedule.scheduled_start);
+    if (todaySchedule?.start_time) {
+      scheduledCheckIn = new Date(todaySchedule.start_time);
     }
-    if (todaySchedule?.scheduled_end) {
-      scheduledCheckOut = new Date(todaySchedule.scheduled_end);
+    if (todaySchedule?.end_time) {
+      scheduledCheckOut = new Date(todaySchedule.end_time);
+    }
+
+    // 스케줄이 없으면 계약서의 work_schedules에서 해당 요일 시간 가져오기
+    if (!scheduledCheckIn || !scheduledCheckOut) {
+      const dayOfWeek = now.getDay(); // 0=일, 1=월, ..., 6=토
+      const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+      const todayName = dayNames[dayOfWeek];
+
+      const { data: contract } = await adminClient
+        .from('contracts')
+        .select('work_schedules')
+        .eq('staff_id', userData.id)
+        .eq('status', 'SIGNED')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (contract?.work_schedules && Array.isArray(contract.work_schedules)) {
+        const todayWorkSchedule = contract.work_schedules.find(
+          (ws: { day: string }) => ws.day === todayName
+        );
+        if (todayWorkSchedule) {
+          // work_schedules의 시간을 오늘 날짜에 적용
+          if (todayWorkSchedule.start && !scheduledCheckIn) {
+            const [hours, minutes] = todayWorkSchedule.start.split(':');
+            const checkInTime = new Date(today);
+            checkInTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            scheduledCheckIn = checkInTime;
+          }
+          if (todayWorkSchedule.end && !scheduledCheckOut) {
+            const [hours, minutes] = todayWorkSchedule.end.split(':');
+            const checkOutTime = new Date(today);
+            checkOutTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            scheduledCheckOut = checkOutTime;
+          }
+        }
+      }
     }
 
     const { status, isAbnormal, message } = determineCheckInStatus(now, scheduledCheckIn);

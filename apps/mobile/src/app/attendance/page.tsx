@@ -131,19 +131,27 @@ export default function AttendancePage() {
     return minutes > 0 ? `${hours}시간 ${minutes}분` : `${hours}시간`;
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, hasCheckIn: boolean, hasCheckOut: boolean) => {
+    // 퇴근을 안 찍었으면 "근무중"으로 표시
+    let displayStatus = status;
+    if (hasCheckIn && !hasCheckOut) {
+      displayStatus = 'WORKING';
+    }
+
     const styles: Record<string, string> = {
+      WORKING: 'bg-blue-100 text-blue-700',
       NORMAL: 'bg-green-100 text-green-700',
       LATE: 'bg-yellow-100 text-yellow-700',
-      EARLY_CHECK_IN: 'bg-blue-100 text-blue-700',
+      EARLY_CHECK_IN: 'bg-cyan-100 text-cyan-700',
       EARLY_LEAVE: 'bg-orange-100 text-orange-700',
       LATE_AND_EARLY_LEAVE: 'bg-red-100 text-red-700',
       OVERTIME: 'bg-purple-100 text-purple-700',
       ABSENT: 'bg-red-100 text-red-700',
       NO_SHOW: 'bg-red-100 text-red-700',
-      VACATION: 'bg-blue-100 text-blue-700',
+      VACATION: 'bg-indigo-100 text-indigo-700',
     };
     const labels: Record<string, string> = {
+      WORKING: '근무중',
       NORMAL: '정상',
       LATE: '지각',
       EARLY_CHECK_IN: '조기출근',
@@ -155,8 +163,8 @@ export default function AttendancePage() {
       VACATION: '휴가',
     };
     return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full ${styles[status] || 'bg-gray-100 text-gray-700'}`}>
-        {labels[status] || status}
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${styles[displayStatus] || 'bg-gray-100 text-gray-700'}`}>
+        {labels[displayStatus] || displayStatus}
       </span>
     );
   };
@@ -229,7 +237,7 @@ export default function AttendancePage() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium text-gray-900">{formatDate(record.work_date)}</span>
                     <div className="flex items-center gap-2">
-                      {getStatusBadge(record.status)}
+                      {getStatusBadge(record.status, !!record.actual_check_in, !!record.actual_check_out)}
                       <ChevronRight className="w-4 h-4 text-gray-400" />
                     </div>
                   </div>
