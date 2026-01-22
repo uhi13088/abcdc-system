@@ -5,9 +5,10 @@ export const dynamic = 'force-dynamic';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
@@ -43,7 +44,7 @@ export async function PUT(
         employment_insurance_rate: body.employmentInsuranceRate,
         status: body.status,
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -58,9 +59,10 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
@@ -82,7 +84,7 @@ export async function DELETE(
     const { error } = await adminClient
       .from('labor_law_versions')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) throw error;
 

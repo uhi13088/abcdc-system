@@ -5,8 +5,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createClient as createAuthClient } from '@/lib/supabase/server';
 import { emailService, pushNotificationService } from '@abc/shared/server';
 import { ContractPDFService } from '@/lib/services/contract-pdf.service';
+
+export const dynamic = 'force-dynamic';
 
 function getSupabaseClient() {
   return createClient(
@@ -19,6 +22,23 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // 인증 검사
+  const authClient = await createAuthClient();
+  const { data: { user } } = await authClient.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { data: userData } = await authClient
+    .from('users')
+    .select('id, role, company_id')
+    .eq('auth_id', user.id)
+    .single();
+
+  if (!['super_admin', 'company_admin', 'manager'].includes(userData?.role || '')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const supabase = getSupabaseClient();
   try {
     const { id } = await params;

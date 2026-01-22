@@ -8,9 +8,10 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: contractId } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
@@ -18,8 +19,6 @@ export async function POST(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const contractId = params.id;
     const body = await request.json();
     const { signature, signerType: _signerType = 'EMPLOYEE' } = body;
 

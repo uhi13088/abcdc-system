@@ -6,9 +6,10 @@ export const dynamic = 'force-dynamic';
 // GET /api/companies/[id]
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
@@ -30,7 +31,7 @@ export async function GET(
     const { data, error } = await adminClient
       .from('companies')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) throw error;
@@ -48,9 +49,10 @@ export async function GET(
 // PUT /api/companies/[id]
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
@@ -82,7 +84,7 @@ export async function PUT(
         address: body.address,
         status: body.status,
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -101,9 +103,10 @@ export async function PUT(
 // DELETE /api/companies/[id]
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
@@ -126,7 +129,7 @@ export async function DELETE(
     const { error } = await adminClient
       .from('companies')
       .update({ status: 'INACTIVE' })
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) throw error;
 

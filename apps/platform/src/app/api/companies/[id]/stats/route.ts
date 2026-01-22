@@ -11,12 +11,12 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: companyId } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
-    const companyId = params.id;
 
     // 인증 확인
     const { data: { user } } = await supabase.auth.getUser();
