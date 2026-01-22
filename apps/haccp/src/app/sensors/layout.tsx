@@ -1,6 +1,6 @@
 import { AppLayout } from '@/components/layout/app-layout';
 
-export default function ReturnsDisposalsLayout({
+export default function SensorsLayout({
   children,
 }: {
   children: React.ReactNode;
