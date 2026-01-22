@@ -24,7 +24,7 @@ interface Notification {
   category: string;
   priority: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
   deep_link?: string;
-  is_read: boolean;
+  read: boolean;
   read_at?: string;
   created_at: string;
 }
@@ -247,7 +247,7 @@ export default function NotificationsPage() {
             <p className="text-sm text-gray-500">긴급 알림</p>
           </div>
           <p className="text-2xl font-bold text-red-600">
-            {data?.notifications.filter(n => n.priority === 'CRITICAL' && !n.is_read).length || 0}
+            {data?.notifications.filter(n => n.priority === 'CRITICAL' && !n.read).length || 0}
           </p>
         </div>
       </div>
@@ -326,7 +326,7 @@ export default function NotificationsPage() {
                 key={notification.id}
                 className={`flex items-start gap-4 p-4 hover:bg-gray-50 transition-colors border-l-4 ${
                   priorityColors[notification.priority]
-                } ${!notification.is_read ? 'bg-blue-50/30' : ''}`}
+                } ${!notification.read ? 'bg-blue-50/30' : ''}`}
               >
                 <input
                   type="checkbox"
@@ -342,7 +342,7 @@ export default function NotificationsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className={`text-sm ${!notification.is_read ? 'font-semibold' : 'font-medium'}`}>
+                      <h3 className={`text-sm ${!notification.read ? 'font-semibold' : 'font-medium'}`}>
                         {notification.title}
                       </h3>
                       <p className="text-sm text-gray-600 mt-0.5">{notification.body}</p>
@@ -363,12 +363,12 @@ export default function NotificationsPage() {
                       <Link
                         href={notification.deep_link}
                         className="text-xs text-blue-600 hover:text-blue-700"
-                        onClick={() => !notification.is_read && markAsRead(notification.id)}
+                        onClick={() => !notification.read && markAsRead(notification.id)}
                       >
                         자세히 보기
                       </Link>
                     )}
-                    {!notification.is_read && (
+                    {!notification.read && (
                       <button
                         onClick={() => markAsRead(notification.id)}
                         className="text-xs text-gray-500 hover:text-gray-700"

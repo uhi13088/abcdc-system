@@ -41,9 +41,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (isRead === 'true') {
-      query = query.eq('is_read', true);
+      query = query.eq('read', true);
     } else if (isRead === 'false') {
-      query = query.eq('is_read', false);
+      query = query.eq('read', false);
     }
 
     const { data, count, error } = await query;
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       .from('notifications')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userProfile.id)
-      .eq('is_read', false);
+      .eq('read', false);
 
     return NextResponse.json({
       notifications: data || [],
@@ -100,9 +100,9 @@ export async function POST(request: NextRequest) {
       // 모든 알림 읽음 처리
       const { error } = await supabase
         .from('notifications')
-        .update({ is_read: true, read_at: new Date().toISOString() })
+        .update({ read: true, read_at: new Date().toISOString() })
         .eq('user_id', userProfile.id)
-        .eq('is_read', false);
+        .eq('read', false);
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
       // 특정 알림들 읽음 처리
       const { error } = await supabase
         .from('notifications')
-        .update({ is_read: true, read_at: new Date().toISOString() })
+        .update({ read: true, read_at: new Date().toISOString() })
         .eq('user_id', userProfile.id)
         .in('id', body.notification_ids);
 

@@ -29,7 +29,7 @@ export async function PUT(
 
     const { data, error } = await supabase
       .from('notifications')
-      .update({ is_read: true, read_at: new Date().toISOString() })
+      .update({ read: true, read_at: new Date().toISOString() })
       .eq('id', id)
       .eq('user_id', userProfile.id)
       .select()
