@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Package,
@@ -15,15 +15,48 @@ import {
   FileCheck,
   AlertTriangle,
   CheckCircle,
+  Wifi,
+  WifiOff,
+  GraduationCap,
+  FileText,
+  Settings,
+  Wrench,
+  RotateCcw,
+  Warehouse,
+  RefreshCw,
 } from 'lucide-react';
 
 interface DashboardStats {
-  todayHygieneChecks: number;
+  todayHygieneChecks: {
+    completed: number;
+    total: number;
+  };
   pendingCcpRecords: number;
   lowStockMaterials: number;
   pendingInspections: number;
   todayProduction: number;
   ccpDeviations: number;
+  todayCcpRecords: number;
+  weeklyPestControl: {
+    completed: boolean;
+    lastCheck: string | null;
+  };
+  monthlyVerification: {
+    completed: number;
+    total: number;
+  };
+  sensorStatus: {
+    total: number;
+    online: number;
+    offline: number;
+  };
+  recentAlerts: Array<{
+    id: string;
+    type: string;
+    message: string;
+    severity: 'HIGH' | 'MEDIUM' | 'LOW';
+    createdAt: string;
+  }>;
 }
 
 const haccpModules = [
@@ -104,56 +137,145 @@ const haccpModules = [
     icon: Package,
     color: 'bg-lime-500',
   },
+  {
+    title: '교육훈련',
+    description: 'HACCP 교육 기록',
+    href: '/training',
+    icon: GraduationCap,
+    color: 'bg-violet-500',
+  },
+  {
+    title: '감사보고서',
+    description: '내부/외부 감사',
+    href: '/audit-report',
+    icon: FileText,
+    color: 'bg-slate-500',
+  },
+  {
+    title: '검교정',
+    description: '계측기 검교정 관리',
+    href: '/calibration',
+    icon: Wrench,
+    color: 'bg-amber-500',
+  },
+  {
+    title: '반품/폐기',
+    description: '반품/회수/폐기 기록',
+    href: '/returns-disposals',
+    icon: RotateCcw,
+    color: 'bg-rose-500',
+  },
+  {
+    title: '보관창고',
+    description: '보관 창고 점검',
+    href: '/storage-inspections',
+    icon: Warehouse,
+    color: 'bg-emerald-500',
+  },
+  {
+    title: 'IoT 센서',
+    description: '센서 모니터링',
+    href: '/sensors',
+    icon: Wifi,
+    color: 'bg-sky-500',
+  },
 ];
 
 export default function HACCPDashboard() {
   const [stats, setStats] = useState<DashboardStats>({
-    todayHygieneChecks: 0,
+    todayHygieneChecks: { completed: 0, total: 3 },
     pendingCcpRecords: 0,
     lowStockMaterials: 0,
     pendingInspections: 0,
     todayProduction: 0,
     ccpDeviations: 0,
+    todayCcpRecords: 0,
+    weeklyPestControl: { completed: false, lastCheck: null },
+    monthlyVerification: { completed: 0, total: 0 },
+    sensorStatus: { total: 0, online: 0, offline: 0 },
+    recentAlerts: [],
   });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStats = useCallback(async (showRefreshing = false) => {
+    if (showRefreshing) setRefreshing(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/haccp/dashboard/stats');
+      if (!response.ok) {
+        throw new Error('통계 데이터를 불러오는데 실패했습니다.');
+      }
+      const data = await response.json();
+      setStats(data);
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+      setError(err instanceof Error ? err.message : '오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    // TODO: Fetch actual stats from API
-    setLoading(false);
-    setStats({
-      todayHygieneChecks: 3,
-      pendingCcpRecords: 5,
-      lowStockMaterials: 2,
-      pendingInspections: 1,
-      todayProduction: 8,
-      ccpDeviations: 0,
-    });
-  }, []);
+    fetchStats();
+    // 5분마다 자동 새로고침
+    const interval = setInterval(() => fetchStats(false), 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchStats]);
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">HACCP 관리</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          식품 안전 관리 시스템 - 위해요소 중점관리
-        </p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">HACCP 관리</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            식품 안전 관리 시스템 - 위해요소 중점관리
+          </p>
+        </div>
+        <button
+          onClick={() => fetchStats(true)}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-4 py-2 bg-white border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          <span className="text-sm">새로고침</span>
+        </button>
       </div>
 
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          {error}
+        </div>
+      )}
+
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
             <ClipboardCheck className="w-4 h-4 text-cyan-500" />
             <span className="text-xs text-gray-500">오늘 위생점검</span>
           </div>
-          <p className="text-2xl font-bold">{stats.todayHygieneChecks}/3</p>
+          <p className="text-2xl font-bold">{stats.todayHygieneChecks.completed}/{stats.todayHygieneChecks.total}</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
             <Thermometer className="w-4 h-4 text-red-500" />
-            <span className="text-xs text-gray-500">CCP 기록 대기</span>
+            <span className="text-xs text-gray-500">오늘 CCP 기록</span>
           </div>
-          <p className="text-2xl font-bold">{stats.pendingCcpRecords}</p>
+          <p className="text-2xl font-bold">{stats.todayCcpRecords}</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
@@ -187,6 +309,28 @@ export default function HACCPDashboard() {
           </div>
           <p className={`text-2xl font-bold ${stats.ccpDeviations > 0 ? 'text-red-600' : 'text-green-600'}`}>
             {stats.ccpDeviations}
+          </p>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border">
+          <div className="flex items-center gap-2 mb-2">
+            {stats.sensorStatus.offline === 0 ? (
+              <Wifi className="w-4 h-4 text-green-500" />
+            ) : (
+              <WifiOff className="w-4 h-4 text-red-500" />
+            )}
+            <span className="text-xs text-gray-500">IoT 센서</span>
+          </div>
+          <p className={`text-2xl font-bold ${stats.sensorStatus.offline > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            {stats.sensorStatus.online}/{stats.sensorStatus.total}
+          </p>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border">
+          <div className="flex items-center gap-2 mb-2">
+            <Bug className="w-4 h-4 text-yellow-500" />
+            <span className="text-xs text-gray-500">주간 방충방서</span>
+          </div>
+          <p className={`text-2xl font-bold ${stats.weeklyPestControl.completed ? 'text-green-600' : 'text-orange-600'}`}>
+            {stats.weeklyPestControl.completed ? '완료' : '미완료'}
           </p>
         </div>
       </div>
