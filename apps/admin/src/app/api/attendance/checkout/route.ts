@@ -33,7 +33,7 @@ function calculateWorkHours(
   const workHours = Math.max(0, totalMinutes / 60);
 
   // 8시간 초과분 = 연장근로
-  const regularHours = Math.min(workHours, 8);
+  const _regularHours = Math.min(workHours, 8);
   const overtimeHours = Math.max(0, workHours - 8);
 
   // 야간근로 시간 계산 (22:00 ~ 06:00)
@@ -124,8 +124,8 @@ export async function POST(request: NextRequest) {
       qrToken,
       latitude,
       longitude,
-      deviceInfo,
-      photoUrl,
+      deviceInfo: _deviceInfo,
+      photoUrl: _photoUrl,
     } = body;
 
     // 인증된 사용자 ID 사용 (보안: body에서 받지 않음)
@@ -291,7 +291,7 @@ export async function POST(request: NextRequest) {
 }
 
 // 자동 퇴근 처리 (Cron용)
-export async function PUT(request: NextRequest) {
+export async function PUT(_request: NextRequest) {
   try {
     const supabase = getSupabaseClient();
     const today = format(new Date(), 'yyyy-MM-dd');

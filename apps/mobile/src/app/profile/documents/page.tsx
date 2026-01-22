@@ -288,12 +288,12 @@ export default function DocumentsPage() {
   };
 
   const getDocumentStatus = (docType: string) => {
-    const uploaded = uploadedDocuments[docType];
-    if (!uploaded?.url) return 'pending';
+    const doc = uploadedDocuments[docType];
+    if (!doc?.url) return 'pending';
 
     // 보건증 유효기간 체크
-    if (docType === 'health_certificate' && uploaded.expiry_date) {
-      const expiry = new Date(uploaded.expiry_date);
+    if (docType === 'health_certificate' && doc.expiry_date) {
+      const expiry = new Date(doc.expiry_date);
       const now = new Date();
       if (expiry < now) return 'expired';
       // 30일 이내 만료 예정
@@ -351,7 +351,6 @@ export default function DocumentsPage() {
             if (!doc) return null;
 
             const status = getDocumentStatus(docType);
-            const uploaded = uploadedDocuments[docType];
             const Icon = doc.icon;
 
             return (
@@ -424,6 +423,7 @@ export default function DocumentsPage() {
                 />
                 {previewUrl ? (
                   <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={previewUrl}
                       alt="Preview"

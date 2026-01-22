@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = (data || []).map((report: any) => ({
       ...report,
       created_by_name: report.created_by_user?.name,

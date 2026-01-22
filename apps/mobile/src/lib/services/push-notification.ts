@@ -3,6 +3,7 @@
  * Handles FCM token registration and notification handling
  */
 
+import React from 'react';
 import { logger } from '@abc/shared';
 
 interface NotificationData {
@@ -188,6 +189,3 @@ export function usePushNotifications() {
 
   return { isEnabled, isLoading };
 }
-
-// Import React for the hook
-import React from 'react';

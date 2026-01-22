@@ -4,7 +4,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 export const dynamic = 'force-dynamic';
 
 // GET /api/haccp/reminders - 리마인더 설정 목록 조회
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = await createServerClient();
 

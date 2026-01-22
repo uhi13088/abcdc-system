@@ -147,6 +147,7 @@ export async function GET(request: NextRequest) {
 
     if (companyId) {
       Object.keys(categoryQueries).forEach(key => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (categoryQueries as any)[key] = (categoryQueries as any)[key].eq('company_id', companyId);
       });
     }
@@ -209,7 +210,7 @@ export async function GET(request: NextRequest) {
 
     // 알림 생성
     const alerts: UsageMetrics['alerts'] = [];
-    const totalRecords = (attendance.count || 0) + (schedules.count || 0) + (approvals.count || 0);
+    const _totalRecords = (attendance.count || 0) + (schedules.count || 0) + (approvals.count || 0);
 
     // 급격한 사용량 증가 감지
     if (dailyStats.length >= 2) {

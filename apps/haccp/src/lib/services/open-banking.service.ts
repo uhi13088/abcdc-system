@@ -19,6 +19,7 @@ function getSupabase(): SupabaseClient {
 
 const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (getSupabase() as any)[prop];
   }
 });
@@ -173,6 +174,7 @@ export class OpenBankingService {
 
     const data = await response.json();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return data.res_list.map((account: any) => ({
       fintechUseNum: account.fintech_use_num,
       accountNo: account.account_num_masked,
@@ -220,6 +222,7 @@ export class OpenBankingService {
 
     const data = await response.json();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return data.res_list.map((tx: any) => ({
       tranNo: tx.tran_no,
       tranDate: tx.tran_date,

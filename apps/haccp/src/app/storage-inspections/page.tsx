@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Warehouse, Thermometer, Droplets, CheckCircle, XCircle, AlertTriangle, X, Calendar } from 'lucide-react';
+import { Plus, Warehouse, Thermometer, Droplets, CheckCircle, XCircle, X, Calendar } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 
 interface StorageInspection {
@@ -63,6 +63,7 @@ export default function StorageInspectionsPage() {
 
   useEffect(() => {
     fetchInspections();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, filterArea]);
 
   const fetchInspections = async () => {
@@ -163,7 +164,7 @@ export default function StorageInspectionsPage() {
     'OTHER': '기타',
   };
 
-  const shiftText: Record<string, string> = {
+  const _shiftText: Record<string, string> = {
     'morning': '오전',
     'afternoon': '오후',
     'night': '야간',
@@ -392,6 +393,7 @@ export default function StorageInspectionsPage() {
                   <Label>교대</Label>
                   <select
                     value={formData.shift}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setFormData({ ...formData, shift: e.target.value as any })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
@@ -418,6 +420,7 @@ export default function StorageInspectionsPage() {
                   <Label required>창고 유형</Label>
                   <select
                     value={formData.storage_type}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setTemperaturePreset(e.target.value as any)}
                     className="w-full px-3 py-2 border rounded-lg"
                   >

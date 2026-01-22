@@ -6,8 +6,9 @@
 import PDFDocument from 'pdfkit';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Salary, Contract, LaborLawVersion } from '../types/entities';
+import { Salary, Contract } from '../types/entities';
 import { SalaryType } from '../types/enums';
+import { logger } from './logger';
 
 // 한글 폰트 경로 - Vercel과 로컬 환경 모두 지원
 function getKoreanFontPath(): string {
@@ -45,7 +46,7 @@ function getKoreanFontPath(): string {
   for (const fontPath of possiblePaths) {
     try {
       if (fs.existsSync(fontPath)) {
-        console.log(`Korean font found at: ${fontPath}`);
+        logger.log(`Korean font found at: ${fontPath}`);
         return fontPath;
       }
     } catch {
@@ -54,8 +55,8 @@ function getKoreanFontPath(): string {
   }
 
   // 디버깅을 위한 로그
-  console.warn('Korean font not found in any path. Searched:', possiblePaths.slice(0, 5));
-  console.warn(`Current working directory: ${cwd}`);
+  logger.warn('Korean font not found in any path. Searched:', possiblePaths.slice(0, 5));
+  logger.warn(`Current working directory: ${cwd}`);
 
   // 기본값 반환 (에러 발생 가능)
   return path.join(cwd, 'public', 'fonts', fontFileName);

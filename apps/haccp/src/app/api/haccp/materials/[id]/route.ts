@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 // DELETE /api/haccp/materials/[id]
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

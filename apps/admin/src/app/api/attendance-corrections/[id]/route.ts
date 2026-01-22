@@ -176,6 +176,7 @@ export async function PATCH(
 
     // 승인 처리
     // 1. 출퇴근 기록 업데이트
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const attendanceUpdate: Record<string, any> = {
       admin_corrected_at: now,
       admin_corrected_by: userData.id,

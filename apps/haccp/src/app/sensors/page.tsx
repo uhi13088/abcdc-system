@@ -515,6 +515,7 @@ export default function SensorsPage() {
                   <Label required>센서 유형</Label>
                   <select
                     value={formData.sensor_type}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setFormData({ ...formData, sensor_type: e.target.value as any })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
@@ -527,6 +528,7 @@ export default function SensorsPage() {
                   <Label required>통신 프로토콜</Label>
                   <select
                     value={formData.protocol}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setFormData({ ...formData, protocol: e.target.value as any })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >

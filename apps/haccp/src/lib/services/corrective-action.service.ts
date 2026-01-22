@@ -20,6 +20,7 @@ function getSupabase(): SupabaseClient {
 
 const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (getSupabase() as any)[prop];
   }
 });
@@ -38,6 +39,7 @@ export interface WorkflowStepData {
   startedAt?: Date;
   completedAt?: Date;
   completedBy?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: Record<string, any>;
   notes?: string;
   attachments?: string[];
@@ -184,6 +186,7 @@ export class CorrectiveActionService {
     stepData: {
       notes?: string;
       attachments?: string[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       data?: Record<string, any>;
     },
     userId: string
@@ -383,6 +386,7 @@ export class CorrectiveActionService {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private mapCorrectiveAction(data: any): CorrectiveAction {
     return {
       id: data.id,

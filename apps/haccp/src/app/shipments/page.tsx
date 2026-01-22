@@ -46,6 +46,7 @@ export default function ShipmentsPage() {
   useEffect(() => {
     fetchShipments();
     fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
   const fetchShipments = async () => {
@@ -119,6 +120,7 @@ export default function ShipmentsPage() {
     });
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateItem = (index: number, field: string, value: any) => {
     const newItems = [...formData.items];
     newItems[index] = { ...newItems[index], [field]: value };

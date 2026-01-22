@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
-import { format, startOfDay, endOfDay, startOfWeek, startOfMonth } from 'date-fns';
+import { format, startOfWeek, startOfMonth } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +38,7 @@ interface DashboardStats {
 }
 
 // GET /api/haccp/dashboard/stats - 대시보드 통계
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = await createServerClient();
 

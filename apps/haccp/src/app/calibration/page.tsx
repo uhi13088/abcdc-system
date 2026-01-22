@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Settings, Calendar, AlertTriangle, CheckCircle, Clock, X, Edit2 } from 'lucide-react';
+import { Plus, Settings, AlertTriangle, CheckCircle, Clock, X, Edit2 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 
 interface CalibrationRecord {
@@ -64,6 +64,7 @@ export default function CalibrationPage() {
 
   useEffect(() => {
     fetchRecords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showExpiringSoon]);
 
   const fetchRecords = async () => {
@@ -426,6 +427,7 @@ export default function CalibrationPage() {
                   <Label required>장비 유형</Label>
                   <select
                     value={formData.equipment_type}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setFormData({ ...formData, equipment_type: e.target.value as any })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
@@ -502,6 +504,7 @@ export default function CalibrationPage() {
                     <Label required>검교정 유형</Label>
                     <select
                       value={formData.calibration_type}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       onChange={(e) => setFormData({ ...formData, calibration_type: e.target.value as any })}
                       className="w-full px-3 py-2 border rounded-lg"
                     >
@@ -587,6 +590,7 @@ export default function CalibrationPage() {
                   <Label required>판정 결과</Label>
                   <select
                     value={formData.result}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setFormData({ ...formData, result: e.target.value as any })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >

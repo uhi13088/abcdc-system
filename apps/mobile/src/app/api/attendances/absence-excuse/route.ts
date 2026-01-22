@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
       .eq('status', 'ACTIVE');
 
     // 승인 라인 생성
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const approvalLine = (managers || []).map((manager: any, index: number) => ({
       step: index + 1,
       approver_id: manager.id,
@@ -147,6 +148,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 관리자들에게 알림 전송
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const notifications = managers?.map((manager: any) => ({
       user_id: manager.id,
       category: 'APPROVAL',

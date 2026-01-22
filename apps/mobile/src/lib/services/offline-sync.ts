@@ -322,7 +322,8 @@ class OfflineSyncService {
       const scheduleResponse = await fetch('/api/schedules/week');
       if (scheduleResponse.ok) {
         const data = await scheduleResponse.json();
-        const schedules = (data.schedules || []).map((s: any) => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const schedules = (data.schedules || []).map((s: any) => ({
           id: s.id,
           workDate: s.work_date,
           startTime: s.start_time,
@@ -346,6 +347,7 @@ class OfflineSyncService {
         const data = await attendanceResponse.json();
         // API returns array directly, and uses 'status' field instead of is_late/is_early_leave
         const attendanceList = Array.isArray(data) ? data : (data.attendances || []);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const attendances = attendanceList.map((a: any) => ({
           id: a.id,
           workDate: a.work_date,

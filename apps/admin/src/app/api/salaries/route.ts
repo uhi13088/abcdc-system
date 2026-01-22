@@ -301,7 +301,7 @@ export async function POST(request: NextRequest) {
           let workHours = r.work_hours || 0;
           let basePay = r.base_pay || 0;
           let overtimePay = r.overtime_pay || 0;
-          let nightPay = r.night_pay || 0;
+          const nightPay = r.night_pay || 0;
 
           // 퇴근 기록이 없는 경우, 예정 시간 기준으로 계산
           if (!r.actual_check_out && r.actual_check_in) {

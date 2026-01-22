@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
       // 근무 시간 계산
       const checkInTime = new Date(attendance.actual_check_in);
       const workMinutes = Math.floor((now.getTime() - checkInTime.getTime()) / (1000 * 60));
-      const workHours = Math.floor(workMinutes / 60);
+      const _workHours = Math.floor(workMinutes / 60);
       const breakMinutes = attendance.break_minutes || 0;
       const actualWorkMinutes = Math.max(0, workMinutes - breakMinutes);
       const actualWorkHours = Math.round((actualWorkMinutes / 60) * 100) / 100;

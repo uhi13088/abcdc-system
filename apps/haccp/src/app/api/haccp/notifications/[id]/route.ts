@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 // PUT /api/haccp/notifications/[id] - 알림 읽음 처리
 export async function PUT(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -49,7 +49,7 @@ export async function PUT(
 
 // DELETE /api/haccp/notifications/[id] - 알림 삭제
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

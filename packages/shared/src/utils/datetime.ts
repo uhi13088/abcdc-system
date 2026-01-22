@@ -27,7 +27,7 @@ export function calculateWorkMinutes(
   endTime: string,
   breakMinutes: number = 0
 ): number {
-  let start = timeToMinutes(startTime);
+  const start = timeToMinutes(startTime);
   let end = timeToMinutes(endTime);
 
   // 야간 근무 (다음날로 넘어가는 경우)
@@ -57,7 +57,7 @@ export function calculateNightHours(startTime: string, endTime: string): number 
   const NIGHT_START = 22 * 60; // 22:00
   const NIGHT_END = 6 * 60;    // 06:00
 
-  let start = timeToMinutes(startTime);
+  const start = timeToMinutes(startTime);
   let end = timeToMinutes(endTime);
 
   // 다음날로 넘어가는 경우

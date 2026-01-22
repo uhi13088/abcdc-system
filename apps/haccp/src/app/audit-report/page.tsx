@@ -545,6 +545,7 @@ export default function AuditReportPage() {
                   <Label>감사 유형</Label>
                   <select
                     value={formData.report_type}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setFormData({ ...formData, report_type: e.target.value as any })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
@@ -625,6 +626,7 @@ export default function AuditReportPage() {
                   <Label>효과성 평가</Label>
                   <select
                     value={formData.effectiveness_rating}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setFormData({ ...formData, effectiveness_rating: e.target.value as any })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
@@ -696,6 +698,7 @@ export default function AuditReportPage() {
                 />
                 <select
                   value={findingForm.severity}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   onChange={(e) => setFindingForm({ ...findingForm, severity: e.target.value as any })}
                   className="px-3 py-2 border rounded-lg text-sm"
                 >

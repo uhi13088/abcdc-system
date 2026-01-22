@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Check, X, AlertTriangle, Calendar, Filter } from 'lucide-react';
+import { Plus, Check, X, AlertTriangle, Calendar, Filter } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
@@ -60,12 +60,14 @@ function CCPRecordsContent() {
 
   useEffect(() => {
     fetchCCPs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (selectedCcp || dateFilter) {
       fetchRecords();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCcp, dateFilter]);
 
   const fetchCCPs = async () => {

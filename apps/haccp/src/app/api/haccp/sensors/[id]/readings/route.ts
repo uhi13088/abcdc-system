@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
-import { format, subDays, subHours } from 'date-fns';
+import { subDays, subHours } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
 

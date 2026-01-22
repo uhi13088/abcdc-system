@@ -242,7 +242,7 @@ export async function POST(request: NextRequest) {
     if (result1.error && result1.error.message.includes('ssn_hash')) {
       // ssn_hash 컬럼이 없으면 제외하고 재시도
       logger.log('Retrying without ssn_hash column');
-      const { ssn_hash, ...userDataWithoutHash } = userDataWithHash;
+      const { ssn_hash: _ssn_hash, ...userDataWithoutHash } = userDataWithHash;
       const result2 = await supabase
         .from('users')
         .insert(userDataWithoutHash)

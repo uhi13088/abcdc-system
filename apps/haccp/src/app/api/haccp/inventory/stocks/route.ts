@@ -4,7 +4,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 export const dynamic = 'force-dynamic';
 
 // GET /api/haccp/inventory/stocks
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = await createServerClient();
 
@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = (data || []).map((s: any) => ({
       ...s,
       material_name: s.materials?.name,

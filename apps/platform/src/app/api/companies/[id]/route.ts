@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 // GET /api/companies/[id]
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -100,7 +100,7 @@ export async function PUT(
 
 // DELETE /api/companies/[id]
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {

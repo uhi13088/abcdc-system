@@ -25,6 +25,7 @@ export async function GET() {
     }
 
     // Get subscription plans (with error handling for missing table)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let plans: any[] = [];
     try {
       const { data } = await adminClient
@@ -37,6 +38,7 @@ export async function GET() {
     }
 
     // Get company subscriptions (with error handling)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let subscriptions: any[] = [];
     try {
       const { data } = await adminClient

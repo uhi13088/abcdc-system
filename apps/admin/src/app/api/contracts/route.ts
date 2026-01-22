@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 계약서 생성 시 바로 스케줄 생성 (서명 여부 관계없이)
-    let scheduleResult: {
+    const scheduleResult: {
       success: boolean;
       attempted: number;
       created: number;
@@ -252,7 +252,7 @@ export async function POST(request: NextRequest) {
           position?: string;
         }> = [];
 
-        let currentDate = new Date(startDate);
+        const currentDate = new Date(startDate);
 
         while (currentDate <= endDate) {
           const dateStr = format(currentDate, 'yyyy-MM-dd');

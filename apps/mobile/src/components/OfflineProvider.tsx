@@ -41,7 +41,7 @@ export function OfflineProvider({ children }: OfflineProviderProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [pendingActionsCount, setPendingActionsCount] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
-  const [swRegistered, setSwRegistered] = useState(false);
+  const [_swRegistered, setSwRegistered] = useState(false);
 
   // Service Worker 등록
   useEffect(() => {
@@ -107,6 +107,7 @@ export function OfflineProvider({ children }: OfflineProviderProps) {
       clearInterval(interval);
       offlineSync.destroy();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const updatePendingCount = useCallback(async () => {
@@ -295,8 +296,11 @@ export function useOfflineAttendance() {
  */
 export function useOfflineData() {
   const { isOnline } = useOffline();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [profile, setProfile] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [schedules, setSchedules] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [attendances, setAttendances] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

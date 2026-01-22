@@ -77,7 +77,7 @@ export async function POST(
       position?: string;
     }> = [];
 
-    let currentDate = new Date(startDate);
+    const currentDate = new Date(startDate);
 
     while (currentDate <= endDate) {
       const dateStr = format(currentDate, 'yyyy-MM-dd');

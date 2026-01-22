@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Auto-fill companyId from user's company for non-super_admin
-    let storeData = { ...body };
+    const storeData = { ...body };
     if (userData.role !== 'super_admin' && !storeData.companyId) {
       storeData.companyId = userData.company_id;
     }

@@ -164,6 +164,7 @@ export async function PATCH(
     }
 
     // Build update object
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updateData: Record<string, any> = {
       admin_corrected_at: new Date().toISOString(),
       admin_corrected_by: userData.id,

@@ -615,6 +615,7 @@ export function getEmailService(): EmailService {
 // 하위 호환성을 위한 프록시 (emailService를 직접 사용하는 코드 지원)
 export const emailService = new Proxy({} as EmailService, {
   get(_, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (getEmailService() as any)[prop];
   }
 });

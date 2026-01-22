@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 function getSupabaseClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -58,6 +60,7 @@ export async function GET(request: NextRequest) {
       store_manager: '점장',
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const recipients = (data || []).map((u: any) => ({
       ...u,
       role_label: roleLabels[u.role] || u.role,

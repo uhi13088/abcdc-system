@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 
 // GET /api/business/insights - AI 비즈니스 인사이트 조회
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = await createServerClient();
 
@@ -44,7 +44,9 @@ export async function GET(request: NextRequest) {
 }
 
 // Generate basic insights from data analysis
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function generateBasicInsights(supabase: any, companyId: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const insights: any[] = [];
   const today = new Date();
   const monthStart = today.toISOString().slice(0, 7) + '-01';
@@ -62,7 +64,9 @@ async function generateBasicInsights(supabase: any, companyId: string) {
     const prevWeek = salesData.slice(-14, -7);
 
     if (prevWeek.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const lastWeekTotal = lastWeek.reduce((sum: number, s: any) => sum + (s.total_amount || 0), 0);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const prevWeekTotal = prevWeek.reduce((sum: number, s: any) => sum + (s.total_amount || 0), 0);
       const change = ((lastWeekTotal - prevWeekTotal) / prevWeekTotal) * 100;
 
@@ -103,6 +107,7 @@ async function generateBasicInsights(supabase: any, companyId: string) {
 
   if (expenseData && expenseData.length > 0) {
     const categoryTotals: Record<string, number> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expenseData.forEach((e: any) => {
       categoryTotals[e.category] = (categoryTotals[e.category] || 0) + e.amount;
     });

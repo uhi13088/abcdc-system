@@ -57,6 +57,7 @@ function determineCheckInStatus(
 
 // 관리자들에게 알림 발송
 async function notifyManagers(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   adminClient: any,
   companyId: string,
   storeId: string | null,
@@ -111,12 +112,14 @@ async function notifyManagers(
 
 // 직원에게 알림 발송
 async function notifyEmployee(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   adminClient: any,
   userId: string,
   title: string,
   body: string,
   category: string = 'ATTENDANCE',
   priority: string = 'HIGH',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: Record<string, any>
 ) {
   try {
@@ -135,6 +138,7 @@ async function notifyEmployee(
 
 // 미출근(결근) 스케줄 조회 - 스케줄이 있었는데 출근하지 않은 날짜
 async function getMissedShifts(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   adminClient: any,
   staffId: string,
   companyId: string,
@@ -169,7 +173,9 @@ async function getMissedShifts(
 
     const attendedDates = new Set(
       (attendances || [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .filter((a: any) => a.status !== 'NO_SHOW' && a.status !== 'ABSENT')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((a: any) => a.work_date)
     );
 
@@ -182,11 +188,13 @@ async function getMissedShifts(
       .gte('created_at', sevenDaysAgoStr);
 
     const excusedDates = new Set(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (existingRequests || []).map((r: any) => r.details?.work_date)
     );
 
     // 스케줄은 있었는데 출근하지 않고, 아직 사유 제출하지 않은 날짜
     const missedShifts = schedules.filter(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (s: any) => !attendedDates.has(s.work_date) && !excusedDates.has(s.work_date)
     );
 
@@ -325,6 +333,7 @@ export async function POST() {
         .eq('status', 'ACTIVE');
 
       // 승인 라인 생성
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const approvalLine = (managers || []).map((manager: any, index: number) => ({
         step: index + 1,
         approver_id: manager.id,

@@ -151,7 +151,7 @@ export class PushNotificationService {
    */
   async unregisterToken(
     userId: string,
-    fcmToken: string
+    _fcmToken: string
   ): Promise<{ success: boolean; error?: string }> {
     // 토큰 삭제 로직
     logger.log('Token unregistration:', { userId });
@@ -235,6 +235,7 @@ export class PushNotificationService {
     } catch (error) {
       console.error('Push notification send error:', error);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const errorCode = (error as any).code;
 
       // 유효하지 않은 토큰 처리
@@ -617,6 +618,7 @@ export function getPushNotificationService(): PushNotificationService {
 // 하위 호환성을 위한 프록시 (pushNotificationService를 직접 사용하는 코드 지원)
 export const pushNotificationService = new Proxy({} as PushNotificationService, {
   get(_, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (getPushNotificationService() as any)[prop];
   }
 });

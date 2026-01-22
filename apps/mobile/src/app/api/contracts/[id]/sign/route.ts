@@ -21,7 +21,7 @@ export async function POST(
 
     const contractId = params.id;
     const body = await request.json();
-    const { signature, signerType = 'EMPLOYEE' } = body;
+    const { signature, signerType: _signerType = 'EMPLOYEE' } = body;
 
     if (!signature) {
       return NextResponse.json(

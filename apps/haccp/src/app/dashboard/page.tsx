@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   Package,
   Truck,
-  Users,
   Thermometer,
   ClipboardCheck,
   Factory,
@@ -19,7 +18,6 @@ import {
   WifiOff,
   GraduationCap,
   FileText,
-  Settings,
   Wrench,
   RotateCcw,
   Warehouse,

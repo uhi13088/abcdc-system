@@ -109,7 +109,7 @@ function CompaniesContent() {
         const data = await response.json();
         setError(data.error || '저장에 실패했습니다.');
       }
-    } catch (err) {
+    } catch {
       setError('저장에 실패했습니다.');
     } finally {
       setSubmitting(false);
@@ -143,7 +143,7 @@ function CompaniesContent() {
       } else {
         alert('삭제에 실패했습니다.');
       }
-    } catch (err) {
+    } catch {
       alert('삭제에 실패했습니다.');
     }
     setOpenMenuId(null);

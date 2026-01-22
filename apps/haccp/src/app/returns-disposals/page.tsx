@@ -82,6 +82,7 @@ export default function ReturnsDisposalsPage() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterType, filterStatus]);
 
   const fetchData = async () => {
@@ -111,6 +112,7 @@ export default function ReturnsDisposalsPage() {
     e.preventDefault();
     try {
       const method = editMode ? 'PUT' : 'POST';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const body: any = {
         record_type: formData.record_type,
         record_date: formData.record_date,
@@ -478,6 +480,7 @@ export default function ReturnsDisposalsPage() {
                   <Label required>유형</Label>
                   <select
                     value={formData.record_type}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setFormData({ ...formData, record_type: e.target.value as any })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
@@ -505,6 +508,7 @@ export default function ReturnsDisposalsPage() {
                     <Label>대상 구분</Label>
                     <select
                       value={formData.item_type}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       onChange={(e) => setFormData({ ...formData, item_type: e.target.value as any, product_id: '', material_id: '' })}
                       className="w-full px-3 py-2 border rounded-lg"
                     >
@@ -584,6 +588,7 @@ export default function ReturnsDisposalsPage() {
                     <Label required>사유 분류</Label>
                     <select
                       value={formData.reason_category}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       onChange={(e) => setFormData({ ...formData, reason_category: e.target.value as any })}
                       className="w-full px-3 py-2 border rounded-lg"
                     >
@@ -613,6 +618,7 @@ export default function ReturnsDisposalsPage() {
                       <Label>폐기 방법</Label>
                       <select
                         value={formData.disposal_method}
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         onChange={(e) => setFormData({ ...formData, disposal_method: e.target.value as any })}
                         className="w-full px-3 py-2 border rounded-lg"
                       >

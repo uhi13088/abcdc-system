@@ -185,12 +185,15 @@ export async function POST(
 /**
  * 승인 유형별 후속 처리
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleApprovalActions(
   supabase: ReturnType<typeof createAdminClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   approval: any,
   approvalId: string,
   companyId: string
 ) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const details = approval.details as Record<string, any>;
 
   switch (approval.type) {

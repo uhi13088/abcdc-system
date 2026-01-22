@@ -421,6 +421,7 @@ export default function TrainingPage() {
                   <Label>교육 유형</Label>
                   <select
                     value={formData.training_type}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setFormData({ ...formData, training_type: e.target.value as any })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >

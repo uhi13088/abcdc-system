@@ -97,7 +97,7 @@ export default function UsersPage() {
         const data = await response.json();
         setError(data.error || '저장에 실패했습니다.');
       }
-    } catch (err) {
+    } catch {
       setError('저장에 실패했습니다.');
     } finally {
       setSubmitting(false);
@@ -127,7 +127,7 @@ export default function UsersPage() {
       } else {
         alert('비활성화에 실패했습니다.');
       }
-    } catch (err) {
+    } catch {
       alert('비활성화에 실패했습니다.');
     }
     setOpenMenuId(null);

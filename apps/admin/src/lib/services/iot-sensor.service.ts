@@ -21,6 +21,7 @@ function getSupabase(): SupabaseClient {
 // Lazy-loaded supabase client accessor
 const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (getSupabase() as any)[prop];
   }
 });
@@ -52,6 +53,7 @@ export interface SensorData {
   value: number;
   unit: string;
   timestamp: Date;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rawData?: Record<string, any>;
 }
 
@@ -179,7 +181,9 @@ export class IoTSensorService {
   /**
    * CCP 자동 기록
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async autoRecordCCP(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     sensor: any,
     value: number,
     unit: string,
@@ -206,6 +210,7 @@ export class IoTSensorService {
   /**
    * 한계 초과 알림
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async sendCriticalAlert(sensor: any, value: number): Promise<void> {
     // HACCP 담당자들에게 알림
     const { data: users } = await supabase
@@ -315,6 +320,7 @@ export class IoTSensorService {
       .eq('id', sensorId);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private mapSensor(data: any): Sensor {
     return {
       id: data.id,

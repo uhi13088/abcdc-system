@@ -50,6 +50,7 @@ export default function LaborLawPage() {
       const response = await fetch('/api/labor-law');
       if (response.ok) {
         const data = await response.json();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setVersions(data.map((v: any) => ({
           id: v.id,
           version: v.version,

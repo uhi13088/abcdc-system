@@ -4,7 +4,6 @@
  */
 
 import ExcelJS from 'exceljs';
-import { Salary, Attendance } from '../types/entities';
 
 export interface PayrollReportData {
   staffId: string;
@@ -394,7 +393,7 @@ export class ExcelGenerator {
    */
   static async generateHaccpReport(
     data: HaccpReportData,
-    options?: { includeCharts?: boolean }
+    _options?: { includeCharts?: boolean }
   ): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'ABC Staff System';

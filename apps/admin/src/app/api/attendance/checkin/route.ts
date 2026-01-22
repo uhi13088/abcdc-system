@@ -52,7 +52,9 @@ async function getMissedShifts(
 
     const attendedDates = new Set(
       (attendances || [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .filter((a: any) => a.status !== 'NO_SHOW' && a.status !== 'ABSENT')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((a: any) => a.work_date)
     );
 
@@ -65,11 +67,14 @@ async function getMissedShifts(
       .gte('created_at', sevenDaysAgoStr);
 
     const excusedDates = new Set(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (existingRequests || []).map((r: any) => r.details?.work_date)
     );
 
     // 스케줄은 있었는데 출근하지 않고, 아직 사유 제출하지 않은 날짜
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const missedShifts = schedules.filter(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (s: any) => !attendedDates.has(s.work_date) && !excusedDates.has(s.work_date)
     );
 
@@ -133,8 +138,8 @@ export async function POST(request: NextRequest) {
       beaconId,  // 비콘 ID 추가
       latitude,
       longitude,
-      deviceInfo,
-      photoUrl,
+      deviceInfo: _deviceInfo,
+      photoUrl: _photoUrl,
       unscheduledReason, // 미배정 출근 사유
     } = body;
 

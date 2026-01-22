@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 
 // GET /api/business/dashboard - 경영 대시보드 통계
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = await createServerClient();
 
@@ -77,10 +77,15 @@ export async function GET(request: NextRequest) {
       .gte('transaction_date', prevMonthStart)
       .lte('transaction_date', prevMonthEnd);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const todayTotal = (todaySales || []).reduce((sum: number, s: any) => sum + (s.total_amount || 0), 0);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const monthTotal = (monthSales || []).reduce((sum: number, s: any) => sum + (s.total_amount || 0), 0);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const prevMonthTotal = (prevMonthSales || []).reduce((sum: number, s: any) => sum + (s.total_amount || 0), 0);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const expenseTotal = (monthExpenses || []).reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const prevExpenseTotal = (prevMonthExpenses || []).reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
     const netProfit = monthTotal - expenseTotal;
     const prevNetProfit = prevMonthTotal - prevExpenseTotal;

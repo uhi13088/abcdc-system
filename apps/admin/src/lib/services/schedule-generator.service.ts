@@ -21,6 +21,7 @@ function getSupabase(): SupabaseClient {
 // Lazy-loaded supabase client accessor
 const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (getSupabase() as any)[prop];
   }
 });

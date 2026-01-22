@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 
 // GET /api/business/alerts - 비즈니스 알림 조회
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = await createServerClient();
 
@@ -44,7 +44,9 @@ export async function GET(request: NextRequest) {
 }
 
 // Generate alerts from data analysis
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function generateAlerts(supabase: any, companyId: string) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const alerts: any[] = [];
   const today = new Date();
   const monthStart = today.toISOString().slice(0, 7) + '-01';
@@ -108,8 +110,10 @@ async function generateAlerts(supabase: any, companyId: string) {
       .eq('company_id', companyId);
 
     if (avgData && avgData.length > 10) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const avgAmount = avgData.reduce((sum: number, e: any) => sum + e.amount, 0) / avgData.length;
       const stdDev = Math.sqrt(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         avgData.reduce((sum: number, e: any) => sum + Math.pow(e.amount - avgAmount, 2), 0) / avgData.length
       );
 

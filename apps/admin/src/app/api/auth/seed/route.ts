@@ -31,7 +31,7 @@ const SEED_USERS: UserSeed[] = [
   },
 ];
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     const supabase = createAdminClient();
     const results: { email: string; success: boolean; message: string }[] = [];

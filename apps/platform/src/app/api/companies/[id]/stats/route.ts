@@ -10,7 +10,7 @@ import { subDays, subMonths, format } from 'date-fns';
 export const dynamic = 'force-dynamic';
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -48,7 +48,7 @@ export async function GET(
 
     const now = new Date();
     const thirtyDaysAgo = subDays(now, 30);
-    const sixMonthsAgo = subMonths(now, 6);
+    const _sixMonthsAgo = subMonths(now, 6);
 
     // 사용자 통계
     const { data: users } = await adminClient
@@ -164,7 +164,7 @@ export async function GET(
     for (let i = 5; i >= 0; i--) {
       const monthStart = subMonths(now, i);
       const monthEnd = subMonths(now, i - 1);
-      const monthStr = format(monthStart, 'yyyy-MM');
+      const _monthStr = format(monthStart, 'yyyy-MM');
 
       const newUsersCount = users?.filter(u => {
         const created = new Date(u.created_at);
