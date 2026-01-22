@@ -124,9 +124,11 @@ export default function AttendanceDetailPage() {
       EARLY_LEAVE: '조퇴',
       LATE_AND_EARLY_LEAVE: '지각+조퇴',
       OVERTIME: '연장근무',
+      ADDITIONAL_WORK: '추가근무',
       ABSENT: '결근',
       NO_SHOW: '미출근',
       VACATION: '휴가',
+      UNSCHEDULED: '미배정 출근',
     };
     return labels[status] || status;
   };
@@ -139,9 +141,11 @@ export default function AttendanceDetailPage() {
       EARLY_LEAVE: 'bg-orange-100 text-orange-700',
       LATE_AND_EARLY_LEAVE: 'bg-red-100 text-red-700',
       OVERTIME: 'bg-purple-100 text-purple-700',
+      ADDITIONAL_WORK: 'bg-teal-100 text-teal-700',
       ABSENT: 'bg-red-100 text-red-700',
       NO_SHOW: 'bg-red-100 text-red-700',
       VACATION: 'bg-blue-100 text-blue-700',
+      UNSCHEDULED: 'bg-gray-100 text-gray-700',
     };
     return styles[status] || 'bg-gray-100 text-gray-700';
   };

@@ -371,7 +371,7 @@ export class SalaryCalculationService {
     const endDate = new Date(year, month, 0);
 
     // ABSENT, UNSCHEDULED 상태는 급여 계산에서 제외
-    // UNSCHEDULED는 관리자 승인 후 OVERTIME으로 변경되어야 급여에 포함됨
+    // UNSCHEDULED는 관리자 승인 후 ADDITIONAL_WORK(추가근무)로 변경되어야 급여에 포함됨
     const { data: attendances, error } = await supabase
       .from('attendances')
       .select('*')

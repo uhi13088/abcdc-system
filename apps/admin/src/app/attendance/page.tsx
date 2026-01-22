@@ -25,7 +25,7 @@ interface Attendance {
   scheduled_check_out: string | null;
   actual_check_in: string | null;
   actual_check_out: string | null;
-  status: 'WORKING' | 'NORMAL' | 'LATE' | 'EARLY_CHECK_IN' | 'EARLY_LEAVE' | 'LATE_AND_EARLY_LEAVE' | 'OVERTIME' | 'ABSENT' | 'NO_SHOW' | 'VACATION' | 'UNSCHEDULED' | null;
+  status: 'WORKING' | 'NORMAL' | 'LATE' | 'EARLY_CHECK_IN' | 'EARLY_LEAVE' | 'LATE_AND_EARLY_LEAVE' | 'OVERTIME' | 'ADDITIONAL_WORK' | 'ABSENT' | 'NO_SHOW' | 'VACATION' | 'UNSCHEDULED' | null;
   work_hours: number | null;
   overtime_hours: number | null;
   unscheduled_reason?: string | null;
@@ -45,6 +45,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   EARLY_LEAVE: { label: '조퇴', color: 'bg-orange-100 text-orange-800', icon: AlertCircle },
   LATE_AND_EARLY_LEAVE: { label: '지각+조퇴', color: 'bg-red-100 text-red-800', icon: XCircle },
   OVERTIME: { label: '연장근무', color: 'bg-purple-100 text-purple-800', icon: Clock },
+  ADDITIONAL_WORK: { label: '추가근무', color: 'bg-teal-100 text-teal-800', icon: Clock },
   ABSENT: { label: '결근', color: 'bg-red-100 text-red-800', icon: XCircle },
   NO_SHOW: { label: '미출근', color: 'bg-red-100 text-red-800', icon: XCircle },
   VACATION: { label: '휴가', color: 'bg-indigo-100 text-indigo-800', icon: Clock },
@@ -317,22 +318,35 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-5 gap-4 mb-6">
-        {Object.entries(statusConfig).map(([status, config]) => {
-          const count = attendances.filter(a => a.status === status).length;
-          const Icon = config.icon;
-          return (
-            <div key={status} className="bg-white rounded-xl p-4 shadow-sm border">
-              <div className="flex items-center gap-2 mb-2">
-                <Icon className="w-4 h-4 text-gray-400" />
-                <span className="text-sm text-gray-600">{config.label}</span>
-              </div>
-              <p className="text-2xl font-bold">{count}</p>
-            </div>
-          );
-        })}
-      </div>
+      {/* Summary Cards - 유효숫자가 있는 카드만 표시 */}
+      {(() => {
+        const cardsWithCount = Object.entries(statusConfig)
+          .map(([status, config]) => ({
+            status,
+            config,
+            count: attendances.filter(a => a.status === status).length,
+          }))
+          .filter(card => card.count > 0);
+
+        if (cardsWithCount.length === 0) return null;
+
+        return (
+          <div className="flex flex-wrap gap-4 mb-6">
+            {cardsWithCount.map(({ status, config, count }) => {
+              const Icon = config.icon;
+              return (
+                <div key={status} className="bg-white rounded-xl p-4 shadow-sm border min-w-[140px]">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon className="w-4 h-4 text-gray-400" />
+                    <span className="text-sm text-gray-600">{config.label}</span>
+                  </div>
+                  <p className="text-2xl font-bold">{count}</p>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
@@ -556,6 +570,7 @@ export default function AttendancePage() {
                   <option value="EARLY_LEAVE">조퇴</option>
                   <option value="LATE_AND_EARLY_LEAVE">지각+조퇴</option>
                   <option value="OVERTIME">연장근무</option>
+                  <option value="ADDITIONAL_WORK">추가근무</option>
                   <option value="ABSENT">결근</option>
                   <option value="NO_SHOW">미출근</option>
                   <option value="VACATION">휴가</option>
