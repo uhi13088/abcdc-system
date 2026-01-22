@@ -3,25 +3,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
-  Package,
-  Truck,
   Thermometer,
   ClipboardCheck,
   Factory,
-  Send,
   Bug,
-  Boxes,
   FileCheck,
   AlertTriangle,
   CheckCircle,
   Wifi,
   WifiOff,
-  GraduationCap,
-  FileText,
-  Wrench,
-  RotateCcw,
-  Warehouse,
   RefreshCw,
+  Bell,
+  TrendingUp,
+  Calendar,
+  Clock,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -56,128 +51,6 @@ interface DashboardStats {
     createdAt: string;
   }>;
 }
-
-const haccpModules = [
-  {
-    title: '제품 관리',
-    description: '제품 마스터 데이터',
-    href: '/products',
-    icon: Package,
-    color: 'bg-blue-500',
-  },
-  {
-    title: '원부재료',
-    description: '원료/부재료/포장재 관리',
-    href: '/materials',
-    icon: Boxes,
-    color: 'bg-green-500',
-  },
-  {
-    title: '공급업체',
-    description: '공급업체 정보 관리',
-    href: '/suppliers',
-    icon: Truck,
-    color: 'bg-purple-500',
-  },
-  {
-    title: 'CCP 관리',
-    description: '중요관리점 모니터링',
-    href: '/ccp',
-    icon: Thermometer,
-    color: 'bg-red-500',
-  },
-  {
-    title: '일반위생',
-    description: '일일 위생 점검',
-    href: '/hygiene',
-    icon: ClipboardCheck,
-    color: 'bg-cyan-500',
-  },
-  {
-    title: '입고검사',
-    description: '원부재료 입고 검사',
-    href: '/inspections',
-    icon: FileCheck,
-    color: 'bg-orange-500',
-  },
-  {
-    title: '생산관리',
-    description: '생산 기록 관리',
-    href: '/production',
-    icon: Factory,
-    color: 'bg-indigo-500',
-  },
-  {
-    title: '출하관리',
-    description: '출하 기록 관리',
-    href: '/shipments',
-    icon: Send,
-    color: 'bg-teal-500',
-  },
-  {
-    title: '방충방서',
-    description: '해충 방제 관리',
-    href: '/pest-control',
-    icon: Bug,
-    color: 'bg-yellow-500',
-  },
-  {
-    title: '원료수불',
-    description: '원료 재고 관리',
-    href: '/inventory',
-    icon: Boxes,
-    color: 'bg-pink-500',
-  },
-  {
-    title: '반제품',
-    description: '중간제품 생산 관리',
-    href: '/semi-products',
-    icon: Package,
-    color: 'bg-lime-500',
-  },
-  {
-    title: '교육훈련',
-    description: 'HACCP 교육 기록',
-    href: '/training',
-    icon: GraduationCap,
-    color: 'bg-violet-500',
-  },
-  {
-    title: '감사보고서',
-    description: '내부/외부 감사',
-    href: '/audit-report',
-    icon: FileText,
-    color: 'bg-slate-500',
-  },
-  {
-    title: '검교정',
-    description: '계측기 검교정 관리',
-    href: '/calibration',
-    icon: Wrench,
-    color: 'bg-amber-500',
-  },
-  {
-    title: '반품/폐기',
-    description: '반품/회수/폐기 기록',
-    href: '/returns-disposals',
-    icon: RotateCcw,
-    color: 'bg-rose-500',
-  },
-  {
-    title: '보관창고',
-    description: '보관 창고 점검',
-    href: '/storage-inspections',
-    icon: Warehouse,
-    color: 'bg-emerald-500',
-  },
-  {
-    title: 'IoT 센서',
-    description: '센서 모니터링',
-    href: '/sensors',
-    icon: Wifi,
-    color: 'bg-sky-500',
-  },
-];
 
 export default function HACCPDashboard() {
   const [stats, setStats] = useState<DashboardStats>({
@@ -259,133 +132,188 @@ export default function HACCPDashboard() {
         </div>
       )}
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">
-        <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <div className="flex items-center gap-2 mb-2">
-            <ClipboardCheck className="w-4 h-4 text-cyan-500" />
-            <span className="text-xs text-gray-500">오늘 위생점검</span>
-          </div>
-          <p className="text-2xl font-bold">{stats.todayHygieneChecks.completed}/{stats.todayHygieneChecks.total}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <div className="flex items-center gap-2 mb-2">
-            <Thermometer className="w-4 h-4 text-red-500" />
-            <span className="text-xs text-gray-500">오늘 CCP 기록</span>
-          </div>
-          <p className="text-2xl font-bold">{stats.todayCcpRecords}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-4 h-4 text-orange-500" />
-            <span className="text-xs text-gray-500">재고 부족</span>
-          </div>
-          <p className="text-2xl font-bold">{stats.lowStockMaterials}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <div className="flex items-center gap-2 mb-2">
-            <FileCheck className="w-4 h-4 text-purple-500" />
-            <span className="text-xs text-gray-500">입고검사 대기</span>
-          </div>
-          <p className="text-2xl font-bold">{stats.pendingInspections}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <div className="flex items-center gap-2 mb-2">
-            <Factory className="w-4 h-4 text-indigo-500" />
-            <span className="text-xs text-gray-500">오늘 생산</span>
-          </div>
-          <p className="text-2xl font-bold">{stats.todayProduction}</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <div className="flex items-center gap-2 mb-2">
+      {/* 오늘 현황 요약 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        {/* CCP 이탈 현황 - 가장 중요 */}
+        <div className={`rounded-xl p-6 shadow-sm border-2 ${stats.ccpDeviations > 0 ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'}`}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-900">CCP 이탈 현황</h3>
             {stats.ccpDeviations === 0 ? (
-              <CheckCircle className="w-4 h-4 text-green-500" />
+              <CheckCircle className="w-8 h-8 text-green-500" />
             ) : (
-              <AlertTriangle className="w-4 h-4 text-red-500" />
+              <AlertTriangle className="w-8 h-8 text-red-500" />
             )}
-            <span className="text-xs text-gray-500">CCP 이탈</span>
           </div>
-          <p className={`text-2xl font-bold ${stats.ccpDeviations > 0 ? 'text-red-600' : 'text-green-600'}`}>
+          <p className={`text-5xl font-bold mb-2 ${stats.ccpDeviations > 0 ? 'text-red-600' : 'text-green-600'}`}>
             {stats.ccpDeviations}
           </p>
+          <p className="text-sm text-gray-600">
+            {stats.ccpDeviations === 0 ? '모든 CCP가 정상 범위입니다' : '즉시 확인이 필요합니다'}
+          </p>
         </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <div className="flex items-center gap-2 mb-2">
+
+        {/* 오늘 위생점검 */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-900">오늘 위생점검</h3>
+            <ClipboardCheck className="w-6 h-6 text-cyan-500" />
+          </div>
+          <div className="flex items-end gap-2 mb-2">
+            <p className="text-4xl font-bold text-gray-900">{stats.todayHygieneChecks.completed}</p>
+            <p className="text-xl text-gray-400 mb-1">/ {stats.todayHygieneChecks.total}</p>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+            <div
+              className="bg-cyan-500 h-2 rounded-full transition-all"
+              style={{ width: `${(stats.todayHygieneChecks.completed / stats.todayHygieneChecks.total) * 100}%` }}
+            />
+          </div>
+          <p className="text-sm text-gray-500">
+            {stats.todayHygieneChecks.completed === stats.todayHygieneChecks.total ? '모든 점검 완료!' : `${stats.todayHygieneChecks.total - stats.todayHygieneChecks.completed}건 남음`}
+          </p>
+        </div>
+
+        {/* IoT 센서 상태 */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-900">IoT 센서 상태</h3>
             {stats.sensorStatus.offline === 0 ? (
-              <Wifi className="w-4 h-4 text-green-500" />
+              <Wifi className="w-6 h-6 text-green-500" />
             ) : (
-              <WifiOff className="w-4 h-4 text-red-500" />
+              <WifiOff className="w-6 h-6 text-red-500" />
             )}
-            <span className="text-xs text-gray-500">IoT 센서</span>
           </div>
-          <p className={`text-2xl font-bold ${stats.sensorStatus.offline > 0 ? 'text-red-600' : 'text-green-600'}`}>
-            {stats.sensorStatus.online}/{stats.sensorStatus.total}
-          </p>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <div className="flex items-center gap-2 mb-2">
-            <Bug className="w-4 h-4 text-yellow-500" />
-            <span className="text-xs text-gray-500">주간 방충방서</span>
+          <div className="flex items-end gap-2 mb-2">
+            <p className="text-4xl font-bold text-green-600">{stats.sensorStatus.online}</p>
+            <p className="text-xl text-gray-400 mb-1">/ {stats.sensorStatus.total}</p>
           </div>
-          <p className={`text-2xl font-bold ${stats.weeklyPestControl.completed ? 'text-green-600' : 'text-orange-600'}`}>
-            {stats.weeklyPestControl.completed ? '완료' : '미완료'}
-          </p>
+          {stats.sensorStatus.offline > 0 && (
+            <p className="text-sm text-red-600 font-medium">
+              {stats.sensorStatus.offline}개 센서 오프라인
+            </p>
+          )}
+          {stats.sensorStatus.offline === 0 && stats.sensorStatus.total > 0 && (
+            <p className="text-sm text-green-600">모든 센서 정상 작동 중</p>
+          )}
+          {stats.sensorStatus.total === 0 && (
+            <p className="text-sm text-gray-500">등록된 센서 없음</p>
+          )}
         </div>
       </div>
 
-      {/* Module Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {haccpModules.map((module) => {
-          const Icon = module.icon;
-          return (
-            <Link
-              key={module.href}
-              href={module.href}
-              className="bg-white rounded-xl p-6 shadow-sm border hover:shadow-md hover:border-blue-300 transition-all group"
-            >
-              <div className={`w-12 h-12 ${module.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                <Icon className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-1">{module.title}</h3>
-              <p className="text-sm text-gray-500">{module.description}</p>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Recent Activity */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-4">최근 활동</h2>
-        <div className="bg-white rounded-xl shadow-sm border divide-y">
-          <div className="p-4 flex items-center gap-4">
-            <div className="w-10 h-10 bg-cyan-100 rounded-lg flex items-center justify-center">
-              <ClipboardCheck className="w-5 h-5 text-cyan-600" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">오전 위생점검 완료</p>
-              <p className="text-xs text-gray-500">오늘 09:00 · 김철수</p>
-            </div>
-            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">PASS</span>
-          </div>
-          <div className="p-4 flex items-center gap-4">
+      {/* 주요 현황 카드 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <Link href="/ccp/records" className="bg-white rounded-xl p-5 shadow-sm border hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
               <Thermometer className="w-5 h-5 text-red-600" />
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">CCP-1 가열공정 온도 기록</p>
-              <p className="text-xs text-gray-500">오늘 08:30 · 박영희</p>
-            </div>
-            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">정상</span>
+            <span className="text-sm text-gray-500">오늘 CCP 기록</span>
           </div>
-          <div className="p-4 flex items-center gap-4">
+          <p className="text-3xl font-bold text-gray-900">{stats.todayCcpRecords}<span className="text-lg text-gray-400 ml-1">건</span></p>
+        </Link>
+
+        <Link href="/production" className="bg-white rounded-xl p-5 shadow-sm border hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+              <Factory className="w-5 h-5 text-indigo-600" />
+            </div>
+            <span className="text-sm text-gray-500">오늘 생산</span>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{stats.todayProduction}<span className="text-lg text-gray-400 ml-1">건</span></p>
+        </Link>
+
+        <Link href="/inspections" className="bg-white rounded-xl p-5 shadow-sm border hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+              <FileCheck className="w-5 h-5 text-purple-600" />
+            </div>
+            <span className="text-sm text-gray-500">입고검사 대기</span>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{stats.pendingInspections}<span className="text-lg text-gray-400 ml-1">건</span></p>
+        </Link>
+
+        <Link href="/inventory" className="bg-white rounded-xl p-5 shadow-sm border hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-              <FileCheck className="w-5 h-5 text-orange-600" />
+              <AlertTriangle className="w-5 h-5 text-orange-600" />
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">원료 입고검사 완료</p>
-              <p className="text-xs text-gray-500">어제 14:20 · 이민수</p>
+            <span className="text-sm text-gray-500">재고 부족</span>
+          </div>
+          <p className={`text-3xl font-bold ${stats.lowStockMaterials > 0 ? 'text-orange-600' : 'text-gray-900'}`}>
+            {stats.lowStockMaterials}<span className="text-lg text-gray-400 ml-1">건</span>
+          </p>
+        </Link>
+      </div>
+
+      {/* 주간/월간 현황 및 알림 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 정기 점검 현황 */}
+        <div className="bg-white rounded-xl shadow-sm border">
+          <div className="p-4 border-b">
+            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-gray-500" />
+              정기 점검 현황
+            </h2>
+          </div>
+          <div className="p-4 space-y-4">
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <Bug className="w-5 h-5 text-yellow-600" />
+                <span className="font-medium">주간 방충방서 점검</span>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${stats.weeklyPestControl.completed ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                {stats.weeklyPestControl.completed ? '완료' : '미완료'}
+              </span>
             </div>
-            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">합격</span>
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <TrendingUp className="w-5 h-5 text-blue-600" />
+                <span className="font-medium">월간 CCP 검증</span>
+              </div>
+              <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                {stats.monthlyVerification.completed}/{stats.monthlyVerification.total}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* 최근 알림 */}
+        <div className="bg-white rounded-xl shadow-sm border">
+          <div className="p-4 border-b flex items-center justify-between">
+            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Bell className="w-5 h-5 text-gray-500" />
+              최근 알림
+            </h2>
+            <Link href="/notifications" className="text-sm text-blue-600 hover:underline">
+              전체보기
+            </Link>
+          </div>
+          <div className="divide-y">
+            {stats.recentAlerts.length > 0 ? (
+              stats.recentAlerts.slice(0, 4).map((alert) => (
+                <div key={alert.id} className="p-4 flex items-start gap-3">
+                  <div className={`w-2 h-2 mt-2 rounded-full ${
+                    alert.severity === 'HIGH' ? 'bg-red-500' :
+                    alert.severity === 'MEDIUM' ? 'bg-yellow-500' : 'bg-blue-500'
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-900 truncate">{alert.message}</p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                      <Clock className="w-3 h-3" />
+                      {new Date(alert.createdAt).toLocaleString('ko-KR', {
+                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-8 text-center text-gray-500">
+                <Bell className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                <p className="text-sm">새로운 알림이 없습니다</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
