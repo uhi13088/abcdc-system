@@ -23,7 +23,7 @@ import {
 import {
   Save, Building2, Bell, Shield, CreditCard, User, Link2,
   RefreshCw, Check, X, ExternalLink, Database, Zap, Info,
-  Factory, Coffee
+  Factory, Coffee, Calculator
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -54,6 +54,15 @@ function SettingsContent() {
     salaryAlerts: true,
   });
 
+
+  // Tax accountant settings
+  const [taxAccountant, setTaxAccountant] = useState({
+    name: '',
+    email: '',
+    autoSend: false,
+    sendDay: 5,
+  });
+  const [taxAccountantLoading, setTaxAccountantLoading] = useState(false);
 
   // Integration settings
   const [integrations, setIntegrations] = useState({
@@ -97,7 +106,27 @@ function SettingsContent() {
 
   useEffect(() => {
     fetchSettings();
+    fetchTaxAccountant();
   }, []);
+
+  const fetchTaxAccountant = async () => {
+    try {
+      const response = await fetch('/api/settings/tax-accountant');
+      if (response.ok) {
+        const data = await response.json();
+        if (data) {
+          setTaxAccountant({
+            name: data.name || '',
+            email: data.email || '',
+            autoSend: data.autoSend || false,
+            sendDay: data.sendDay || 5,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching tax accountant:', error);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -312,6 +341,45 @@ function SettingsContent() {
     }
   };
 
+  const handleSaveTaxAccountant = async () => {
+    setTaxAccountantLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      if (!taxAccountant.name) {
+        throw new Error('세무사명을 입력해주세요.');
+      }
+
+      if (taxAccountant.autoSend && !taxAccountant.email) {
+        throw new Error('자동 전송을 사용하려면 이메일을 입력해주세요.');
+      }
+
+      const response = await fetch('/api/settings/tax-accountant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: taxAccountant.name,
+          email: taxAccountant.email || null,
+          autoSend: taxAccountant.autoSend,
+          sendDay: taxAccountant.sendDay,
+          transmissionMethod: taxAccountant.autoSend ? 'EMAIL' : 'MANUAL',
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || '저장에 실패했습니다.');
+      }
+
+      setMessage({ type: 'success', text: '세무기장 설정이 저장되었습니다.' });
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || '저장에 실패했습니다.' });
+    } finally {
+      setTaxAccountantLoading(false);
+    }
+  };
+
   const handleSaveIntegration = async (provider: string) => {
     setLoading(true);
     setMessage({ type: '', text: '' });
@@ -396,6 +464,10 @@ function SettingsContent() {
             <TabsTrigger value="subscription">
               <CreditCard className="h-4 w-4 mr-2" />
               구독
+            </TabsTrigger>
+            <TabsTrigger value="tax-accountant">
+              <Calculator className="h-4 w-4 mr-2" />
+              세무기장
             </TabsTrigger>
             <TabsTrigger value="account">
               <User className="h-4 w-4 mr-2" />
@@ -1072,6 +1144,112 @@ function SettingsContent() {
                   </p>
                   <Button variant="destructive" size="sm" disabled={subscription?.planTier === 'FREE'}>
                     {subscription?.planTier === 'FREE' ? '무료 플랜 사용중' : '구독 취소'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tax Accountant Settings */}
+          <TabsContent value="tax-accountant">
+            <Card>
+              <CardHeader>
+                <CardTitle>세무기장 설정</CardTitle>
+                <CardDescription>
+                  세무대리인 정보를 등록하고 급여대장 자동 전송을 설정합니다.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="ta-name">세무사명 <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="ta-name"
+                      value={taxAccountant.name}
+                      onChange={(e) =>
+                        setTaxAccountant({ ...taxAccountant, name: e.target.value })
+                      }
+                      placeholder="예: 홍길동세무사"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="ta-email">이메일</Label>
+                    <Input
+                      id="ta-email"
+                      type="email"
+                      value={taxAccountant.email}
+                      onChange={(e) =>
+                        setTaxAccountant({ ...taxAccountant, email: e.target.value })
+                      }
+                      placeholder="tax@example.com"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t pt-6">
+                  <h4 className="font-medium mb-4">자동 전송 설정</h4>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div>
+                        <p className="font-medium">매월 급여대장 자동 전송</p>
+                        <p className="text-sm text-gray-500">
+                          매월 지정한 날짜에 전월 급여대장을 세무사에게 자동으로 전송합니다.
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={taxAccountant.autoSend}
+                        onChange={(e) =>
+                          setTaxAccountant({ ...taxAccountant, autoSend: e.target.checked })
+                        }
+                        className="h-5 w-5"
+                      />
+                    </div>
+
+                    {taxAccountant.autoSend && (
+                      <div className="ml-4 p-4 border-l-2 border-primary bg-blue-50 rounded-r-lg">
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <Label htmlFor="ta-send-day">전송일</Label>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-sm text-gray-600">매월</span>
+                              <select
+                                id="ta-send-day"
+                                value={taxAccountant.sendDay}
+                                onChange={(e) =>
+                                  setTaxAccountant({ ...taxAccountant, sendDay: parseInt(e.target.value) })
+                                }
+                                className="border rounded-md px-3 py-2 text-sm"
+                              >
+                                {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                                  <option key={day} value={day}>
+                                    {day}
+                                  </option>
+                                ))}
+                              </select>
+                              <span className="text-sm text-gray-600">일</span>
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-xs text-blue-600 mt-2">
+                          * 해당 날짜가 주말이나 공휴일인 경우에도 지정된 날짜에 전송됩니다.
+                        </p>
+                        {!taxAccountant.email && (
+                          <p className="text-xs text-red-600 mt-1">
+                            * 자동 전송을 위해서는 이메일을 입력해야 합니다.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <Button onClick={handleSaveTaxAccountant} disabled={taxAccountantLoading}>
+                    {taxAccountantLoading ? <ButtonLoading /> : <Save className="h-4 w-4 mr-2" />}
+                    저장
                   </Button>
                 </div>
               </CardContent>

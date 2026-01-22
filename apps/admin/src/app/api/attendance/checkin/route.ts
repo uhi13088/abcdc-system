@@ -16,6 +16,75 @@ function getSupabaseClient() {
   );
 }
 
+// 미출근(결근) 스케줄 조회 - 스케줄이 있었는데 출근하지 않은 날짜
+async function getMissedShifts(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  staffId: string,
+  companyId: string,
+  today: string
+): Promise<Array<{ work_date: string; start_time: string; end_time: string }>> {
+  try {
+    // 최근 7일간의 스케줄 중 출근하지 않은 것 조회
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+
+    // 스케줄 조회
+    const { data: schedules } = await supabase
+      .from('schedules')
+      .select('work_date, start_time, end_time')
+      .eq('staff_id', staffId)
+      .gte('work_date', sevenDaysAgoStr)
+      .lt('work_date', today)
+      .in('status', ['SCHEDULED', 'CONFIRMED']);
+
+    if (!schedules || schedules.length === 0) {
+      return [];
+    }
+
+    // 해당 기간 출퇴근 기록 조회
+    const { data: attendances } = await supabase
+      .from('attendances')
+      .select('work_date, status')
+      .eq('staff_id', staffId)
+      .gte('work_date', sevenDaysAgoStr)
+      .lt('work_date', today);
+
+    const attendedDates = new Set(
+      (attendances || [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .filter((a: any) => a.status !== 'NO_SHOW' && a.status !== 'ABSENT')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((a: any) => a.work_date)
+    );
+
+    // 이미 결근 사유 승인 요청이 있는 날짜 조회
+    const { data: existingRequests } = await supabase
+      .from('approval_requests')
+      .select('details')
+      .eq('requester_id', staffId)
+      .eq('type', 'ABSENCE_EXCUSE')
+      .gte('created_at', sevenDaysAgoStr);
+
+    const excusedDates = new Set(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (existingRequests || []).map((r: any) => r.details?.work_date)
+    );
+
+    // 스케줄은 있었는데 출근하지 않고, 아직 사유 제출하지 않은 날짜
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const missedShifts = schedules.filter(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (s: any) => !attendedDates.has(s.work_date) && !excusedDates.has(s.work_date)
+    );
+
+    return missedShifts;
+  } catch (error) {
+    console.error('Failed to get missed shifts:', error);
+    return [];
+  }
+}
+
 /**
  * 두 좌표 간의 거리 계산 (미터)
  */
@@ -69,8 +138,9 @@ export async function POST(request: NextRequest) {
       beaconId,  // 비콘 ID 추가
       latitude,
       longitude,
-      deviceInfo,
-      photoUrl,
+      deviceInfo: _deviceInfo,
+      photoUrl: _photoUrl,
+      unscheduledReason, // 미배정 출근 사유
     } = body;
 
     // 인증된 사용자 ID 사용 (보안: body에서 받지 않음)
@@ -173,7 +243,7 @@ export async function POST(request: NextRequest) {
       .eq('work_date', today)
       .maybeSingle();
 
-    // 지각 여부 판단
+    // 출근 상태 판단
     let status = 'NORMAL';
     let isLate = false;
 
@@ -192,6 +262,9 @@ export async function POST(request: NextRequest) {
       ) {
         status = 'EARLY';
       }
+    } else {
+      // 스케줄 없이 출근한 경우 미배정 출근으로 처리
+      status = 'UNSCHEDULED';
     }
 
     // 이미 출근한 기록이 있는지 확인
@@ -210,7 +283,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 출근 기록 저장 (upsert)
-    const attendanceData = {
+    const attendanceData: Record<string, unknown> = {
       staff_id: userId,
       company_id: store.company_id,
       brand_id: store.brand_id,
@@ -224,6 +297,11 @@ export async function POST(request: NextRequest) {
       check_in_method: checkInMethod,
       status,
     };
+
+    // 미배정 출근인 경우 사유 저장
+    if (status === 'UNSCHEDULED' && unscheduledReason) {
+      attendanceData.unscheduled_reason = unscheduledReason;
+    }
 
     const { data: attendance, error: attendanceError } = await supabase
       .from('attendances')
@@ -239,6 +317,88 @@ export async function POST(request: NextRequest) {
         { error: '출근 기록 저장에 실패했습니다.' },
         { status: 500 }
       );
+    }
+
+    // 미배정 출근인 경우 승인 요청 생성 및 관리자 알림
+    if (status === 'UNSCHEDULED') {
+      // 사용자 이름 조회
+      const { data: staffInfo } = await supabase
+        .from('users')
+        .select('name, role')
+        .eq('id', userId)
+        .single();
+
+      // 매장 관리자 조회 (store_manager, manager, company_admin)
+      const { data: managers } = await supabase
+        .from('users')
+        .select('id, name, role')
+        .eq('store_id', storeId)
+        .in('role', ['store_manager', 'manager', 'company_admin'])
+        .eq('status', 'ACTIVE');
+
+      // 승인 라인 생성
+      const approvalLine = (managers || []).map((manager, index) => ({
+        step: index + 1,
+        approver_id: manager.id,
+        approver_name: manager.name,
+        approver_role: manager.role,
+        status: 'PENDING',
+      }));
+
+      // 승인 요청이 가능한 경우에만 생성 (승인자가 있는 경우)
+      if (approvalLine.length > 0) {
+        await supabase.from('approval_requests').insert({
+          type: 'UNSCHEDULED_CHECKIN',
+          requester_id: userId,
+          requester_name: staffInfo?.name,
+          requester_role: staffInfo?.role,
+          company_id: store.company_id,
+          brand_id: store.brand_id,
+          store_id: storeId,
+          approval_line: approvalLine,
+          current_step: 1,
+          final_status: 'PENDING',
+          details: {
+            attendance_id: attendance.id,
+            work_date: today,
+            check_in_time: now.toISOString(),
+            reason: unscheduledReason || '사유 미입력',
+          },
+        });
+
+        // 관리자들에게 알림 전송
+        const notifications = (managers || []).map((manager) => ({
+          user_id: manager.id,
+          category: 'ATTENDANCE',
+          priority: 'HIGH',
+          title: '미배정 출근 승인 요청',
+          body: `${staffInfo?.name || '직원'}님이 미배정 출근을 했습니다. 사유: ${unscheduledReason || '미입력'}`,
+          data: {
+            type: 'UNSCHEDULED_CHECKIN',
+            attendance_id: attendance.id,
+            staff_id: userId,
+          },
+          deep_link: '/attendance',
+        }));
+
+        if (notifications.length > 0) {
+          await supabase.from('notifications').insert(notifications);
+        }
+      }
+
+      // 직원에게도 알림 전송
+      await supabase.from('notifications').insert({
+        user_id: userId,
+        category: 'ATTENDANCE',
+        priority: 'HIGH',
+        title: '[미배정 출근] 승인 대기 중',
+        body: '오늘은 배정된 스케줄이 없는 날입니다. 관리자 승인 후 급여에 반영됩니다.',
+        data: {
+          type: 'UNSCHEDULED_CHECKIN',
+          attendance_id: attendance.id,
+          work_date: today,
+        },
+      });
     }
 
     // 위치 이상 감지 시 anomaly 기록 (extensions JSONB에 저장)
@@ -260,6 +420,22 @@ export async function POST(request: NextRequest) {
         .eq('id', attendance.id);
     }
 
+    // 응답 메시지 결정
+    let message = '출근 처리되었습니다.';
+    if (status === 'UNSCHEDULED') {
+      message = '미배정 출근으로 처리되었습니다. 관리자 승인 후 급여에 반영됩니다.';
+    } else if (isLate) {
+      message = '지각으로 출근 처리되었습니다.';
+    }
+
+    // 미출근(결근) 스케줄 확인
+    const missedShifts = await getMissedShifts(
+      supabase,
+      userId,
+      store.company_id,
+      today
+    );
+
     return NextResponse.json({
       success: true,
       attendance: {
@@ -267,14 +443,14 @@ export async function POST(request: NextRequest) {
         checkInTime: attendance.actual_check_in,
         status,
         isLate,
+        isUnscheduled: status === 'UNSCHEDULED',
         locationValid,
         distanceFromStore: distanceFromStore
           ? Math.round(distanceFromStore)
           : null,
       },
-      message: isLate
-        ? '지각으로 출근 처리되었습니다.'
-        : '출근 처리되었습니다.',
+      message,
+      missed_shifts: missedShifts,
     });
   } catch (error) {
     console.error('Check-in error:', error);

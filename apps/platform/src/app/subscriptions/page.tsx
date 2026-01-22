@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Search, CreditCard, TrendingUp, Building2, AlertCircle } from 'lucide-react';
+import { Edit2, Search, CreditCard, TrendingUp, Building2, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
-import { ko } from 'date-fns/locale';
 
 interface Plan {
   id: string;
@@ -50,6 +49,7 @@ export default function SubscriptionsPage() {
       if (response.ok) {
         const data = await response.json();
         // Transform API data to match component interface
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setPlans((data.plans || []).map((p: any) => ({
           id: p.id,
           name: p.tier?.toUpperCase() || p.name,
@@ -63,6 +63,7 @@ export default function SubscriptionsPage() {
           subscriberCount: p.subscriber_count || 0,
         })));
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setSubscriptions((data.subscriptions || []).map((s: any) => ({
           id: s.id,
           companyId: s.company_id,
@@ -107,7 +108,7 @@ export default function SubscriptionsPage() {
     .filter(s => s.status === 'ACTIVE')
     .reduce((sum, s) => sum + (s.billingCycle === 'MONTHLY' ? s.amount : s.amount / 12), 0);
 
-  const activeSubscribers = subscriptions.filter(s => s.status === 'ACTIVE').length;
+  const _activeSubscribers = subscriptions.filter(s => s.status === 'ACTIVE').length;
   const pastDueCount = subscriptions.filter(s => s.status === 'PAST_DUE').length;
 
   if (loading) {

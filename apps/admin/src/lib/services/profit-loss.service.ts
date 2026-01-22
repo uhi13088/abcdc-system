@@ -21,6 +21,7 @@ function getSupabase(): SupabaseClient {
 // Lazy-loaded supabase client accessor
 const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (getSupabase() as any)[prop];
   }
 });
@@ -163,7 +164,7 @@ export class ProfitLossService {
       expensesByDate.set(exp.transaction_date, (expensesByDate.get(exp.transaction_date) || 0) + exp.amount);
     }
 
-    let currentDate = new Date(startDate);
+    const currentDate = new Date(startDate);
     while (currentDate <= endDate) {
       const dateStr = format(currentDate, 'yyyy-MM-dd');
       const dayRevenue = salesByDate.get(dateStr) || 0;

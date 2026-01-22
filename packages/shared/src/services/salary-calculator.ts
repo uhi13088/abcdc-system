@@ -86,7 +86,7 @@ function calculateNightHours(startTime: Date, endTime: Date): number {
 /**
  * 근무 시간 계산 (분 단위 → 시간)
  */
-function minutesToHours(minutes: number): number {
+export function minutesToHours(minutes: number): number {
   return Math.round((minutes / 60) * 100) / 100;
 }
 
@@ -94,6 +94,7 @@ function minutesToHours(minutes: number): number {
  * 시간급 계산
  */
 function calculateHourlyRate(contract: Contract, laborLaw: LaborLaw): number {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const salaryConfig = contract.salary_config as any;
 
   if (salaryConfig.baseSalaryType === 'hourly') {
@@ -241,6 +242,7 @@ export async function calculateSalary(
   });
 
   // 6. 기본급 계산
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const salaryConfig = contract.salary_config as any;
   let baseSalary = 0;
 
@@ -280,9 +282,11 @@ export async function calculateSalary(
     weeklyHolidayPay +
     mealAllowance +
     transportAllowance +
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Object.values(otherAllowances).reduce((sum: number, val: any) => sum + val, 0);
 
   // 8. 공제 계산
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const deductionConfig = contract.deduction_config as any;
 
   // 4대보험 (과세 대상 금액만)
@@ -329,6 +333,7 @@ export async function calculateSalary(
     employmentInsurance +
     incomeTax +
     localIncomeTax +
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Object.values(otherDeductions).reduce((sum: number, val: any) => sum + val, 0);
 
   // 9. 실수령액

@@ -142,6 +142,7 @@ function getSupabase(): SupabaseClient {
 
 const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (getSupabase() as any)[prop];
   }
 });
@@ -368,13 +369,15 @@ export class SalaryCalculationService {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0);
 
+    // ABSENT, UNSCHEDULED 상태는 급여 계산에서 제외
+    // UNSCHEDULED는 관리자 승인 후 OVERTIME으로 변경되어야 급여에 포함됨
     const { data: attendances, error } = await supabase
       .from('attendances')
       .select('*')
       .eq('staff_id', staffId)
       .gte('work_date', startDate.toISOString().split('T')[0])
       .lte('work_date', endDate.toISOString().split('T')[0])
-      .not('status', 'eq', 'ABSENT');
+      .not('status', 'in', '("ABSENT","UNSCHEDULED")');
 
     if (error || !attendances) {
       return {

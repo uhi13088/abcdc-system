@@ -31,12 +31,14 @@ function getOpenAI(): OpenAI {
 // Lazy-loaded clients
 const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (getSupabase() as any)[prop];
   }
 });
 
 const openai = new Proxy({} as OpenAI, {
   get(_, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (getOpenAI() as any)[prop];
   }
 });

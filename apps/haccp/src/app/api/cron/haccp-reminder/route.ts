@@ -5,7 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
+import { format, startOfWeek, startOfMonth } from 'date-fns';
 import { getPushNotificationService } from '@abc/shared/server';
 import { logger } from '@abc/shared';
 
@@ -23,7 +23,7 @@ function getSupabase(): SupabaseClient {
 
 export const dynamic = 'force-dynamic';
 
-interface CheckReminder {
+interface _CheckReminder {
   type: 'DAILY' | 'WEEKLY' | 'MONTHLY';
   checkName: string;
   targetRoles: string[];

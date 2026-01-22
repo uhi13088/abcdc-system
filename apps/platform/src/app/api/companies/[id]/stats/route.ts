@@ -10,13 +10,13 @@ import { subDays, subMonths, format } from 'date-fns';
 export const dynamic = 'force-dynamic';
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: companyId } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
-    const companyId = params.id;
 
     // 인증 확인
     const { data: { user } } = await supabase.auth.getUser();
@@ -48,7 +48,7 @@ export async function GET(
 
     const now = new Date();
     const thirtyDaysAgo = subDays(now, 30);
-    const sixMonthsAgo = subMonths(now, 6);
+    const _sixMonthsAgo = subMonths(now, 6);
 
     // 사용자 통계
     const { data: users } = await adminClient
@@ -91,15 +91,15 @@ export async function GET(
     // 출퇴근 통계 (최근 30일)
     const { data: attendances } = await adminClient
       .from('attendances')
-      .select('id, work_date, actual_check_in, actual_check_out, is_late, is_early_leave')
+      .select('id, work_date, actual_check_in, actual_check_out, status')
       .eq('company_id', companyId)
       .gte('work_date', format(thirtyDaysAgo, 'yyyy-MM-dd'));
 
     const attendanceStats = {
       totalRecords: attendances?.length || 0,
       completedShifts: attendances?.filter(a => a.actual_check_in && a.actual_check_out).length || 0,
-      lateCount: attendances?.filter(a => a.is_late).length || 0,
-      earlyLeaveCount: attendances?.filter(a => a.is_early_leave).length || 0,
+      lateCount: attendances?.filter(a => a.status === 'LATE').length || 0,
+      earlyLeaveCount: attendances?.filter(a => a.status === 'EARLY_LEAVE').length || 0,
       attendanceRate: attendances?.length
         ? Math.round((attendances.filter(a => a.actual_check_in).length / attendances.length) * 100)
         : 0,
@@ -164,7 +164,7 @@ export async function GET(
     for (let i = 5; i >= 0; i--) {
       const monthStart = subMonths(now, i);
       const monthEnd = subMonths(now, i - 1);
-      const monthStr = format(monthStart, 'yyyy-MM');
+      const _monthStr = format(monthStart, 'yyyy-MM');
 
       const newUsersCount = users?.filter(u => {
         const created = new Date(u.created_at);

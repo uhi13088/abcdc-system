@@ -13,9 +13,10 @@ function getAdminClient() {
 // POST /api/contracts/[id]/generate-schedules - 기존 계약서에서 스케줄 생성
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = getAdminClient();
 
@@ -39,7 +40,7 @@ export async function POST(
     const { data: contract, error: contractError } = await adminClient
       .from('contracts')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (contractError || !contract) {
@@ -76,7 +77,7 @@ export async function POST(
       position?: string;
     }> = [];
 
-    let currentDate = new Date(startDate);
+    const currentDate = new Date(startDate);
 
     while (currentDate <= endDate) {
       const dateStr = format(currentDate, 'yyyy-MM-dd');

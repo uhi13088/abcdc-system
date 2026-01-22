@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Bell, Shield, Database, Mail, Globe, Server, Check } from 'lucide-react';
+import { Save, Bell, Shield, Globe, Server, Check } from 'lucide-react';
 
 const defaultSettings = {
   platformName: 'ABC Staff System',

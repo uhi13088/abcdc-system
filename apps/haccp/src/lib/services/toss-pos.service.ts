@@ -19,6 +19,7 @@ function getSupabase(): SupabaseClient {
 
 const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (getSupabase() as any)[prop];
   }
 });
@@ -55,9 +56,9 @@ export interface TossDailySales {
 }
 
 export class TossPOSService {
-  private readonly clientId = process.env.TOSS_CLIENT_ID!;
-  private readonly clientSecret = process.env.TOSS_CLIENT_SECRET!;
-  private readonly redirectUri = process.env.TOSS_REDIRECT_URI!;
+  private readonly clientId = process.env.TOSS_POS_CLIENT_ID!;
+  private readonly clientSecret = process.env.TOSS_POS_CLIENT_SECRET!;
+  private readonly redirectUri = process.env.TOSS_POS_REDIRECT_URI!;
   private readonly baseUrl = 'https://api.tosspayments.com';
 
   /**

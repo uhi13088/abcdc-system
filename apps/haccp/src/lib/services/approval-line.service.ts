@@ -19,6 +19,7 @@ function getSupabase(): SupabaseClient {
 
 const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (getSupabase() as any)[prop];
   }
 });
@@ -55,7 +56,7 @@ export interface ApprovalLineConfig {
 }
 
 // 기본 승인 라인 설정
-const DEFAULT_APPROVAL_LINE_CONFIG: Record<ApprovalType, ApprovalLineConfig> = {
+const _DEFAULT_APPROVAL_LINE_CONFIG: Record<ApprovalType, ApprovalLineConfig> = {
   LEAVE: { type: 'LEAVE', minApprovers: 1, maxApprovers: 2 },
   OVERTIME: { type: 'OVERTIME', minApprovers: 1, maxApprovers: 2 },
   SCHEDULE_CHANGE: { type: 'SCHEDULE_CHANGE', minApprovers: 1, maxApprovers: 1 },
@@ -91,6 +92,7 @@ export class ApprovalLineService {
    */
   async getApprovalLine(
     type: ApprovalType,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     details: Record<string, any>,
     storeId: string,
     companyId: string
@@ -110,6 +112,7 @@ export class ApprovalLineService {
 
     if (customTemplate?.approval_line) {
       // 맞춤 결재선 사용
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return customTemplate.approval_line.map((item: any, idx: number) => ({
         order: idx + 1,
         approverId: item.approverId,
@@ -305,6 +308,7 @@ export class ApprovalLineService {
     type: ApprovalType,
     name: string,
     approvalLine: Approver[],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     conditions?: Record<string, any>,
     isDefault: boolean = false
   ): Promise<string> {

@@ -5,7 +5,7 @@
 
 const TOSS_PAYMENTS_API_URL = 'https://api.tosspayments.com/v1';
 
-interface PaymentRequest {
+interface _PaymentRequest {
   orderId: string;
   amount: number;
   orderName: string;
@@ -58,6 +58,7 @@ export class TossPaymentsService {
    * 결제 승인 (일반결제)
    * 사용자가 결제 완료 후 successUrl로 리다이렉트되면 호출
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async confirmPayment(request: PaymentConfirmRequest): Promise<any> {
     const response = await fetch(`${TOSS_PAYMENTS_API_URL}/payments/confirm`, {
       method: 'POST',
@@ -83,6 +84,7 @@ export class TossPaymentsService {
   /**
    * 결제 조회
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getPayment(paymentKey: string): Promise<any> {
     const response = await fetch(
       `${TOSS_PAYMENTS_API_URL}/payments/${paymentKey}`,
@@ -108,7 +110,8 @@ export class TossPaymentsService {
     paymentKey: string,
     cancelReason: string,
     cancelAmount?: number
-  ): Promise<any> {
+  ): Promise<any> { // eslint-disable-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const body: any = { cancelReason };
     if (cancelAmount) {
       body.cancelAmount = cancelAmount;
@@ -137,7 +140,8 @@ export class TossPaymentsService {
   /**
    * 빌링키 발급 (자동결제/정기결제용)
    */
-  async issueBillingKey(request: BillingKeyRequest): Promise<any> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async issueBillingKey(request: BillingKeyRequest): Promise<any /* PaymentResponse */> {
     const response = await fetch(
       `${TOSS_PAYMENTS_API_URL}/billing/authorizations/card`,
       {
@@ -167,7 +171,8 @@ export class TossPaymentsService {
   /**
    * 빌링키로 자동결제 실행
    */
-  async payWithBillingKey(request: SubscriptionPaymentRequest): Promise<any> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async payWithBillingKey(request: SubscriptionPaymentRequest): Promise<any /* PaymentResponse */> {
     const response = await fetch(
       `${TOSS_PAYMENTS_API_URL}/billing/${request.billingKey}`,
       {
@@ -200,7 +205,7 @@ export class TossPaymentsService {
     paymentKey: string,
     type: 'INCOME' | 'EXPENDITURE',
     registrationNumber: string
-  ): Promise<any> {
+  ): Promise<any> { // eslint-disable-line @typescript-eslint/no-explicit-any
     const response = await fetch(
       `${TOSS_PAYMENTS_API_URL}/payments/${paymentKey}/cash-receipt`,
       {
@@ -235,7 +240,7 @@ export class TossPaymentsService {
       accountNumber: string;
       holderName: string;
     }
-  ): Promise<any> {
+  ): Promise<any> { // eslint-disable-line @typescript-eslint/no-explicit-any
     const response = await fetch(
       `${TOSS_PAYMENTS_API_URL}/payments/${paymentKey}/cancel`,
       {

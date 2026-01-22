@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Check, X, AlertTriangle, Calendar, FileText, TrendingUp, BarChart3 } from 'lucide-react';
+import { Plus, Check, X, AlertTriangle, Calendar, FileText, TrendingUp, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 
 interface CCPDefinition {
@@ -80,10 +80,12 @@ export default function CCPVerificationPage() {
 
   useEffect(() => {
     fetchCCPs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     fetchVerifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedYear, selectedMonth]);
 
   const fetchCCPs = async () => {
@@ -437,6 +439,7 @@ export default function CCPVerificationPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">효과성 평가</label>
                 <select
                   value={formData.effectiveness_rating}
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   onChange={(e) => setFormData({ ...formData, effectiveness_rating: e.target.value as any })}
                   className="w-full px-3 py-2 border rounded-lg"
                 >

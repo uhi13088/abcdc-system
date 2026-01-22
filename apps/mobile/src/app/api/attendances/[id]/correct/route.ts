@@ -45,6 +45,7 @@ function calculateWorkHoursAndPay(
 
 // 관리자들에게 알림 발송
 async function notifyManagers(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   adminClient: any,
   companyId: string,
   storeId: string | null,
@@ -95,12 +96,12 @@ async function notifyManagers(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: attendanceId } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
-    const attendanceId = params.id;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -256,13 +257,13 @@ export async function POST(
 
 // GET - 해당 출퇴근 기록의 수정 요청 상태 조회
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: attendanceId } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
-    const attendanceId = params.id;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

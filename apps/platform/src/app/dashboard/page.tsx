@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, Users, Layers, TrendingUp, Activity, Server, Store } from 'lucide-react';
+import { Building2, Users, Layers, TrendingUp, Activity, Store } from 'lucide-react';
 import { formatNumber } from '@/lib/utils';
 
 interface PlatformStats {

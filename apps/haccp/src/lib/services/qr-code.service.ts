@@ -21,6 +21,7 @@ function getSupabase(): SupabaseClient {
 
 const supabase = new Proxy({} as SupabaseClient, {
   get(_, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (getSupabase() as any)[prop];
   }
 });
@@ -227,6 +228,7 @@ export class QRCodeService {
   async getStoreQRCodes(
     storeId: string,
     activeOnly: boolean = false
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any[]> {
     let query = supabase
       .from('store_qr_codes')

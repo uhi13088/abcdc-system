@@ -41,9 +41,7 @@ interface WeeklyStats {
   lateCount: number;
 }
 
-interface NotificationCount {
-  unreadCount: number;
-}
+// NotificationCount interface removed - unreadCount used directly
 
 export default function HomePage() {
   const router = useRouter();
@@ -125,8 +123,6 @@ export default function HomePage() {
 
   const isCheckedIn = Boolean(todayAttendance?.actual_check_in && !todayAttendance?.actual_check_out);
   const isWorkComplete = Boolean(todayAttendance?.actual_check_in && todayAttendance?.actual_check_out);
-  // Allow re-check-in after completing a shift
-  const canReCheckIn = isWorkComplete;
 
   const formatNoticeDate = (dateStr: string) => {
     const date = new Date(dateStr);

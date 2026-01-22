@@ -43,6 +43,7 @@ export async function GET() {
     let lateCount = 0;
 
     if (weekAttendance) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       weekAttendance.forEach((record: any) => {
         // Use pre-calculated work_hours if available
         if (record.work_hours) {
@@ -61,6 +62,7 @@ export async function GET() {
 
     return NextResponse.json({
       totalHours: Math.round(totalHours),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       workDays: weekAttendance?.filter((r: any) => r.actual_check_in).length || 0,
       lateCount,
     });

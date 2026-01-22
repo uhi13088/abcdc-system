@@ -56,8 +56,8 @@ export async function GET(request: NextRequest) {
     await adminClient.from('oauth_states').delete().eq('id', oauthState.id);
 
     // 토스 OAuth 토큰 교환
-    const clientId = process.env.TOSS_CLIENT_ID;
-    const clientSecret = process.env.TOSS_CLIENT_SECRET;
+    const clientId = process.env.TOSS_POS_CLIENT_ID;
+    const clientSecret = process.env.TOSS_POS_CLIENT_SECRET;
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin}/api/integrations/toss-pos/callback`;
 
     const tokenResponse = await fetch('https://auth.tosspayments.com/oauth/token', {

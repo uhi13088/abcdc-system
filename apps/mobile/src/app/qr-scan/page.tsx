@@ -1,13 +1,19 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Camera, MapPin, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Camera, MapPin, Loader2, CheckCircle, XCircle, AlertTriangle, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { formatLocalDate } from '@/lib/utils';
 
 type ScanStatus = 'idle' | 'scanning' | 'processing' | 'success' | 'error';
+
+interface MissedShift {
+  work_date: string;
+  start_time: string;
+  end_time: string;
+}
 
 interface CheckinResult {
   success: boolean;
@@ -16,6 +22,8 @@ interface CheckinResult {
   isLate?: boolean;
   storeName?: string;
   isCheckOut?: boolean;
+  isUnscheduled?: boolean;
+  missedShifts?: MissedShift[];
 }
 
 interface UserInfo {
@@ -43,6 +51,14 @@ export default function QRScanPage() {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
+
+  // 결근 사유 모달 상태
+  const [showAbsenceModal, setShowAbsenceModal] = useState(false);
+  const [missedShifts, setMissedShifts] = useState<MissedShift[]>([]);
+  const [selectedMissedDate, setSelectedMissedDate] = useState<string>('');
+  const [absenceReason, setAbsenceReason] = useState('');
+  const [absenceCategory, setAbsenceCategory] = useState<'SICK' | 'FAMILY' | 'PERSONAL' | 'OTHER'>('OTHER');
+  const [submittingExcuse, setSubmittingExcuse] = useState(false);
 
   const supabase = createClient();
 
@@ -121,6 +137,7 @@ export default function QRScanPage() {
     return () => {
       stopCamera();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startCamera = async () => {
@@ -155,18 +172,6 @@ export default function QRScanPage() {
     setStatus('processing');
 
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        setResult({
-          success: false,
-          message: '로그인이 필요합니다.',
-        });
-        setStatus('error');
-        return;
-      }
-
-      const today = formatLocalDate(new Date());
-      const now = new Date().toISOString();
       const timeDisplay = new Date().toLocaleTimeString('ko-KR', {
         hour: '2-digit',
         minute: '2-digit',
@@ -176,14 +181,15 @@ export default function QRScanPage() {
       const isCheckOut = todayAttendance?.actual_check_in && !todayAttendance?.actual_check_out;
 
       if (isCheckOut && todayAttendance) {
-        // Check out
-        const { error } = await supabase
-          .from('attendances')
-          .update({ actual_check_out: now })
-          .eq('id', todayAttendance.id);
+        // Check out - use check-out API
+        const response = await fetch('/api/attendances/check-out', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
 
-        if (error) {
-          throw error;
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || '퇴근 처리에 실패했습니다.');
         }
 
         setResult({
@@ -194,88 +200,60 @@ export default function QRScanPage() {
           storeName: userInfo.stores?.name || '매장',
           isCheckOut: true,
         });
-      } else if (!todayAttendance?.actual_check_in) {
-        // Check in (use userInfo.id which is staff_id, not authUser.id which is auth_id)
-        const { error } = await supabase
-          .from('attendances')
-          .upsert({
-            staff_id: userInfo.id,
-            company_id: userInfo.company_id,
-            brand_id: userInfo.brand_id,
-            store_id: userInfo.store_id,
-            work_date: today,
-            actual_check_in: now,
-            status: 'NORMAL',
-            check_in_method: 'QR',
-            check_in_lat: location?.lat,
-            check_in_lng: location?.lng,
-          });
-
-        if (error) {
-          throw error;
-        }
-
-        setResult({
-          success: true,
-          message: '출근이 완료되었습니다.',
-          checkInTime: timeDisplay,
-          isLate: false,
-          storeName: userInfo.stores?.name || '매장',
-          isCheckOut: false,
-        });
-
-        // Update local state for immediate UI feedback
-        setTodayAttendance({
-          id: '',
-          actual_check_in: now,
-          actual_check_out: null,
-        });
+        setStatus('success');
       } else {
-        // Already checked in and out - allow re-check-in (create new attendance record)
-        const { error } = await supabase
-          .from('attendances')
-          .insert({
-            staff_id: userInfo.id,
-            company_id: userInfo.company_id,
-            brand_id: userInfo.brand_id,
-            store_id: userInfo.store_id,
-            work_date: today,
-            actual_check_in: now,
-            status: 'NORMAL',
-            check_in_method: 'QR',
-            check_in_lat: location?.lat,
-            check_in_lng: location?.lng,
-          });
+        // Check in - use check-in API
+        const response = await fetch('/api/attendances/check-in', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
 
-        if (error) {
-          throw error;
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || '출근 처리에 실패했습니다.');
         }
+
+        const data = await response.json();
+        const isReCheckIn = todayAttendance?.actual_check_in && todayAttendance?.actual_check_out;
 
         setResult({
           success: true,
-          message: '재출근이 완료되었습니다.',
+          message: data.status_message || (isReCheckIn ? '재출근이 완료되었습니다.' : '출근이 완료되었습니다.'),
           checkInTime: timeDisplay,
-          isLate: false,
+          isLate: data.status === 'LATE',
           storeName: userInfo.stores?.name || '매장',
           isCheckOut: false,
+          isUnscheduled: data.is_unscheduled,
+          missedShifts: data.missed_shifts,
         });
 
         // Update local state for immediate UI feedback
         setTodayAttendance({
-          id: '',
-          actual_check_in: now,
+          id: data.id || '',
+          actual_check_in: data.actual_check_in,
           actual_check_out: null,
         });
-      }
 
-      setStatus('success');
+        setStatus('success');
+
+        // 결근 내역이 있으면 모달 표시
+        if (data.missed_shifts && data.missed_shifts.length > 0) {
+          setMissedShifts(data.missed_shifts);
+          setSelectedMissedDate(data.missed_shifts[0].work_date);
+          // 성공 화면 표시 후 모달 표시
+          setTimeout(() => {
+            setShowAbsenceModal(true);
+          }, 1500);
+          return; // Don't auto-redirect when there are missed shifts
+        }
+      }
 
       // Vibration feedback if supported
       if (navigator.vibrate) {
         navigator.vibrate([100]);
       }
 
-      // Auto redirect after success
+      // Auto redirect after success (only if no missed shifts)
       setTimeout(() => {
         router.push('/home');
       }, 2000);
@@ -283,7 +261,7 @@ export default function QRScanPage() {
       console.error('Check in/out error:', error);
       setResult({
         success: false,
-        message: '처리 중 오류가 발생했습니다. 다시 시도해 주세요.',
+        message: error instanceof Error ? error.message : '처리 중 오류가 발생했습니다. 다시 시도해 주세요.',
       });
       setStatus('error');
 
@@ -291,6 +269,58 @@ export default function QRScanPage() {
       if (navigator.vibrate) {
         navigator.vibrate([100, 50, 100]);
       }
+    }
+  };
+
+  // 결근 사유 제출
+  const handleSubmitAbsenceExcuse = async () => {
+    if (!selectedMissedDate || !absenceReason.trim()) {
+      alert('날짜와 사유를 입력해주세요.');
+      return;
+    }
+
+    setSubmittingExcuse(true);
+    try {
+      const response = await fetch('/api/attendances/absence-excuse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          work_date: selectedMissedDate,
+          reason: absenceReason,
+          category: absenceCategory,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '사유 제출에 실패했습니다.');
+      }
+
+      // 제출 완료 - 다음 결근 날짜가 있으면 계속, 없으면 모달 닫기
+      const remainingShifts = missedShifts.filter(s => s.work_date !== selectedMissedDate);
+      if (remainingShifts.length > 0) {
+        setMissedShifts(remainingShifts);
+        setSelectedMissedDate(remainingShifts[0].work_date);
+        setAbsenceReason('');
+        setAbsenceCategory('OTHER');
+        alert('사유가 제출되었습니다. 다른 결근 날짜의 사유도 입력해주세요.');
+      } else {
+        setShowAbsenceModal(false);
+        alert('모든 결근 사유가 제출되었습니다.');
+        router.push('/home');
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '사유 제출에 실패했습니다.');
+    } finally {
+      setSubmittingExcuse(false);
+    }
+  };
+
+  // 결근 사유 입력 건너뛰기
+  const handleSkipAbsenceExcuse = () => {
+    if (confirm('결근 사유를 나중에 입력하시겠습니까?\n입력하지 않으면 무단결근으로 처리될 수 있습니다.')) {
+      setShowAbsenceModal(false);
+      router.push('/home');
     }
   };
 
@@ -467,6 +497,144 @@ export default function QRScanPage() {
           animation: scan 2s ease-in-out infinite;
         }
       `}</style>
+
+      {/* 결근 사유 입력 모달 */}
+      {showAbsenceModal && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center">
+          <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-6 h-6 text-orange-500" />
+                <h2 className="text-lg font-bold text-gray-900">결근 사유 입력</h2>
+              </div>
+              <button
+                onClick={handleSkipAbsenceExcuse}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              아래 날짜에 출근하지 않으셨습니다. 사유를 입력해주세요.
+              {missedShifts.length > 1 && (
+                <span className="text-orange-600 font-medium"> ({missedShifts.length}건)</span>
+              )}
+            </p>
+
+            {/* 날짜 선택 (여러 건일 경우) */}
+            {missedShifts.length > 1 && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  날짜 선택
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {missedShifts.map((shift) => (
+                    <button
+                      key={shift.work_date}
+                      onClick={() => setSelectedMissedDate(shift.work_date)}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        selectedMissedDate === shift.work_date
+                          ? 'bg-primary text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {new Date(shift.work_date).toLocaleDateString('ko-KR', {
+                        month: 'short',
+                        day: 'numeric',
+                        weekday: 'short',
+                      })}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 선택된 날짜 정보 */}
+            <div className="bg-gray-50 rounded-xl p-4 mb-4">
+              <p className="text-sm text-gray-500">결근 날짜</p>
+              <p className="font-semibold text-gray-900">
+                {new Date(selectedMissedDate).toLocaleDateString('ko-KR', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  weekday: 'long',
+                })}
+              </p>
+              {missedShifts.find(s => s.work_date === selectedMissedDate) && (
+                <p className="text-sm text-gray-500 mt-1">
+                  예정 근무: {new Date(missedShifts.find(s => s.work_date === selectedMissedDate)!.start_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} - {new Date(missedShifts.find(s => s.work_date === selectedMissedDate)!.end_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
+            </div>
+
+            {/* 사유 카테고리 */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                사유 분류
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: 'SICK', label: '병가' },
+                  { value: 'FAMILY', label: '경조사' },
+                  { value: 'PERSONAL', label: '개인사유' },
+                  { value: 'OTHER', label: '기타' },
+                ].map((cat) => (
+                  <button
+                    key={cat.value}
+                    onClick={() => setAbsenceCategory(cat.value as typeof absenceCategory)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      absenceCategory === cat.value
+                        ? 'bg-primary text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 사유 입력 */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                상세 사유 <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={absenceReason}
+                onChange={(e) => setAbsenceReason(e.target.value)}
+                placeholder="결근 사유를 상세히 입력해주세요"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                rows={3}
+              />
+            </div>
+
+            {/* 버튼 */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleSkipAbsenceExcuse}
+                className="flex-1 py-3 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
+              >
+                나중에
+              </button>
+              <button
+                onClick={handleSubmitAbsenceExcuse}
+                disabled={submittingExcuse || !absenceReason.trim()}
+                className="flex-1 py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {submittingExcuse ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    제출 중...
+                  </>
+                ) : (
+                  '제출하기'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,11 +4,11 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 // PUT /api/haccp/materials/[id]
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerClient();
-    const { id } = params;
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
@@ -50,11 +50,11 @@ export async function PUT(
 // DELETE /api/haccp/materials/[id]
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createServerClient();
-    const { id } = params;
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {

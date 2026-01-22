@@ -35,16 +35,17 @@ const AcceptInvitationSchema = z.object({
 // POST /api/invite/:token/accept - 초대 수락 (가입 완료)
 export async function POST(
   request: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
   try {
+    const { token } = await params;
     const adminClient = createAdminClient();
 
     // 초대 조회
     const { data: invitation, error: invError } = await adminClient
       .from('invitations')
       .select('*')
-      .eq('token', params.token)
+      .eq('token', token)
       .single();
 
     if (invError || !invitation) {

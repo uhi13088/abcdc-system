@@ -244,6 +244,7 @@ export default function MaterialsPage() {
                   <Label>구분</Label>
                   <select
                     value={formData.type}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >

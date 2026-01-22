@@ -10,15 +10,6 @@ import { logger } from '@abc/shared';
 const DB_NAME = 'abc_staff_offline_db';
 const DB_VERSION = 1;
 
-interface OfflineStore {
-  userProfile: UserProfile | null;
-  todaySchedule: Schedule | null;
-  weekSchedules: Schedule[];
-  monthlyAttendances: Attendance[];
-  pendingActions: PendingAction[];
-  lastSyncTime: Record<string, number>;
-}
-
 interface UserProfile {
   id: string;
   name: string;

@@ -4,11 +4,12 @@ import { NextRequest, NextResponse } from 'next/server';
 // POST /api/contracts/[id]/send - 계약서 발송
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
-    const contractId = params.id;
+    const contractId = id;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

@@ -1,8 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Users, Calendar, Award, BookOpen, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Users, Calendar, Award, BookOpen, CheckCircle, Clock, X, Edit2 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
+
+interface Attendee {
+  user_id?: string;
+  employee_name: string;
+  department: string;
+  completed: boolean;
+  signature_url?: string;
+}
 
 interface TrainingRecord {
   id: string;
@@ -10,29 +18,41 @@ interface TrainingRecord {
   training_type: 'HACCP_BASIC' | 'HACCP_ADVANCED' | 'HYGIENE' | 'SAFETY' | 'CCP' | 'OTHER';
   title: string;
   instructor: string;
+  instructor_company?: string;
   duration_hours: number;
-  attendees: Array<{
-    employee_name: string;
-    department: string;
-    completed: boolean;
-  }>;
+  location?: string;
   materials?: string;
+  content_summary?: string;
+  attendees: Attendee[];
   notes?: string;
   status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
+  created_by_name?: string;
+  verified_by_name?: string;
+  verified_at?: string;
 }
 
 export default function TrainingPage() {
   const [trainings, setTrainings] = useState<TrainingRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showAttendeeModal, setShowAttendeeModal] = useState(false);
+  const [selectedTraining, setSelectedTraining] = useState<TrainingRecord | null>(null);
+  const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState({
     training_type: 'HACCP_BASIC' as TrainingRecord['training_type'],
     title: '',
     instructor: '',
+    instructor_company: '',
     duration_hours: 1,
     training_date: new Date().toISOString().split('T')[0],
+    location: '',
     materials: '',
+    content_summary: '',
     notes: '',
+  });
+  const [attendeeForm, setAttendeeForm] = useState({
+    employee_name: '',
+    department: '',
   });
 
   useEffect(() => {
@@ -40,83 +60,148 @@ export default function TrainingPage() {
   }, []);
 
   const fetchTrainings = async () => {
-    setLoading(true);
-    // Simulated data
-    setTimeout(() => {
-      setTrainings([
-        {
-          id: '1',
-          training_date: '2024-01-10',
-          training_type: 'HACCP_BASIC',
-          title: '2024년 HACCP 기본 교육',
-          instructor: '품질관리팀장',
-          duration_hours: 4,
-          attendees: [
-            { employee_name: '김철수', department: '생산팀', completed: true },
-            { employee_name: '박영희', department: '품질팀', completed: true },
-            { employee_name: '이민수', department: '생산팀', completed: true },
-          ],
-          materials: 'HACCP 기본교육 자료 v2024',
-          status: 'COMPLETED',
-        },
-        {
-          id: '2',
-          training_date: '2024-02-15',
-          training_type: 'CCP',
-          title: 'CCP 모니터링 실무 교육',
-          instructor: '외부강사 (한국식품안전협회)',
-          duration_hours: 2,
-          attendees: [
-            { employee_name: '김철수', department: '생산팀', completed: true },
-            { employee_name: '이민수', department: '생산팀', completed: false },
-          ],
-          materials: 'CCP 모니터링 매뉴얼',
-          notes: '온도 측정 실습 포함',
-          status: 'COMPLETED',
-        },
-        {
-          id: '3',
-          training_date: '2024-03-20',
-          training_type: 'HYGIENE',
-          title: '개인위생 및 손세척 교육',
-          instructor: '품질관리팀',
-          duration_hours: 1,
-          attendees: [],
-          status: 'SCHEDULED',
-        },
-      ]);
+    try {
+      setLoading(true);
+      const response = await fetch('/api/haccp/training');
+      if (response.ok) {
+        const data = await response.json();
+        setTrainings(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch trainings:', error);
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newTraining: TrainingRecord = {
-      id: Date.now().toString(),
-      training_date: formData.training_date,
-      training_type: formData.training_type,
-      title: formData.title,
-      instructor: formData.instructor,
-      duration_hours: formData.duration_hours,
-      attendees: [],
-      materials: formData.materials || undefined,
-      notes: formData.notes || undefined,
-      status: 'SCHEDULED',
-    };
-    setTrainings([newTraining, ...trainings]);
-    setShowModal(false);
+    try {
+      const method = editMode ? 'PUT' : 'POST';
+      const body = editMode
+        ? { id: selectedTraining?.id, ...formData }
+        : formData;
+
+      const response = await fetch('/api/haccp/training', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        setShowModal(false);
+        fetchTrainings();
+        resetForm();
+      }
+    } catch (error) {
+      console.error('Failed to save training:', error);
+    }
+  };
+
+  const resetForm = () => {
     setFormData({
       training_type: 'HACCP_BASIC',
       title: '',
       instructor: '',
+      instructor_company: '',
       duration_hours: 1,
       training_date: new Date().toISOString().split('T')[0],
+      location: '',
       materials: '',
+      content_summary: '',
       notes: '',
     });
+    setEditMode(false);
+    setSelectedTraining(null);
   };
 
-  const trainingTypeColors = {
+  const handleEdit = (training: TrainingRecord) => {
+    setSelectedTraining(training);
+    setFormData({
+      training_type: training.training_type,
+      title: training.title,
+      instructor: training.instructor,
+      instructor_company: training.instructor_company || '',
+      duration_hours: training.duration_hours,
+      training_date: training.training_date,
+      location: training.location || '',
+      materials: training.materials || '',
+      content_summary: training.content_summary || '',
+      notes: training.notes || '',
+    });
+    setEditMode(true);
+    setShowModal(true);
+  };
+
+  const handleStatusChange = async (training: TrainingRecord, newStatus: TrainingRecord['status']) => {
+    try {
+      const response = await fetch('/api/haccp/training', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: training.id, status: newStatus }),
+      });
+
+      if (response.ok) {
+        fetchTrainings();
+      }
+    } catch (error) {
+      console.error('Failed to update status:', error);
+    }
+  };
+
+  const handleAddAttendee = async () => {
+    if (!selectedTraining || !attendeeForm.employee_name) return;
+
+    const newAttendee: Attendee = {
+      employee_name: attendeeForm.employee_name,
+      department: attendeeForm.department,
+      completed: false,
+    };
+
+    const updatedAttendees = [...(selectedTraining.attendees || []), newAttendee];
+
+    try {
+      const response = await fetch('/api/haccp/training', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedTraining.id, attendees: updatedAttendees }),
+      });
+
+      if (response.ok) {
+        fetchTrainings();
+        setAttendeeForm({ employee_name: '', department: '' });
+        // Update selectedTraining for UI
+        setSelectedTraining({ ...selectedTraining, attendees: updatedAttendees });
+      }
+    } catch (error) {
+      console.error('Failed to add attendee:', error);
+    }
+  };
+
+  const handleToggleAttendeeComplete = async (attendeeIndex: number) => {
+    if (!selectedTraining) return;
+
+    const updatedAttendees = selectedTraining.attendees.map((a, i) =>
+      i === attendeeIndex ? { ...a, completed: !a.completed } : a
+    );
+
+    try {
+      const response = await fetch('/api/haccp/training', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selectedTraining.id, attendees: updatedAttendees }),
+      });
+
+      if (response.ok) {
+        fetchTrainings();
+        setSelectedTraining({ ...selectedTraining, attendees: updatedAttendees });
+      }
+    } catch (error) {
+      console.error('Failed to update attendee:', error);
+    }
+  };
+
+  const trainingTypeColors: Record<string, string> = {
     'HACCP_BASIC': 'bg-blue-100 text-blue-700',
     'HACCP_ADVANCED': 'bg-indigo-100 text-indigo-700',
     'HYGIENE': 'bg-green-100 text-green-700',
@@ -125,7 +210,7 @@ export default function TrainingPage() {
     'OTHER': 'bg-gray-100 text-gray-700',
   };
 
-  const trainingTypeText = {
+  const trainingTypeText: Record<string, string> = {
     'HACCP_BASIC': 'HACCP 기본',
     'HACCP_ADVANCED': 'HACCP 심화',
     'HYGIENE': '위생교육',
@@ -134,20 +219,20 @@ export default function TrainingPage() {
     'OTHER': '기타',
   };
 
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     'SCHEDULED': 'bg-yellow-100 text-yellow-700',
     'COMPLETED': 'bg-green-100 text-green-700',
     'CANCELLED': 'bg-gray-100 text-gray-500',
   };
 
-  const statusText = {
+  const statusText: Record<string, string> = {
     'SCHEDULED': '예정',
     'COMPLETED': '완료',
     'CANCELLED': '취소',
   };
 
   const totalHours = trainings.filter(t => t.status === 'COMPLETED').reduce((acc, t) => acc + t.duration_hours, 0);
-  const totalAttendees = trainings.reduce((acc, t) => acc + t.attendees.filter(a => a.completed).length, 0);
+  const totalAttendees = trainings.reduce((acc, t) => acc + (t.attendees || []).filter(a => a.completed).length, 0);
 
   return (
     <div className="p-6">
@@ -157,7 +242,10 @@ export default function TrainingPage() {
           <p className="mt-1 text-sm text-gray-500">HACCP 및 위생 교육 기록을 관리합니다</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            resetForm();
+            setShowModal(true);
+          }}
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Plus className="w-4 h-4" />
@@ -231,7 +319,14 @@ export default function TrainingPage() {
 
               <div className="p-4">
                 <h3 className="font-semibold text-gray-900 mb-2">{training.title}</h3>
-                <p className="text-sm text-gray-500 mb-3">강사: {training.instructor}</p>
+                <p className="text-sm text-gray-500 mb-3">
+                  강사: {training.instructor}
+                  {training.instructor_company && ` (${training.instructor_company})`}
+                </p>
+
+                {training.location && (
+                  <p className="text-sm text-gray-600 mb-2">장소: {training.location}</p>
+                )}
 
                 {training.materials && (
                   <p className="text-sm text-gray-600 mb-2">
@@ -244,14 +339,14 @@ export default function TrainingPage() {
                   <p className="text-sm text-gray-500 mb-3">{training.notes}</p>
                 )}
 
-                {training.attendees.length > 0 && (
+                {(training.attendees || []).length > 0 && (
                   <div>
                     <h4 className="text-xs font-medium text-gray-500 uppercase mb-2">
                       <Users className="w-4 h-4 inline mr-1" />
-                      참석자 ({training.attendees.filter(a => a.completed).length}/{training.attendees.length})
+                      참석자 ({(training.attendees || []).filter(a => a.completed).length}/{(training.attendees || []).length})
                     </h4>
                     <div className="flex flex-wrap gap-2">
-                      {training.attendees.map((attendee, idx) => (
+                      {(training.attendees || []).map((attendee, idx) => (
                         <span
                           key={idx}
                           className={`px-2 py-1 text-xs rounded ${
@@ -267,27 +362,57 @@ export default function TrainingPage() {
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 px-4 py-3 border-t bg-gray-50">
-                <button className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded">
-                  수정
-                </button>
-                <button className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded">
-                  참석자 관리
-                </button>
+              <div className="flex justify-between items-center px-4 py-3 border-t bg-gray-50">
+                <div className="flex gap-2">
+                  {training.status === 'SCHEDULED' && (
+                    <>
+                      <button
+                        onClick={() => handleStatusChange(training, 'COMPLETED')}
+                        className="px-3 py-1.5 text-sm text-green-600 hover:bg-green-50 rounded"
+                      >
+                        완료 처리
+                      </button>
+                      <button
+                        onClick={() => handleStatusChange(training, 'CANCELLED')}
+                        className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded"
+                      >
+                        취소
+                      </button>
+                    </>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEdit(training)}
+                    className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded flex items-center gap-1"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    수정
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedTraining(training);
+                      setShowAttendeeModal(true);
+                    }}
+                    className="px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded"
+                  >
+                    참석자 관리
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Modal */}
+      {/* Training Form Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-lg mx-4 p-6">
+          <div className="bg-white rounded-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">교육 등록</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700">
-                닫기
+              <h2 className="text-xl font-bold">{editMode ? '교육 수정' : '교육 등록'}</h2>
+              <button onClick={() => { setShowModal(false); resetForm(); }} className="text-gray-500 hover:text-gray-700">
+                <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -296,6 +421,7 @@ export default function TrainingPage() {
                   <Label>교육 유형</Label>
                   <select
                     value={formData.training_type}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setFormData({ ...formData, training_type: e.target.value as any })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
@@ -343,6 +469,19 @@ export default function TrainingPage() {
                   />
                 </div>
                 <div>
+                  <Label>강사 소속</Label>
+                  <input
+                    type="text"
+                    value={formData.instructor_company}
+                    onChange={(e) => setFormData({ ...formData, instructor_company: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="외부강사의 경우"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                   <Label required>교육시간 (시간)</Label>
                   <input
                     type="number"
@@ -352,6 +491,15 @@ export default function TrainingPage() {
                     onChange={(e) => setFormData({ ...formData, duration_hours: parseFloat(e.target.value) })}
                     className="w-full px-3 py-2 border rounded-lg"
                     required
+                  />
+                </div>
+                <div>
+                  <Label>교육 장소</Label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
                   />
                 </div>
               </div>
@@ -367,6 +515,16 @@ export default function TrainingPage() {
               </div>
 
               <div>
+                <Label>교육 내용 요약</Label>
+                <textarea
+                  value={formData.content_summary}
+                  onChange={(e) => setFormData({ ...formData, content_summary: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  rows={3}
+                />
+              </div>
+
+              <div>
                 <Label>비고</Label>
                 <textarea
                   value={formData.notes}
@@ -377,14 +535,94 @@ export default function TrainingPage() {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
+                <button type="button" onClick={() => { setShowModal(false); resetForm(); }} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
                   취소
                 </button>
                 <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  저장
+                  {editMode ? '수정' : '저장'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Attendee Management Modal */}
+      {showAttendeeModal && selectedTraining && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">참석자 관리</h2>
+              <button onClick={() => setShowAttendeeModal(false)} className="text-gray-500 hover:text-gray-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">{selectedTraining.title}</p>
+
+            {/* Add Attendee Form */}
+            <div className="bg-gray-50 p-4 rounded-lg mb-4">
+              <h3 className="text-sm font-medium mb-3">참석자 추가</h3>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <input
+                  type="text"
+                  placeholder="이름"
+                  value={attendeeForm.employee_name}
+                  onChange={(e) => setAttendeeForm({ ...attendeeForm, employee_name: e.target.value })}
+                  className="px-3 py-2 border rounded-lg text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="부서"
+                  value={attendeeForm.department}
+                  onChange={(e) => setAttendeeForm({ ...attendeeForm, department: e.target.value })}
+                  className="px-3 py-2 border rounded-lg text-sm"
+                />
+              </div>
+              <button
+                onClick={handleAddAttendee}
+                disabled={!attendeeForm.employee_name}
+                className="w-full px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+              >
+                추가
+              </button>
+            </div>
+
+            {/* Attendee List */}
+            <div className="space-y-2">
+              {(selectedTraining.attendees || []).length === 0 ? (
+                <p className="text-gray-500 text-center py-4">등록된 참석자가 없습니다</p>
+              ) : (
+                (selectedTraining.attendees || []).map((attendee, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-3 border rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium">{attendee.employee_name}</p>
+                      <p className="text-sm text-gray-500">{attendee.department}</p>
+                    </div>
+                    <button
+                      onClick={() => handleToggleAttendeeComplete(idx)}
+                      className={`px-3 py-1 text-sm rounded ${
+                        attendee.completed
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {attendee.completed ? '이수 완료' : '미이수'}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowAttendeeModal(false)}
+              className="w-full mt-4 px-4 py-2 border rounded-lg hover:bg-gray-50"
+            >
+              닫기
+            </button>
           </div>
         </div>
       )}

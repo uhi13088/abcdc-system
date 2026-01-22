@@ -63,6 +63,7 @@ function BrandsContent() {
       const response = await fetch('/api/brands');
       if (response.ok) {
         const data = await response.json();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setBrands(data.map((b: any) => ({
           id: b.id,
           name: b.name,
@@ -117,7 +118,7 @@ function BrandsContent() {
         const data = await response.json();
         setError(data.error || '저장에 실패했습니다.');
       }
-    } catch (err) {
+    } catch {
       setError('저장에 실패했습니다.');
     } finally {
       setSubmitting(false);
@@ -145,7 +146,7 @@ function BrandsContent() {
       } else {
         alert('비활성화에 실패했습니다.');
       }
-    } catch (err) {
+    } catch {
       alert('비활성화에 실패했습니다.');
     }
   };

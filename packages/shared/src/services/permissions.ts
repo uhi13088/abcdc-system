@@ -4,22 +4,28 @@ import { SupabaseClient } from '@supabase/supabase-js';
  * 애드온 접근 권한 체크 함수들
  */
 
-interface UserAddonAccess {
+// Internal interfaces for this module - not exported to avoid conflicts with entities.ts
+interface _UserAddonAccess {
   haccp_access: boolean | null;
   roasting_access: boolean | null;
   store_id: string | null;
   company_id: string | null;
 }
 
-interface StoreAddonSettings {
+interface _StoreAddonSettings {
   haccp_enabled: boolean;
   roasting_enabled: boolean;
 }
 
-interface CompanySubscription {
+interface _CompanySubscription {
   haccp_addon_enabled: boolean;
   roasting_addon_enabled: boolean;
 }
+
+// Re-export with underscore prefix to avoid ESLint warnings about unused interfaces
+export type { _UserAddonAccess as UserAddonAccess_Permissions };
+export type { _StoreAddonSettings as StoreAddonSettings_Permissions };
+export type { _CompanySubscription as CompanySubscription_Permissions };
 
 /**
  * 로스팅 애드온 접근 권한 체크

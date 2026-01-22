@@ -11,9 +11,10 @@ const ResendSchema = z.object({
 // POST /api/invitations/:id/resend - 초대 재발송
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
@@ -50,7 +51,7 @@ export async function POST(
     const { data: invitation } = await adminClient
       .from('invitations')
       .select('*, stores(name)')
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('company_id', userData.company_id)
       .single();
 
@@ -120,7 +121,7 @@ export async function POST(
         send_methods: validation.data.sendMethods,
         send_results: sendResults,
       })
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
       console.error('[POST /api/invitations/:id/resend] Update error:', error);

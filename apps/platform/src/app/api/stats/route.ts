@@ -83,6 +83,7 @@ export async function GET() {
         action: '신규 가입',
         time: c.created_at,
       })),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...(recentUsers || []).map((u: any) => {
         const companyData = Array.isArray(u.companies) ? u.companies[0] : u.companies;
         return {

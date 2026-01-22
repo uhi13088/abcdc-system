@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Calendar, Bug, AlertTriangle, CheckCircle } from 'lucide-react';
-import { Label } from '@/components/ui/label';
 
 interface PestControlCheck {
   id: string;
@@ -46,6 +45,7 @@ export default function PestControlPage() {
 
   useEffect(() => {
     fetchChecks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
   const fetchChecks = async () => {
@@ -89,6 +89,7 @@ export default function PestControlPage() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateTrapCheck = (index: number, field: string, value: any) => {
     const newTrapChecks = [...formData.trap_checks];
     newTrapChecks[index] = { ...newTrapChecks[index], [field]: value };
@@ -246,6 +247,7 @@ export default function PestControlPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">점검 유형</label>
                   <select
                     value={formData.check_type}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setFormData({ ...formData, check_type: e.target.value as any })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >

@@ -10,11 +10,12 @@ import { DEFAULT_MINIMUM_WAGE, ALLOWANCE_RATES, DAILY_WORK_HOURS } from '@abc/sh
 // 출퇴근 기록 상세 조회
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
-    const attendanceId = params.id;
+    const attendanceId = id;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -67,12 +68,13 @@ export async function GET(
 // 출퇴근 기록 수정 (관리자용)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
-    const attendanceId = params.id;
+    const attendanceId = id;
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -162,6 +164,7 @@ export async function PATCH(
     }
 
     // Build update object
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updateData: Record<string, any> = {
       admin_corrected_at: new Date().toISOString(),
       admin_corrected_by: userData.id,

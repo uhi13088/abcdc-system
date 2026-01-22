@@ -47,6 +47,7 @@ export default function ProductionPage() {
   useEffect(() => {
     fetchRecords();
     fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
   const fetchRecords = async () => {

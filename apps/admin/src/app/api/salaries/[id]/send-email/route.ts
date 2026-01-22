@@ -5,7 +5,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createClient as createAuthClient } from '@/lib/supabase/server';
 import { PDFGenerator, emailService, pushNotificationService } from '@abc/shared/server';
+
+export const dynamic = 'force-dynamic';
 
 function getSupabaseClient() {
   return createClient(
@@ -16,11 +19,29 @@ function getSupabaseClient() {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  // 인증 검사
+  const authClient = await createAuthClient();
+  const { data: { user } } = await authClient.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { data: userData } = await authClient
+    .from('users')
+    .select('id, role, company_id')
+    .eq('auth_id', user.id)
+    .single();
+
+  if (!['super_admin', 'company_admin', 'manager'].includes(userData?.role || '')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const supabase = getSupabaseClient();
   try {
-    const salaryId = params.id;
+    const { id } = await params;
+    const salaryId = id;
 
     // 급여 정보 조회
     const { data: salary, error: salaryError } = await supabase

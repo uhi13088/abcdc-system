@@ -62,6 +62,7 @@ export default function HygienePage() {
 
   useEffect(() => {
     fetchChecks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
   const fetchChecks = async () => {

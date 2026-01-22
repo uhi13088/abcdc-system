@@ -322,7 +322,8 @@ class OfflineSyncService {
       const scheduleResponse = await fetch('/api/schedules/week');
       if (scheduleResponse.ok) {
         const data = await scheduleResponse.json();
-        const schedules = (data.schedules || []).map((s: any) => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const schedules = (data.schedules || []).map((s: any) => ({
           id: s.id,
           workDate: s.work_date,
           startTime: s.start_time,
@@ -338,19 +339,26 @@ class OfflineSyncService {
       }
 
       // 월간 출퇴근 기록 캐시
-      const attendanceResponse = await fetch('/api/attendances/month');
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      const attendanceResponse = await fetch(`/api/attendances/month?year=${year}&month=${month}`);
       if (attendanceResponse.ok) {
         const data = await attendanceResponse.json();
-        const attendances = (data.attendances || []).map((a: any) => ({
+        // API returns array directly, and uses 'status' field instead of is_late/is_early_leave
+        const attendanceList = Array.isArray(data) ? data : (data.attendances || []);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const attendances = attendanceList.map((a: any) => ({
           id: a.id,
           workDate: a.work_date,
-          scheduledStart: a.scheduled_start,
-          scheduledEnd: a.scheduled_end,
+          scheduledStart: a.scheduled_check_in,
+          scheduledEnd: a.scheduled_check_out,
           actualCheckIn: a.actual_check_in,
           actualCheckOut: a.actual_check_out,
-          isLate: a.is_late || false,
-          isEarlyLeave: a.is_early_leave || false,
-          storeName: a.store_name,
+          status: a.status,
+          isLate: a.status === 'LATE',
+          isEarlyLeave: a.status === 'EARLY_LEAVE',
+          workHours: a.work_hours,
         }));
         await offlineDB.saveAttendances(attendances);
         await offlineDB.setLastSyncTime('attendances');

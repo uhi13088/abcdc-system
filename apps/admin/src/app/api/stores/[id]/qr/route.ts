@@ -21,11 +21,12 @@ const qrService = new QRCodeService();
 // QR 코드 조회
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = getSupabaseClient();
   try {
-    const storeId = params.id;
+    const { id } = await params;
+    const storeId = id;
 
     // 매장 정보 및 현재 QR 코드 조회
     const { data: store, error: storeError } = await supabase
@@ -64,11 +65,12 @@ export async function GET(
 // QR 코드 생성
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = getSupabaseClient();
   try {
-    const storeId = params.id;
+    const { id } = await params;
+    const storeId = id;
     const body = await request.json();
     const {
       expiresIn = '24h',
@@ -129,11 +131,12 @@ export async function POST(
 // QR 코드 비활성화
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = getSupabaseClient();
   try {
-    const storeId = params.id;
+    const { id } = await params;
+    const storeId = id;
     const { searchParams } = new URL(request.url);
     const qrId = searchParams.get('qrId');
 

@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       .from('integrations')
       .select('id, access_token')
       .eq('company_id', userProfile.company_id)
-      .eq('integration_type', 'TOSS_POS')
+      .eq('provider', 'toss_pos')
       .single();
 
     if (findError || !integration) {
@@ -59,10 +59,11 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await supabase
       .from('integrations')
       .update({
-        is_active: false,
+        enabled: false,
+        connected: false,
         access_token: null,
         refresh_token: null,
-        disconnected_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
       .eq('id', integration.id);
 

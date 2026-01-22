@@ -4,9 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET /api/brands/[id]
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -20,7 +21,7 @@ export async function GET(
         *,
         companies(id, name)
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (error) {
@@ -31,7 +32,7 @@ export async function GET(
     }
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
@@ -42,9 +43,10 @@ export async function GET(
 // PUT/PATCH /api/brands/[id]
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -64,7 +66,7 @@ export async function PUT(
     const { data, error } = await adminClient
       .from('brands')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -73,7 +75,7 @@ export async function PUT(
     }
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
@@ -84,7 +86,7 @@ export async function PUT(
 // PATCH /api/brands/[id] (alias for PUT)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   return PUT(request, { params });
 }
@@ -92,9 +94,10 @@ export async function PATCH(
 // DELETE /api/brands/[id]
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -106,7 +109,7 @@ export async function DELETE(
     const { count: storeCount } = await supabase
       .from('stores')
       .select('*', { count: 'exact', head: true })
-      .eq('brand_id', params.id);
+      .eq('brand_id', id);
 
     if (storeCount && storeCount > 0) {
       return NextResponse.json(
@@ -120,14 +123,14 @@ export async function DELETE(
     const { error } = await adminClient
       .from('brands')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

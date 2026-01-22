@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { format, parseISO, differenceInDays } from 'date-fns';
+import { parseISO, differenceInDays } from 'date-fns';
 
 let _supabaseClient: SupabaseClient | null = null;
 

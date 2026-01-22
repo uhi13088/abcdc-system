@@ -40,6 +40,7 @@ export async function GET() {
 
     if (error) throw error;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const formattedUsers = (users || []).map((u: any) => {
       const companyData = Array.isArray(u.companies) ? u.companies[0] : u.companies;
       return {

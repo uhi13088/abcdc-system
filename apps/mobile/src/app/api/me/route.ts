@@ -13,10 +13,10 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch user profile with store info using adminClient to bypass RLS
+    // Fetch user profile with store and company info using adminClient to bypass RLS
     const { data: userData, error } = await adminClient
       .from('users')
-      .select('id, name, email, role, company_id, brand_id, store_id, stores(id, name)')
+      .select('id, name, email, role, phone, position, avatar_url, company_id, brand_id, store_id, stores(id, name), companies(id, name)')
       .eq('auth_id', user.id)
       .single();
 
@@ -25,14 +25,20 @@ export async function GET() {
     if (userData) {
       // Supabase returns relations as arrays, extract first element
       const storeData = Array.isArray(userData.stores) ? userData.stores[0] : userData.stores;
+      const companyData = Array.isArray(userData.companies) ? userData.companies[0] : userData.companies;
       return NextResponse.json({
         id: userData.id,
         name: userData.name,
         email: userData.email,
         role: userData.role,
+        phone: userData.phone,
+        position: userData.position,
+        profile_image: userData.avatar_url,
         company_id: userData.company_id,
+        company_name: companyData?.name || null,
         brand_id: userData.brand_id,
         store_id: userData.store_id,
+        store_name: storeData?.name || null,
         stores: storeData || null,
       });
     }

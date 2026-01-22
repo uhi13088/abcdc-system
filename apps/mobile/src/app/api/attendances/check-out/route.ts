@@ -68,6 +68,7 @@ function determineCheckOutStatus(
 
 // 관리자들에게 알림 발송
 async function notifyManagers(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   adminClient: any,
   companyId: string,
   storeId: string | null,

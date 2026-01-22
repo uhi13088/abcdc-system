@@ -62,7 +62,7 @@ export default function TossPOSIntegrationPage() {
         setStatus({ connected: false });
         alert('연결이 해제되었습니다.');
       }
-    } catch (error) {
+    } catch {
       alert('연결 해제에 실패했습니다.');
     }
   };
@@ -85,7 +85,7 @@ export default function TossPOSIntegrationPage() {
       } else {
         alert('동기화에 실패했습니다.');
       }
-    } catch (error) {
+    } catch {
       alert('동기화 중 오류가 발생했습니다.');
     } finally {
       setSyncing(false);

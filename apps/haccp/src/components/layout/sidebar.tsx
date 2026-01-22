@@ -21,6 +21,9 @@ import {
   ChevronRight,
   Users,
   Box,
+  Gauge,
+  RotateCcw,
+  Warehouse,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -71,6 +74,9 @@ const navigation: NavItem[] = [
   { name: '출하 관리', href: '/shipments', icon: Truck },
   { name: '감사 보고서', href: '/audit-report', icon: FileText },
   { name: '교육 관리', href: '/training', icon: Users },
+  { name: '검교정 관리', href: '/calibration', icon: Gauge },
+  { name: '반품/회수/폐기', href: '/returns-disposals', icon: RotateCcw },
+  { name: '보관창고 점검', href: '/storage-inspections', icon: Warehouse },
   { name: '설정', href: '/settings', icon: Settings },
 ];
 

@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
       .from('integrations')
       .select('*')
       .eq('company_id', userProfile.company_id)
-      .eq('integration_type', 'TOSS_POS')
-      .eq('is_active', true)
+      .eq('provider', 'toss_pos')
+      .eq('connected', true)
       .single();
 
     if (integrationError || !integration) {
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     const tossSalesData = await fetchTossSales(
       integration.access_token,
-      integration.external_id,
+      integration.settings?.store_id,
       syncStartDate,
       syncEndDate
     );
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
         .from('daily_sales')
         .upsert({
           company_id: userProfile.company_id,
-          store_id: integration.store_id,
+          store_id: integration.settings?.store_id,
           sale_date: sale.date,
           total_amount: sale.total_sales,
           transaction_count: sale.transaction_count,
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     // Update last sync time
     await supabase
       .from('integrations')
-      .update({ last_synced_at: new Date().toISOString() })
+      .update({ last_sync_at: new Date().toISOString() })
       .eq('id', integration.id);
 
     return NextResponse.json({

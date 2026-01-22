@@ -1,16 +1,8 @@
 import { z } from 'zod';
 import {
   UserRole,
-  UserStatus,
   ContractType,
-  ContractStatus,
   SalaryType,
-  AttendanceStatus,
-  ApprovalType,
-  ApprovalStatus,
-  NotificationPriority,
-  NotificationCategory,
-  SubscriptionPlan,
 } from './enums';
 
 // ============================================

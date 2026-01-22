@@ -103,6 +103,7 @@ export default function SchedulePage() {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router, currentWeekStart]);
 
   useEffect(() => {

@@ -25,7 +25,7 @@ import {
   Card,
   CardContent,
 } from '@/components/ui';
-import { CheckSquare, Check, X, Eye, Clock, Calendar, DollarSign, ShoppingCart, UserMinus, RefreshCw, Trash2, FileX } from 'lucide-react';
+import { CheckSquare, Check, X, Eye, Clock, Calendar, DollarSign, ShoppingCart, UserMinus, RefreshCw, Trash2, FileX, UserPlus } from 'lucide-react';
 
 interface ApprovalRequest {
   id: string;
@@ -57,6 +57,7 @@ const typeLabels: Record<string, { label: string; icon: React.ComponentType<{ cl
   DISPOSAL: { label: '폐기', icon: Trash2 },
   RESIGNATION: { label: '사직서', icon: UserMinus },
   ABSENCE_EXCUSE: { label: '결근사유서', icon: FileX },
+  UNSCHEDULED_CHECKIN: { label: '미배정 출근', icon: UserPlus },
 };
 
 const statusMap: Record<string, { label: string; variant: 'default' | 'warning' | 'success' | 'danger' }> = {
@@ -159,7 +160,9 @@ export default function ApprovalsPage() {
       case 'RESIGNATION':
         return `퇴사 예정일: ${details.resignationDate || '-'}`;
       case 'ABSENCE_EXCUSE':
-        return `${details.absence_date || '-'} / 사유: ${details.reason || '-'}`;
+        return `${details.work_date || details.absence_date || '-'} / 사유: ${details.reason || '-'}`;
+      case 'UNSCHEDULED_CHECKIN':
+        return `${details.work_date || '-'} / 출근시간: ${details.check_in_time ? new Date(details.check_in_time as string).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-'}`;
       default:
         return JSON.stringify(details);
     }
@@ -186,6 +189,7 @@ export default function ApprovalsPage() {
                 { value: 'DISPOSAL', label: '폐기' },
                 { value: 'RESIGNATION', label: '사직서' },
                 { value: 'ABSENCE_EXCUSE', label: '결근사유서' },
+                { value: 'UNSCHEDULED_CHECKIN', label: '미배정 출근' },
               ]}
               className="w-36"
             />

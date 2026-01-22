@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Edit3, X, Store } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle, Edit3, X, Store, Check, Ban } from 'lucide-react';
 
 interface StoreInfo {
   id: string;
@@ -25,9 +25,11 @@ interface Attendance {
   scheduled_check_out: string | null;
   actual_check_in: string | null;
   actual_check_out: string | null;
-  status: 'WORKING' | 'NORMAL' | 'LATE' | 'EARLY_CHECK_IN' | 'EARLY_LEAVE' | 'LATE_AND_EARLY_LEAVE' | 'OVERTIME' | 'ABSENT' | 'NO_SHOW' | 'VACATION' | null;
+  status: 'WORKING' | 'NORMAL' | 'LATE' | 'EARLY_CHECK_IN' | 'EARLY_LEAVE' | 'LATE_AND_EARLY_LEAVE' | 'OVERTIME' | 'ABSENT' | 'NO_SHOW' | 'VACATION' | 'UNSCHEDULED' | null;
   work_hours: number | null;
   overtime_hours: number | null;
+  unscheduled_reason?: string | null;
+  unscheduled_approved_at?: string | null;
 }
 
 interface EditModalData {
@@ -46,6 +48,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   ABSENT: { label: '결근', color: 'bg-red-100 text-red-800', icon: XCircle },
   NO_SHOW: { label: '미출근', color: 'bg-red-100 text-red-800', icon: XCircle },
   VACATION: { label: '휴가', color: 'bg-indigo-100 text-indigo-800', icon: Clock },
+  UNSCHEDULED: { label: '미배정 출근', color: 'bg-gray-100 text-gray-800', icon: AlertCircle },
 };
 
 export default function AttendancePage() {
@@ -67,6 +70,46 @@ export default function AttendancePage() {
     correction_reason: '',
   });
   const [saving, setSaving] = useState(false);
+  const [processingApproval, setProcessingApproval] = useState<string | null>(null);
+
+  // 미배정 출근 승인/거절 처리
+  const handleUnscheduledApproval = async (attendanceId: string, action: 'approve' | 'reject') => {
+    let rejectionReason = '';
+    if (action === 'reject') {
+      rejectionReason = prompt('거절 사유를 입력해주세요:') || '';
+      if (!rejectionReason) {
+        alert('거절 사유를 입력해주세요.');
+        return;
+      }
+    }
+
+    if (!confirm(action === 'approve' ? '미배정 출근을 승인하시겠습니까? 추가근무로 처리됩니다.' : '미배정 출근을 거절하시겠습니까?')) {
+      return;
+    }
+
+    setProcessingApproval(attendanceId);
+    try {
+      const response = await fetch(`/api/attendances/${attendanceId}/approve-unscheduled`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, rejectionReason }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(result.message);
+        fetchAttendances();
+      } else {
+        const error = await response.json();
+        alert(error.error || '처리에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Approval error:', error);
+      alert('처리 중 오류가 발생했습니다.');
+    } finally {
+      setProcessingApproval(null);
+    }
+  };
 
   const fetchStores = async () => {
     try {
@@ -365,13 +408,38 @@ export default function AttendancePage() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <button
-                          onClick={() => openEditModal(attendance)}
-                          className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-                        >
-                          <Edit3 className="w-4 h-4 mr-1" />
-                          수정
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {/* 미배정 출근인 경우 승인/거절 버튼 표시 */}
+                          {attendance.status === 'UNSCHEDULED' && !attendance.unscheduled_approved_at && (
+                            <>
+                              <button
+                                onClick={() => handleUnscheduledApproval(attendance.id, 'approve')}
+                                disabled={processingApproval === attendance.id}
+                                className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                                title="승인 (추가근무로 처리)"
+                              >
+                                <Check className="w-4 h-4 mr-0.5" />
+                                승인
+                              </button>
+                              <button
+                                onClick={() => handleUnscheduledApproval(attendance.id, 'reject')}
+                                disabled={processingApproval === attendance.id}
+                                className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                title="거절"
+                              >
+                                <Ban className="w-4 h-4 mr-0.5" />
+                                거절
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => openEditModal(attendance)}
+                            className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                          >
+                            <Edit3 className="w-4 h-4 mr-1" />
+                            수정
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -491,6 +559,7 @@ export default function AttendancePage() {
                   <option value="ABSENT">결근</option>
                   <option value="NO_SHOW">미출근</option>
                   <option value="VACATION">휴가</option>
+                  <option value="UNSCHEDULED">미배정 출근</option>
                 </select>
               </div>
 
