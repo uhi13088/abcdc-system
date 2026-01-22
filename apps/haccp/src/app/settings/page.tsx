@@ -1,24 +1,61 @@
 'use client';
 
-import { useState } from 'react';
-import { Save, Building2, Bell, Shield, Users, Clock, Database } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Save, Building2, Bell, Shield, Users, Clock, Database, RefreshCw, AlertCircle } from 'lucide-react';
+
+interface CompanySettings {
+  company_name: string;
+  business_number: string;
+  representative: string;
+  address: string;
+  phone: string;
+  haccp_certification_number: string;
+  certification_date: string;
+  certification_expiry: string;
+}
+
+interface NotificationSettings {
+  ccp_alert_enabled: boolean;
+  ccp_deviation_notification: boolean;
+  daily_report_enabled: boolean;
+  daily_report_time: string;
+  inspection_reminder: boolean;
+  inspection_reminder_hours: number;
+  training_reminder: boolean;
+  email_notifications: boolean;
+  notification_email: string;
+}
+
+interface HaccpSettings {
+  auto_logout_minutes: number;
+  require_photo_evidence: boolean;
+  allow_late_entry: boolean;
+  late_entry_hours: number;
+  require_corrective_action: boolean;
+  ccp_monitoring_interval: number;
+  temperature_unit: string;
+  record_retention_years: number;
+}
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'company' | 'notification' | 'haccp' | 'users'>('company');
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const [companySettings, setCompanySettings] = useState({
-    company_name: 'ABC 식품',
-    business_number: '123-45-67890',
-    representative: '홍길동',
-    address: '서울시 강남구 테헤란로 123',
-    phone: '02-1234-5678',
-    haccp_certification_number: 'HACCP-2024-001234',
-    certification_date: '2024-01-15',
-    certification_expiry: '2027-01-14',
+  const [companySettings, setCompanySettings] = useState<CompanySettings>({
+    company_name: '',
+    business_number: '',
+    representative: '',
+    address: '',
+    phone: '',
+    haccp_certification_number: '',
+    certification_date: '',
+    certification_expiry: '',
   });
 
-  const [notificationSettings, setNotificationSettings] = useState({
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     ccp_alert_enabled: true,
     ccp_deviation_notification: true,
     daily_report_enabled: true,
@@ -27,10 +64,10 @@ export default function SettingsPage() {
     inspection_reminder_hours: 2,
     training_reminder: true,
     email_notifications: true,
-    notification_email: 'haccp@abc-food.com',
+    notification_email: '',
   });
 
-  const [haccpSettings, setHaccpSettings] = useState({
+  const [haccpSettings, setHaccpSettings] = useState<HaccpSettings>({
     auto_logout_minutes: 30,
     require_photo_evidence: true,
     allow_late_entry: false,
@@ -41,12 +78,93 @@ export default function SettingsPage() {
     record_retention_years: 3,
   });
 
+  const fetchSettings = useCallback(async () => {
+    try {
+      setError(null);
+      const response = await fetch('/api/haccp/settings');
+      if (!response.ok) {
+        throw new Error('설정을 불러오는데 실패했습니다.');
+      }
+      const data = await response.json();
+
+      if (data.companySettings) {
+        setCompanySettings({
+          company_name: data.companySettings.company_name || '',
+          business_number: data.companySettings.business_number || '',
+          representative: data.companySettings.representative || '',
+          address: data.companySettings.address || '',
+          phone: data.companySettings.phone || '',
+          haccp_certification_number: data.companySettings.haccp_certification_number || '',
+          certification_date: data.companySettings.certification_date || '',
+          certification_expiry: data.companySettings.certification_expiry || '',
+        });
+      }
+
+      if (data.notificationSettings) {
+        setNotificationSettings({
+          ccp_alert_enabled: data.notificationSettings.ccp_alert_enabled ?? true,
+          ccp_deviation_notification: data.notificationSettings.ccp_deviation_notification ?? true,
+          daily_report_enabled: data.notificationSettings.daily_report_enabled ?? true,
+          daily_report_time: data.notificationSettings.daily_report_time || '18:00',
+          inspection_reminder: data.notificationSettings.inspection_reminder ?? true,
+          inspection_reminder_hours: data.notificationSettings.inspection_reminder_hours ?? 2,
+          training_reminder: data.notificationSettings.training_reminder ?? true,
+          email_notifications: data.notificationSettings.email_notifications ?? true,
+          notification_email: data.notificationSettings.notification_email || '',
+        });
+      }
+
+      if (data.haccpSettings) {
+        setHaccpSettings({
+          auto_logout_minutes: data.haccpSettings.auto_logout_minutes ?? 30,
+          require_photo_evidence: data.haccpSettings.require_photo_evidence ?? true,
+          allow_late_entry: data.haccpSettings.allow_late_entry ?? false,
+          late_entry_hours: data.haccpSettings.late_entry_hours ?? 24,
+          require_corrective_action: data.haccpSettings.require_corrective_action ?? true,
+          ccp_monitoring_interval: data.haccpSettings.ccp_monitoring_interval ?? 60,
+          temperature_unit: data.haccpSettings.temperature_unit || 'celsius',
+          record_retention_years: data.haccpSettings.record_retention_years ?? 3,
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '설정을 불러오는데 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
   const handleSave = async () => {
     setSaving(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setSaving(false);
-    alert('설정이 저장되었습니다.');
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await fetch('/api/haccp/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companySettings,
+          notificationSettings,
+          haccpSettings,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || '설정 저장에 실패했습니다.');
+      }
+
+      setSuccessMessage('설정이 저장되었습니다.');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '설정 저장에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const tabs = [
@@ -56,6 +174,16 @@ export default function SettingsPage() {
     { id: 'users', name: '사용자 관리', icon: Users },
   ] as const;
 
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -63,15 +191,38 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-bold text-gray-900">설정</h1>
           <p className="mt-1 text-sm text-gray-500">HACCP 시스템 설정을 관리합니다</p>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
-          <Save className="w-4 h-4" />
-          {saving ? '저장 중...' : '저장'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={fetchSettings}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border rounded-lg hover:bg-gray-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            새로고침
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? '저장 중...' : '저장'}
+          </button>
+        </div>
       </div>
+
+      {/* Error/Success Messages */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+          <AlertCircle className="w-5 h-5" />
+          {error}
+        </div>
+      )}
+      {successMessage && (
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+          {successMessage}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6 border-b">
@@ -306,7 +457,7 @@ export default function SettingsPage() {
                 <input
                   type="number"
                   value={haccpSettings.auto_logout_minutes}
-                  onChange={(e) => setHaccpSettings({ ...haccpSettings, auto_logout_minutes: parseInt(e.target.value) })}
+                  onChange={(e) => setHaccpSettings({ ...haccpSettings, auto_logout_minutes: parseInt(e.target.value) || 30 })}
                   className="w-full px-3 py-2 border rounded-lg"
                   min={5}
                   max={120}
