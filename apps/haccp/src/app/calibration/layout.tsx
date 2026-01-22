@@ -1,7 +1,9 @@
+import { AppLayout } from '@/components/layout/app-layout';
+
 export default function CalibrationLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <AppLayout>{children}</AppLayout>;
 }
