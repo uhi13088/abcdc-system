@@ -21,7 +21,7 @@ interface Subscription {
   id: string;
   companyId: string;
   companyName: string;
-  ownerName: string;
+  ceoName: string;
   userEmail: string;
   planId: string;
   planName: string;
@@ -77,7 +77,7 @@ export default function SubscriptionsPage() {
           id: s.id,
           companyId: s.company_id,
           companyName: s.companies?.name || '(회사 정보 없음)',
-          ownerName: s.companies?.ceo_name || '-',
+          ceoName: s.companies?.ceo_name || '-',
           userEmail: s.admin_user?.email || s.companies?.email || '-',
           planId: s.plan_id,
           planName: s.subscription_plans?.display_name || s.subscription_plans?.name || '무료',
@@ -115,7 +115,7 @@ export default function SubscriptionsPage() {
   const filteredSubscriptions = subscriptions.filter(sub => {
     const matchesSearch =
       sub.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sub.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sub.ceoName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sub.userEmail.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesPlan = filterPlan === 'all' || sub.planName === filterPlan;
     const matchesStatus = filterStatus === 'all' || sub.status === filterStatus;
@@ -337,7 +337,7 @@ export default function SubscriptionsPage() {
                 <tr key={sub.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-gray-900">{sub.userEmail}</div>
-                    <div className="text-xs text-gray-500">{sub.ownerName}</div>
+                    <div className="text-xs text-gray-500">{sub.ceoName}</div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900">{sub.companyName}</div>
