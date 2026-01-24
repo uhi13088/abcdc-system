@@ -23,8 +23,9 @@ import {
 import {
   Save, Building2, Bell, Shield, CreditCard, User, Link2,
   RefreshCw, Check, X, ExternalLink, Database, Zap, Info,
-  Factory, Coffee, Calculator
+  Factory, Coffee, Calculator, Loader2
 } from 'lucide-react';
+import Script from 'next/script';
 import { createClient } from '@/lib/supabase/client';
 
 function SettingsContent() {
@@ -88,6 +89,23 @@ function SettingsContent() {
     },
   });
 
+  // Payment method
+  const [paymentMethod, setPaymentMethod] = useState<{
+    id: string;
+    cardBrand: string;
+    cardLast4: string;
+  } | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [paymentHistory, setPaymentHistory] = useState<Array<{
+    id: string;
+    amount: number;
+    status: string;
+    statusText: string;
+    paidAt: string;
+    createdAt: string;
+  }>>([]);
+  const [showPaymentHistory, setShowPaymentHistory] = useState(false);
+
   // Subscription settings (실제 데이터)
   const [subscription, setSubscription] = useState<{
     planName: string;
@@ -132,7 +150,47 @@ function SettingsContent() {
     fetchSettings();
     fetchTaxAccountant();
     fetchLaborLaw();
-  }, []);
+    fetchPaymentMethod();
+
+    // Handle billing callback
+    const billing = searchParams.get('billing');
+    const billingMessage = searchParams.get('message');
+
+    if (billing === 'success') {
+      setMessage({ type: 'success', text: '결제 수단이 등록되었습니다.' });
+      fetchPaymentMethod(); // Refresh payment method
+      // Clean up URL
+      window.history.replaceState({}, '', '/settings?tab=subscription');
+    } else if (billing === 'error') {
+      setMessage({ type: 'error', text: billingMessage || '결제 수단 등록에 실패했습니다.' });
+      // Clean up URL
+      window.history.replaceState({}, '', '/settings?tab=subscription');
+    }
+  }, [searchParams]);
+
+  const fetchPaymentMethod = async () => {
+    try {
+      const response = await fetch('/api/billing');
+      if (response.ok) {
+        const data = await response.json();
+        setPaymentMethod(data.paymentMethod);
+      }
+    } catch (error) {
+      console.error('Error fetching payment method:', error);
+    }
+  };
+
+  const fetchPaymentHistory = async () => {
+    try {
+      const response = await fetch('/api/billing/payments?limit=10');
+      if (response.ok) {
+        const data = await response.json();
+        setPaymentHistory(data.payments || []);
+      }
+    } catch (error) {
+      console.error('Error fetching payment history:', error);
+    }
+  };
 
   const fetchLaborLaw = async () => {
     try {
@@ -426,14 +484,68 @@ function SettingsContent() {
       (subscription?.planTier === 'STARTER' && planTier === 'PRO');
 
     if (isUpgrade) {
+      // Check if payment method exists
+      if (!paymentMethod) {
+        const confirmed = confirm(
+          '결제 수단이 등록되어 있지 않습니다.\n\n' +
+          '결제 수단을 먼저 등록하시겠습니까?'
+        );
+        if (confirmed) {
+          handlePaymentMethodChange();
+        }
+        return;
+      }
+
       // For upgrades, show payment confirmation
+      const planPrices: Record<string, number> = {
+        STARTER: 39000,
+        PRO: 99000,
+      };
+
       const confirmed = confirm(
         `${planTier} 플랜으로 업그레이드하시겠습니까?\n\n` +
-        `결제가 진행됩니다. 계속하시려면 확인을 눌러주세요.`
+        `금액: ${planPrices[planTier]?.toLocaleString()}원/월\n` +
+        `결제 수단: ${paymentMethod.cardBrand} ${paymentMethod.cardLast4}\n\n` +
+        `계속하시려면 확인을 눌러주세요.`
       );
+
       if (confirmed) {
-        // TODO: Integrate with Toss Payments
-        alert('결제 시스템 연동 준비 중입니다.\n플랫폼 관리자에게 문의해주세요.');
+        setBillingLoading(true);
+        try {
+          // Get plan ID for the selected tier
+          const supabase = createClient();
+          const { data: plan } = await supabase
+            .from('subscription_plans')
+            .select('id')
+            .eq('name', planTier)
+            .single();
+
+          if (!plan) {
+            throw new Error('플랜 정보를 찾을 수 없습니다.');
+          }
+
+          const response = await fetch('/api/billing/payments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              planId: plan.id,
+              billingCycle: 'MONTHLY',
+            }),
+          });
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || '결제에 실패했습니다.');
+          }
+
+          setMessage({ type: 'success', text: '플랜이 업그레이드되었습니다.' });
+          fetchSettings(); // Refresh subscription info
+        } catch (error: any) {
+          setMessage({ type: 'error', text: error.message || '결제에 실패했습니다.' });
+        } finally {
+          setBillingLoading(false);
+        }
       }
     } else {
       // For downgrades
@@ -443,6 +555,7 @@ function SettingsContent() {
         `일부 기능이 제한될 수 있습니다.`
       );
       if (confirmed) {
+        // TODO: Implement downgrade API
         alert('다운그레이드 요청이 접수되었습니다.\n다음 결제일부터 적용됩니다.');
       }
     }
@@ -491,14 +604,43 @@ function SettingsContent() {
     }
   };
 
-  const handlePaymentMethodChange = () => {
-    // TODO: Integrate with Toss Payments billing key management
-    alert('결제 수단 변경 기능은 준비 중입니다.\n플랫폼 관리자에게 문의해주세요.');
+  const handlePaymentMethodChange = async () => {
+    setBillingLoading(true);
+    try {
+      // @ts-ignore - TossPayments SDK loaded via script
+      const tossPayments = window.TossPayments;
+      if (!tossPayments) {
+        alert('결제 시스템을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+        return;
+      }
+
+      const clientKey = process.env.NEXT_PUBLIC_TOSS_PAYMENTS_CLIENT_KEY;
+      if (!clientKey) {
+        alert('결제 시스템이 설정되지 않았습니다. 관리자에게 문의해주세요.');
+        return;
+      }
+
+      const payment = tossPayments(clientKey);
+      const customerKey = `cust_${Date.now()}`; // Temporary key, will be replaced in API
+
+      await payment.requestBillingAuth('카드', {
+        customerKey,
+        successUrl: `${window.location.origin}/api/billing/callback/success`,
+        failUrl: `${window.location.origin}/api/billing/callback/fail`,
+      });
+    } catch (error: any) {
+      if (error.code !== 'USER_CANCEL') {
+        console.error('Payment error:', error);
+        alert(error.message || '결제 수단 등록에 실패했습니다.');
+      }
+    } finally {
+      setBillingLoading(false);
+    }
   };
 
-  const handlePaymentHistory = () => {
-    // TODO: Show payment history modal or navigate to payment history page
-    alert('결제 내역 조회 기능은 준비 중입니다.');
+  const handlePaymentHistory = async () => {
+    await fetchPaymentHistory();
+    setShowPaymentHistory(true);
   };
 
   const handleSaveIntegration = async (provider: string) => {
@@ -552,6 +694,12 @@ function SettingsContent() {
 
   return (
     <div>
+      {/* TossPayments SDK */}
+      <Script
+        src="https://js.tosspayments.com/v1/payment"
+        strategy="afterInteractive"
+      />
+
       <Header title="설정" />
 
       <div className="p-6">
@@ -1162,15 +1310,108 @@ function SettingsContent() {
                       </p>
                     </Alert>
                   )}
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={handlePaymentMethodChange}>
-                      결제 수단 변경
-                    </Button>
+                  {/* 결제 수단 정보 */}
+                  <div className="border-t pt-4 mt-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">결제 수단</h4>
+                    {paymentMethod ? (
+                      <div className="flex items-center justify-between bg-white border rounded-lg p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-6 bg-gradient-to-r from-blue-600 to-blue-400 rounded flex items-center justify-center">
+                            <CreditCard className="w-4 h-4 text-white" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{paymentMethod.cardBrand}</p>
+                            <p className="text-sm text-gray-500">**** **** **** {paymentMethod.cardLast4}</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handlePaymentMethodChange}
+                          disabled={billingLoading}
+                        >
+                          {billingLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : '변경'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2">
+                          <Info className="w-4 h-4 text-yellow-600" />
+                          <p className="text-sm text-yellow-800">등록된 결제 수단이 없습니다.</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          onClick={handlePaymentMethodChange}
+                          disabled={billingLoading}
+                        >
+                          {billingLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
+                          결제 수단 등록
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 mt-4">
                     <Button variant="outline" size="sm" onClick={handlePaymentHistory}>
                       결제 내역
                     </Button>
                   </div>
                 </div>
+
+                {/* 결제 내역 모달 */}
+                {showPaymentHistory && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[80vh] overflow-hidden">
+                      <div className="flex items-center justify-between p-4 border-b">
+                        <h3 className="text-lg font-semibold">결제 내역</h3>
+                        <Button variant="ghost" size="sm" onClick={() => setShowPaymentHistory(false)}>
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <div className="p-4 overflow-y-auto max-h-[60vh]">
+                        {paymentHistory.length > 0 ? (
+                          <div className="space-y-3">
+                            {paymentHistory.map((payment) => (
+                              <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div>
+                                  <p className="font-medium">₩{payment.amount.toLocaleString()}</p>
+                                  <p className="text-sm text-gray-500">
+                                    {payment.paidAt
+                                      ? new Date(payment.paidAt).toLocaleDateString('ko-KR', {
+                                          year: 'numeric',
+                                          month: 'long',
+                                          day: 'numeric',
+                                        })
+                                      : new Date(payment.createdAt).toLocaleDateString('ko-KR', {
+                                          year: 'numeric',
+                                          month: 'long',
+                                          day: 'numeric',
+                                        })
+                                    }
+                                  </p>
+                                </div>
+                                <span className={`px-2 py-1 text-xs rounded-full ${
+                                  payment.status === 'DONE'
+                                    ? 'bg-green-100 text-green-800'
+                                    : payment.status === 'CANCELED'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {payment.statusText}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-gray-500">
+                            <CreditCard className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                            <p>결제 내역이 없습니다.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <h4 className="font-medium mb-4">플랜 선택</h4>
                 <div className="grid grid-cols-3 gap-4 mb-6">
