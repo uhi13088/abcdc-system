@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import crypto from 'crypto';
-import { logger } from '@abc/shared';
+import { logger, isRegistrationAllowed } from '@abc/shared';
 
 // 비밀번호 유효성 검사: 8자 이상, 특수문자 포함
 function validatePassword(password: string): { valid: boolean; message: string } {
@@ -75,6 +75,16 @@ function hashSSN(ssn: string): string {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if registration is allowed
+    const supabaseForCheck = createAdminClient();
+    const registrationCheck = await isRegistrationAllowed(supabaseForCheck);
+    if (!registrationCheck.allowed) {
+      return NextResponse.json(
+        { error: registrationCheck.reason },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const {
       email,

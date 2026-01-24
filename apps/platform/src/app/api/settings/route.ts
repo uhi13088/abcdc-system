@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { clearPlatformSettingsCache } from '@abc/shared';
 
 export const dynamic = 'force-dynamic';
 
@@ -113,6 +114,9 @@ export async function PUT(request: NextRequest) {
       if (error) throw error;
       result = data;
     }
+
+    // Clear cache so changes take effect immediately
+    clearPlatformSettingsCache();
 
     return NextResponse.json(result);
   } catch (error) {

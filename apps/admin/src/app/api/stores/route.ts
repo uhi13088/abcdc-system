@@ -1,6 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { CreateStoreSchema, logger } from '@abc/shared';
+import { CreateStoreSchema, logger, canAddStore } from '@abc/shared';
 
 // GET /api/stores - 매장 목록 조회
 export async function GET(request: NextRequest) {
@@ -119,6 +119,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: validation.error.errors[0].message },
         { status: 400 }
+      );
+    }
+
+    // Check store limit for the company
+    const storeLimitCheck = await canAddStore(adminClient, validation.data.companyId);
+    if (!storeLimitCheck.allowed) {
+      return NextResponse.json(
+        { error: storeLimitCheck.reason },
+        { status: 403 }
       );
     }
 
