@@ -232,7 +232,7 @@ function CompaniesContent() {
       </div>
 
       {/* Companies Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-lg shadow">
         {filteredCompanies.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             {searchTerm ? '검색 결과가 없습니다.' : '등록된 회사가 없습니다.'}

@@ -45,22 +45,34 @@ export async function GET() {
       monthlyGrowth.push({ month: monthStr, count });
     }
 
-    // Get plan distribution (with error handling)
+    // Get plan distribution and revenue (with error handling)
     const planCounts: Record<string, number> = { free: 0, starter: 0, pro: 0, enterprise: 0 };
+    let monthlyRevenue = 0;
+    const companyRevenues: Record<string, number> = {};
     try {
       const { data: subscriptions } = await adminClient
         .from('company_subscriptions')
-        .select('plan_id')
+        .select('plan_id, company_id, billing_cycle')
         .eq('status', 'ACTIVE');
 
       for (const sub of subscriptions || []) {
         const { data: plan } = await adminClient
           .from('subscription_plans')
-          .select('name')
+          .select('name, price')
           .eq('id', sub.plan_id)
           .maybeSingle();
         const tier = plan?.name?.toLowerCase() || 'free';
         planCounts[tier] = (planCounts[tier] || 0) + 1;
+
+        // Calculate monthly revenue
+        const price = plan?.price || 0;
+        const monthlyPrice = sub.billing_cycle === 'YEARLY' ? price / 12 : price;
+        monthlyRevenue += monthlyPrice;
+
+        // Track revenue by company
+        if (sub.company_id) {
+          companyRevenues[sub.company_id] = (companyRevenues[sub.company_id] || 0) + monthlyPrice;
+        }
       }
     } catch {
       // Subscription tables might not exist
@@ -126,7 +138,7 @@ export async function GET() {
         newCompanies: newCompaniesCount || 0,
         newUsers: newUsersCount || 0,
         mau: totalUsersCount || 0, // Simplified: using total users as MAU
-        monthlyRevenue: 0, // Would need billing data
+        monthlyRevenue,
       },
       companyGrowth: monthlyGrowth,
       planDistribution: Object.entries(planCounts).map(([plan, count]) => {
@@ -141,7 +153,7 @@ export async function GET() {
         name: c.name,
         users: c.users_count,
         stores: c.stores_count,
-        revenue: 0, // Would need billing data
+        revenue: companyRevenues[c.id] || 0,
       })),
     });
   } catch (error) {
