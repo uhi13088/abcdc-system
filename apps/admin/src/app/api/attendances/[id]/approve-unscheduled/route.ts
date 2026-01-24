@@ -91,11 +91,11 @@ export async function POST(
     const now = new Date().toISOString();
 
     if (action === 'approve') {
-      // 승인: 상태를 OVERTIME으로 변경
+      // 승인: 상태를 ADDITIONAL_WORK(추가근무)으로 변경
       const { error: updateError } = await supabase
         .from('attendances')
         .update({
-          status: 'OVERTIME',
+          status: 'ADDITIONAL_WORK',
           unscheduled_approved_at: now,
           unscheduled_approved_by: currentUser.id,
         })
@@ -136,7 +136,7 @@ export async function POST(
       return NextResponse.json({
         success: true,
         message: '미배정 출근이 승인되어 추가근무로 처리되었습니다.',
-        newStatus: 'OVERTIME',
+        newStatus: 'ADDITIONAL_WORK',
       });
     } else {
       // 거절: 상태 유지, 승인 거절 기록

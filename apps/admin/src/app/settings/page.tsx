@@ -205,7 +205,7 @@ function SettingsContent() {
           .from('company_subscriptions')
           .select('plan_id, status, current_period_end, haccp_addon_enabled, roasting_addon_enabled, subscription_plans(name)')
           .eq('company_id', userData.company_id)
-          .single();
+          .maybeSingle();
 
         // Get plan name from joined data
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

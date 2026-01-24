@@ -1,7 +1,9 @@
+import { AppLayout } from '@/components/layout/app-layout';
+
 export default function StorageInspectionsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <AppLayout>{children}</AppLayout>;
 }

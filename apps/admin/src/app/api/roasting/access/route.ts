@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       .from('company_subscriptions')
       .select('roasting_addon_enabled')
       .eq('company_id', userData.company_id)
-      .single();
+      .maybeSingle();
 
     const companyHasAddon = subscription?.roasting_addon_enabled || false;
 

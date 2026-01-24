@@ -26,7 +26,7 @@ function determineCheckOutStatus(
         };
       }
       // 지각 + 연장근무 → 지각 유지 (연장근무로 만회)
-      if (diffMinutes >= 120) {
+      if (diffMinutes >= 15) {
         return { status: 'LATE', isAbnormal: false, message: '' };
       }
     }
@@ -50,15 +50,16 @@ function determineCheckOutStatus(
     };
   }
 
-  // 2시간 이상 늦게 퇴근 = 연장근무
-  if (diffMinutes >= 120) {
+  // 15분 이상 늦게 퇴근 = 연장근무
+  if (diffMinutes >= 15) {
     const overtimeMinutes = Math.round(diffMinutes);
     const hours = Math.floor(overtimeMinutes / 60);
     const mins = overtimeMinutes % 60;
+    const timeDisplay = hours > 0 ? `${hours}시간 ${mins}분` : `${mins}분`;
     return {
       status: 'OVERTIME',
       isAbnormal: true,
-      message: `예정 시간보다 ${hours}시간 ${mins}분 연장 근무했습니다.`,
+      message: `예정 시간보다 ${timeDisplay} 연장 근무했습니다.`,
     };
   }
 
