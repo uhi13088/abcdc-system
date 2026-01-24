@@ -5,16 +5,6 @@
 
 const TOSS_PAYMENTS_API_URL = 'https://api.tosspayments.com/v1';
 
-interface PaymentRequest {
-  orderId: string;
-  amount: number;
-  orderName: string;
-  customerName?: string;
-  customerEmail?: string;
-  successUrl: string;
-  failUrl: string;
-}
-
 interface PaymentConfirmRequest {
   paymentKey: string;
   orderId: string;
@@ -35,6 +25,76 @@ interface SubscriptionPaymentRequest {
   amount: number;
   orderId: string;
   orderName: string;
+}
+
+// Response interfaces
+interface TossPaymentResponse {
+  mId: string;
+  version: string;
+  paymentKey: string;
+  status: string;
+  orderId: string;
+  orderName: string;
+  requestedAt: string;
+  approvedAt: string;
+  totalAmount: number;
+  balanceAmount: number;
+  method: string;
+  card?: {
+    amount: number;
+    issuerCode: string;
+    acquirerCode: string;
+    number: string;
+    cardType: string;
+    ownerType: string;
+    company?: string;
+  };
+  receipt?: {
+    url: string;
+  };
+}
+
+interface TossBillingKeyResponse {
+  mId: string;
+  customerKey: string;
+  authenticatedAt: string;
+  method: string;
+  billingKey: string;
+  card: {
+    issuerCode: string;
+    acquirerCode: string;
+    number: string;
+    cardType: string;
+    ownerType: string;
+  };
+}
+
+interface TossCancelResponse {
+  paymentKey: string;
+  orderId: string;
+  status: string;
+  cancels: Array<{
+    cancelAmount: number;
+    cancelReason: string;
+    canceledAt: string;
+    transactionKey: string;
+  }>;
+}
+
+interface TossCashReceiptResponse {
+  receiptKey: string;
+  orderId: string;
+  orderName: string;
+  type: 'INCOME' | 'EXPENDITURE';
+  issueNumber: string;
+  issueStatus: string;
+  amount: number;
+  taxFreeAmount: number;
+}
+
+interface TossErrorResponse {
+  code: string;
+  message: string;
 }
 
 export class TossPaymentsService {
@@ -58,7 +118,7 @@ export class TossPaymentsService {
    * 결제 승인 (일반결제)
    * 사용자가 결제 완료 후 successUrl로 리다이렉트되면 호출
    */
-  async confirmPayment(request: PaymentConfirmRequest): Promise<any> {
+  async confirmPayment(request: PaymentConfirmRequest): Promise<TossPaymentResponse> {
     const response = await fetch(`${TOSS_PAYMENTS_API_URL}/payments/confirm`, {
       method: 'POST',
       headers: {
@@ -73,7 +133,7 @@ export class TossPaymentsService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
+      const error: TossErrorResponse = await response.json();
       throw new Error(error.message || '결제 승인 실패');
     }
 
@@ -83,7 +143,7 @@ export class TossPaymentsService {
   /**
    * 결제 조회
    */
-  async getPayment(paymentKey: string): Promise<any> {
+  async getPayment(paymentKey: string): Promise<TossPaymentResponse> {
     const response = await fetch(
       `${TOSS_PAYMENTS_API_URL}/payments/${paymentKey}`,
       {
@@ -94,7 +154,7 @@ export class TossPaymentsService {
     );
 
     if (!response.ok) {
-      const error = await response.json();
+      const error: TossErrorResponse = await response.json();
       throw new Error(error.message || '결제 조회 실패');
     }
 
@@ -108,8 +168,8 @@ export class TossPaymentsService {
     paymentKey: string,
     cancelReason: string,
     cancelAmount?: number
-  ): Promise<any> {
-    const body: any = { cancelReason };
+  ): Promise<TossCancelResponse> {
+    const body: { cancelReason: string; cancelAmount?: number } = { cancelReason };
     if (cancelAmount) {
       body.cancelAmount = cancelAmount;
     }
@@ -127,7 +187,7 @@ export class TossPaymentsService {
     );
 
     if (!response.ok) {
-      const error = await response.json();
+      const error: TossErrorResponse = await response.json();
       throw new Error(error.message || '결제 취소 실패');
     }
 
@@ -137,7 +197,7 @@ export class TossPaymentsService {
   /**
    * 빌링키 발급 (자동결제/정기결제용)
    */
-  async issueBillingKey(request: BillingKeyRequest): Promise<any> {
+  async issueBillingKey(request: BillingKeyRequest): Promise<TossBillingKeyResponse> {
     const response = await fetch(
       `${TOSS_PAYMENTS_API_URL}/billing/authorizations/card`,
       {
@@ -157,7 +217,7 @@ export class TossPaymentsService {
     );
 
     if (!response.ok) {
-      const error = await response.json();
+      const error: TossErrorResponse = await response.json();
       throw new Error(error.message || '빌링키 발급 실패');
     }
 
@@ -167,7 +227,7 @@ export class TossPaymentsService {
   /**
    * 빌링키로 자동결제 실행
    */
-  async payWithBillingKey(request: SubscriptionPaymentRequest): Promise<any> {
+  async payWithBillingKey(request: SubscriptionPaymentRequest): Promise<TossPaymentResponse> {
     const response = await fetch(
       `${TOSS_PAYMENTS_API_URL}/billing/${request.billingKey}`,
       {
@@ -186,7 +246,7 @@ export class TossPaymentsService {
     );
 
     if (!response.ok) {
-      const error = await response.json();
+      const error: TossErrorResponse = await response.json();
       throw new Error(error.message || '자동결제 실패');
     }
 
@@ -200,7 +260,7 @@ export class TossPaymentsService {
     paymentKey: string,
     type: 'INCOME' | 'EXPENDITURE',
     registrationNumber: string
-  ): Promise<any> {
+  ): Promise<TossCashReceiptResponse> {
     const response = await fetch(
       `${TOSS_PAYMENTS_API_URL}/payments/${paymentKey}/cash-receipt`,
       {
@@ -217,7 +277,7 @@ export class TossPaymentsService {
     );
 
     if (!response.ok) {
-      const error = await response.json();
+      const error: TossErrorResponse = await response.json();
       throw new Error(error.message || '현금영수증 발급 실패');
     }
 
@@ -235,7 +295,7 @@ export class TossPaymentsService {
       accountNumber: string;
       holderName: string;
     }
-  ): Promise<any> {
+  ): Promise<TossCancelResponse> {
     const response = await fetch(
       `${TOSS_PAYMENTS_API_URL}/payments/${paymentKey}/cancel`,
       {
@@ -252,7 +312,7 @@ export class TossPaymentsService {
     );
 
     if (!response.ok) {
-      const error = await response.json();
+      const error: TossErrorResponse = await response.json();
       throw new Error(error.message || '가상계좌 환불 실패');
     }
 

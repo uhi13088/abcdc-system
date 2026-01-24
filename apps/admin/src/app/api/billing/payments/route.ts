@@ -9,6 +9,18 @@ import {
 
 const TOSS_SECRET_KEY = process.env.TOSS_PAYMENTS_SECRET_KEY || '';
 
+interface PaymentRecord {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  payment_type: string;
+  paid_at: string | null;
+  created_at: string;
+  receipt_url: string | null;
+  error_message: string | null;
+}
+
 /**
  * GET /api/billing/payments
  * 결제 내역 조회
@@ -47,7 +59,7 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1);
 
     return NextResponse.json({
-      payments: payments?.map((p) => ({
+      payments: payments?.map((p: PaymentRecord) => ({
         id: p.id,
         amount: p.amount,
         currency: p.currency,
