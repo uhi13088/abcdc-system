@@ -36,7 +36,11 @@ export async function GET(
 
     if (error) throw error;
 
-    return NextResponse.json(data);
+    // Map ceo_name to owner_name for frontend consistency
+    return NextResponse.json({
+      ...data,
+      owner_name: data.ceo_name || null,
+    });
   } catch (error) {
     console.error('Error fetching company:', error);
     return NextResponse.json(

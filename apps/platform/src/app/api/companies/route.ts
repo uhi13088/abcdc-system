@@ -71,7 +71,7 @@ export async function GET() {
 
         return {
           ...company,
-          owner_name: company.ceo_name || company.owner_name || null,
+          owner_name: company.ceo_name || null,
           stores_count: storesResult.count || 0,
           users_count: usersResult.count || 0,
           plan: planTier,

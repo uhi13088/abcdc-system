@@ -72,7 +72,7 @@ export default function SubscriptionsPage() {
           id: s.id,
           companyId: s.company_id,
           companyName: s.companies?.name || '(회사 정보 없음)',
-          ownerName: s.companies?.ceo_name || s.companies?.owner_name || '-',
+          ownerName: s.companies?.ceo_name || '-',
           userEmail: s.admin_user?.email || s.companies?.email || '-',
           planId: s.plan_id,
           planName: s.subscription_plans?.display_name || s.subscription_plans?.name || '무료',

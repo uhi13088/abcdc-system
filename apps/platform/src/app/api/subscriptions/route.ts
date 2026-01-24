@@ -50,7 +50,7 @@ export async function GET() {
       subscriptions = await Promise.all(
         (data || []).map(async (sub) => {
           const [companyResult, planResult, adminUserResult] = await Promise.all([
-            adminClient.from('companies').select('id, name, email, ceo_name, owner_name').eq('id', sub.company_id).maybeSingle(),
+            adminClient.from('companies').select('id, name, email, ceo_name').eq('id', sub.company_id).maybeSingle(),
             adminClient.from('subscription_plans').select('id, name, display_name, price_monthly').eq('id', sub.plan_id).maybeSingle(),
             adminClient.from('users').select('email, name').eq('company_id', sub.company_id).eq('role', 'company_admin').maybeSingle(),
           ]);
