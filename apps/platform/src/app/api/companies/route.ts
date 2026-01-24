@@ -71,6 +71,7 @@ export async function GET() {
 
         return {
           ...company,
+          owner_name: company.ceo_name || company.owner_name || null,
           stores_count: storesResult.count || 0,
           users_count: usersResult.count || 0,
           plan: planTier,
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
       .insert([{
         name: body.name,
         business_number: body.business_number,
-        owner_name: body.owner_name,
+        ceo_name: body.owner_name,
         email: body.email,
         phone: body.phone,
         address: body.address,

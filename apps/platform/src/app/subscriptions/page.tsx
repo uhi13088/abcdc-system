@@ -21,6 +21,8 @@ interface Subscription {
   id: string;
   companyId: string;
   companyName: string;
+  ownerName: string;
+  userEmail: string;
   planId: string;
   planName: string;
   status: 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'TRIAL';
@@ -36,6 +38,8 @@ export default function SubscriptionsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'plans' | 'subscriptions'>('plans');
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterPlan, setFilterPlan] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
   const [isEditPlanOpen, setIsEditPlanOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
 
@@ -68,6 +72,8 @@ export default function SubscriptionsPage() {
           id: s.id,
           companyId: s.company_id,
           companyName: s.companies?.name || '(회사 정보 없음)',
+          ownerName: s.companies?.ceo_name || s.companies?.owner_name || '-',
+          userEmail: s.admin_user?.email || s.companies?.email || '-',
           planId: s.plan_id,
           planName: s.subscription_plans?.display_name || s.subscription_plans?.name || '무료',
           status: s.status || 'ACTIVE',
@@ -99,9 +105,15 @@ export default function SubscriptionsPage() {
     );
   };
 
-  const filteredSubscriptions = subscriptions.filter(
-    sub => sub.companyName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredSubscriptions = subscriptions.filter(sub => {
+    const matchesSearch =
+      sub.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sub.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sub.userEmail.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesPlan = filterPlan === 'all' || sub.planName === filterPlan;
+    const matchesStatus = filterStatus === 'all' || sub.status === filterStatus;
+    return matchesSearch && matchesPlan && matchesStatus;
+  });
 
   // 통계 계산
   const totalMRR = subscriptions
@@ -263,24 +275,51 @@ export default function SubscriptionsPage() {
       {/* 구독 목록 탭 */}
       {activeTab === 'subscriptions' && (
         <div className="bg-white rounded-xl shadow-sm border">
-          <div className="p-4 border-b">
+          <div className="p-4 border-b space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="회사명으로 검색..."
+                placeholder="이메일, 대표자명, 회사명으로 검색..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            <div className="flex gap-3">
+              <select
+                value={filterPlan}
+                onChange={(e) => setFilterPlan(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">모든 플랜</option>
+                {plans.map(p => (
+                  <option key={p.id} value={p.displayName}>{p.displayName}</option>
+                ))}
+              </select>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">모든 상태</option>
+                <option value="ACTIVE">활성</option>
+                <option value="PAST_DUE">결제 지연</option>
+                <option value="CANCELED">취소됨</option>
+                <option value="TRIAL">체험</option>
+              </select>
+              <span className="text-sm text-gray-500 self-center ml-auto">
+                {filteredSubscriptions.length}개 결과
+              </span>
+            </div>
           </div>
           <table className="min-w-full">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">이메일</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">대표자</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">회사</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">플랜</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">결제 주기</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">금액</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">다음 결제일</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
@@ -290,15 +329,18 @@ export default function SubscriptionsPage() {
               {filteredSubscriptions.map(sub => (
                 <tr key={sub.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
-                    <div className="font-medium text-gray-900">{sub.companyName}</div>
+                    <div className="text-sm text-gray-900">{sub.userEmail}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-900">{sub.ownerName}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-600">{sub.companyName}</div>
                   </td>
                   <td className="px-6 py-4">
                     <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded">
                       {sub.planName}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {sub.billingCycle === 'MONTHLY' ? '월간' : '연간'}
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
                     {sub.amount === 0 ? '-' : `${sub.amount.toLocaleString()}원`}
