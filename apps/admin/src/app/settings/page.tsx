@@ -22,7 +22,7 @@ import {
 } from '@/components/ui';
 import {
   Save, Building2, Bell, Shield, CreditCard, User, Link2,
-  RefreshCw, Check, X, ExternalLink, Database, Zap, Info,
+  RefreshCw, Check, X, Database, Zap, Info,
   Factory, Coffee, Calculator, Loader2
 } from 'lucide-react';
 import Script from 'next/script';
@@ -607,7 +607,7 @@ function SettingsContent() {
   const handlePaymentMethodChange = async () => {
     setBillingLoading(true);
     try {
-      // @ts-ignore - TossPayments SDK loaded via script
+      // @ts-expect-error - TossPayments SDK loaded via script
       const tossPayments = window.TossPayments;
       if (!tossPayments) {
         alert('결제 시스템을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
@@ -643,6 +643,7 @@ function SettingsContent() {
     setShowPaymentHistory(true);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleSaveIntegration = async (provider: string) => {
     setLoading(true);
     setMessage({ type: '', text: '' });

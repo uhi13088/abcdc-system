@@ -5,7 +5,6 @@ import {
   cancelPayment,
   generateOrderId,
   getPaymentStatusText,
-  getCardIssuerName,
 } from '@abc/shared/server';
 
 const TOSS_SECRET_KEY = process.env.TOSS_PAYMENTS_SECRET_KEY || '';

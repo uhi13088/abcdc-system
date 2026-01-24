@@ -53,6 +53,9 @@ interface PaymentResponse {
   suppliedAmount: number;
   vat: number;
   method: string;
+  receipt?: {
+    url: string;
+  };
 }
 
 interface CancelResponse {
