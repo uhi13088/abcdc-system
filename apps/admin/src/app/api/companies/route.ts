@@ -78,9 +78,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Convert camelCase to snake_case for DB
+    const dbData = {
+      name: validation.data.name,
+      business_number: validation.data.businessNumber,
+      ceo_name: validation.data.ceoName,
+      address: validation.data.address,
+      phone: validation.data.phone,
+      status: 'ACTIVE',
+    };
+
     const { data, error } = await supabase
       .from('companies')
-      .insert(validation.data)
+      .insert(dbData)
       .select()
       .single();
 

@@ -46,17 +46,19 @@ export async function GET() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Get company and plan info separately
+      // Get company, plan, and admin user info separately
       subscriptions = await Promise.all(
         (data || []).map(async (sub) => {
-          const [companyResult, planResult] = await Promise.all([
-            adminClient.from('companies').select('id, name, email').eq('id', sub.company_id).maybeSingle(),
+          const [companyResult, planResult, adminUserResult] = await Promise.all([
+            adminClient.from('companies').select('id, name, email, ceo_name').eq('id', sub.company_id).maybeSingle(),
             adminClient.from('subscription_plans').select('id, name, display_name, price_monthly').eq('id', sub.plan_id).maybeSingle(),
+            adminClient.from('users').select('email, name').eq('company_id', sub.company_id).eq('role', 'company_admin').maybeSingle(),
           ]);
           return {
             ...sub,
             companies: companyResult.data,
             subscription_plans: planResult.data,
+            admin_user: adminUserResult.data,
           };
         })
       );

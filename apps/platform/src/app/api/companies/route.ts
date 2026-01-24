@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
       .insert([{
         name: body.name,
         business_number: body.business_number,
-        owner_name: body.owner_name,
+        ceo_name: body.ceo_name,
         email: body.email,
         phone: body.phone,
         address: body.address,
