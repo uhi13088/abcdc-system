@@ -36,11 +36,7 @@ export async function GET(
 
     if (error) throw error;
 
-    // Map ceo_name to owner_name for frontend consistency
-    return NextResponse.json({
-      ...data,
-      owner_name: data.ceo_name || null,
-    });
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching company:', error);
     return NextResponse.json(
@@ -82,7 +78,7 @@ export async function PUT(
       .update({
         name: body.name,
         business_number: body.business_number,
-        ceo_name: body.owner_name,
+        ceo_name: body.ceo_name,
         email: body.email,
         phone: body.phone,
         address: body.address,

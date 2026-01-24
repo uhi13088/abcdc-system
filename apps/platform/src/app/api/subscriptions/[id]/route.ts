@@ -5,9 +5,10 @@ export const dynamic = 'force-dynamic';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const supabase = await createClient();
     const adminClient = createAdminClient();
 
@@ -31,13 +32,13 @@ export async function PUT(
     const { data, error } = await adminClient
       .from('subscription_plans')
       .update({
-        name: body.displayName,
-        price: body.priceMonthly,
+        display_name: body.displayName,
+        price_monthly: body.priceMonthly,
         max_employees: body.maxEmployees,
         max_stores: body.maxStores,
         features: body.features,
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 

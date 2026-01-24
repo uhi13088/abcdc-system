@@ -12,7 +12,7 @@ interface Company {
   id: string;
   name: string;
   business_number: string;
-  owner_name: string;
+  ceo_name: string;
   email: string;
   phone: string;
   address?: string;
@@ -26,7 +26,7 @@ interface Company {
 interface FormData {
   name: string;
   business_number: string;
-  owner_name: string;
+  ceo_name: string;
   email: string;
   phone: string;
   address: string;
@@ -35,7 +35,7 @@ interface FormData {
 const initialFormData: FormData = {
   name: '',
   business_number: '',
-  owner_name: '',
+  ceo_name: '',
   email: '',
   phone: '',
   address: '',
@@ -121,7 +121,7 @@ function CompaniesContent() {
     setFormData({
       name: company.name,
       business_number: company.business_number || '',
-      owner_name: company.owner_name || '',
+      ceo_name: company.ceo_name || '',
       email: company.email || '',
       phone: company.phone || '',
       address: company.address || '',
@@ -191,7 +191,7 @@ function CompaniesContent() {
   const filteredCompanies = companies.filter(
     (company) =>
       company.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      company.owner_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      company.ceo_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       company.business_number?.includes(searchTerm)
   );
 
@@ -278,7 +278,7 @@ function CompaniesContent() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{company.owner_name || '-'}</div>
+                    <div className="text-sm text-gray-900">{company.ceo_name || '-'}</div>
                     <div className="text-sm text-gray-500">{company.email || '-'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -384,8 +384,8 @@ function CompaniesContent() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">대표자명</label>
                 <input
                   type="text"
-                  value={formData.owner_name}
-                  onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
+                  value={formData.ceo_name}
+                  onChange={(e) => setFormData({ ...formData, ceo_name: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>

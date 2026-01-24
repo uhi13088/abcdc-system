@@ -104,7 +104,7 @@ function SettingsContent() {
     roastingAddonEnabled: boolean;
   } | null>(null);
 
-  // Labor law settings
+  // Labor law settings (using actual DB column names)
   const [laborLaw, setLaborLaw] = useState<{
     active: {
       version: string;
@@ -117,8 +117,8 @@ function SettingsContent() {
       health_insurance_rate: number;
       long_term_care_rate: number;
       employment_insurance_rate: number;
-      weekly_work_hours?: number;
-      daily_work_hours?: number;
+      standard_weekly_hours?: number;
+      standard_daily_hours?: number;
     };
     previous: {
       version: string;
@@ -976,11 +976,11 @@ function SettingsContent() {
                         </div>
                         <div className="bg-gray-50 rounded-lg p-4">
                           <p className="text-xs text-gray-500 mb-1">1일 소정근로시간</p>
-                          <p className="text-xl font-bold text-gray-900">{laborLaw.active.daily_work_hours || 8}시간</p>
+                          <p className="text-xl font-bold text-gray-900">{laborLaw.active.standard_daily_hours || 8}시간</p>
                         </div>
                         <div className="bg-gray-50 rounded-lg p-4">
                           <p className="text-xs text-gray-500 mb-1">주 소정근로시간</p>
-                          <p className="text-xl font-bold text-gray-900">{laborLaw.active.weekly_work_hours || 40}시간</p>
+                          <p className="text-xl font-bold text-gray-900">{laborLaw.active.standard_weekly_hours || 40}시간</p>
                         </div>
                         <div className="bg-gray-50 rounded-lg p-4">
                           <p className="text-xs text-gray-500 mb-1">연장근로 할증</p>

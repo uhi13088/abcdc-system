@@ -39,7 +39,7 @@ export async function GET() {
       console.error('Error fetching previous labor law:', prevError);
     }
 
-    // Default values for 2026 if no data found
+    // Default values for 2026 if no data found (using actual DB column names)
     const defaultActiveLaw = {
       id: 'default',
       version: '2026.01',
@@ -52,8 +52,8 @@ export async function GET() {
       health_insurance_rate: 3.545,
       long_term_care_rate: 12.81,
       employment_insurance_rate: 0.9,
-      weekly_work_hours: 40,
-      daily_work_hours: 8,
+      standard_weekly_hours: 40,
+      standard_daily_hours: 8,
       status: 'ACTIVE',
     };
 
@@ -63,18 +63,13 @@ export async function GET() {
       minimum_wage_hourly: 9860,
       health_insurance_rate: 3.495,
       long_term_care_rate: 12.27,
+      standard_weekly_hours: 40,
+      standard_daily_hours: 8,
     };
 
-    // Map DB column names to frontend expected names
-    const mapLawData = (law: Record<string, unknown>) => ({
-      ...law,
-      daily_work_hours: law.standard_daily_hours || law.daily_work_hours || 8,
-      weekly_work_hours: law.standard_weekly_hours || law.weekly_work_hours || 40,
-    });
-
     return NextResponse.json({
-      active: activeLaw ? mapLawData(activeLaw) : defaultActiveLaw,
-      previous: previousLaw ? mapLawData(previousLaw) : defaultPreviousLaw,
+      active: activeLaw || defaultActiveLaw,
+      previous: previousLaw || defaultPreviousLaw,
     });
   } catch (error) {
     console.error('Error fetching labor law:', error);
