@@ -86,6 +86,33 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
+  // Check maintenance mode (skip for maintenance page itself)
+  if (user && !request.nextUrl.pathname.startsWith('/maintenance')) {
+    try {
+      // Get user role
+      const { data: userData } = await supabase
+        .from('users')
+        .select('role')
+        .eq('auth_id', user.id)
+        .single();
+
+      // Only check maintenance mode for non-super_admin users
+      if (userData?.role !== 'super_admin') {
+        // Check if maintenance mode is enabled
+        const { data: settings } = await supabase
+          .from('platform_settings')
+          .select('maintenance_mode')
+          .single();
+
+        if (settings?.maintenance_mode) {
+          return NextResponse.redirect(new URL('/maintenance', request.url));
+        }
+      }
+    } catch {
+      // Ignore errors - continue if platform_settings table doesn't exist
+    }
+  }
+
   return response;
 }
 

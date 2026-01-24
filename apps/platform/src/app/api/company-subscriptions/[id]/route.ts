@@ -88,8 +88,18 @@ export async function PUT(
     if (body.billing_cycle !== undefined) {
       updateData.billing_cycle = body.billing_cycle;
     }
+    // Handle current_period_end - can be null for FREE plans
     if (body.current_period_end !== undefined) {
-      updateData.current_period_end = body.current_period_end;
+      if (body.current_period_end === null || body.current_period_end === '') {
+        // FREE plan - no expiration
+        updateData.current_period_end = null;
+        updateData.current_period_start = null;
+      } else {
+        // Paid plan - set expiration and start date
+        updateData.current_period_end = body.current_period_end;
+        // Set current_period_start to today if not already set
+        updateData.current_period_start = new Date().toISOString().split('T')[0];
+      }
     }
     if (body.cancel_at_period_end !== undefined) {
       updateData.cancel_at_period_end = body.cancel_at_period_end;

@@ -1,6 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { CreateUserSchema } from '@abc/shared';
+import { CreateUserSchema, canAddUser } from '@abc/shared';
 
 // GET /api/users - 직원 목록 조회
 export async function GET(request: NextRequest) {
@@ -139,6 +139,18 @@ export async function POST(request: NextRequest) {
         { error: validation.error.errors[0].message },
         { status: 400 }
       );
+    }
+
+    // Check user limit for the company
+    const companyId = validation.data.companyId || currentUser?.company_id;
+    if (companyId) {
+      const userLimitCheck = await canAddUser(adminClient, companyId);
+      if (!userLimitCheck.allowed) {
+        return NextResponse.json(
+          { error: userLimitCheck.reason },
+          { status: 403 }
+        );
+      }
     }
 
     // Create auth user first (requires admin client with service role)

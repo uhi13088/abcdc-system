@@ -417,6 +417,90 @@ function SettingsContent() {
     }
   };
 
+  // Subscription management handlers
+  const handlePlanChange = async (planTier: string) => {
+    if (subscription?.planTier === planTier) return;
+
+    const isUpgrade =
+      (subscription?.planTier === 'FREE' && (planTier === 'STARTER' || planTier === 'PRO')) ||
+      (subscription?.planTier === 'STARTER' && planTier === 'PRO');
+
+    if (isUpgrade) {
+      // For upgrades, show payment confirmation
+      const confirmed = confirm(
+        `${planTier} 플랜으로 업그레이드하시겠습니까?\n\n` +
+        `결제가 진행됩니다. 계속하시려면 확인을 눌러주세요.`
+      );
+      if (confirmed) {
+        // TODO: Integrate with Toss Payments
+        alert('결제 시스템 연동 준비 중입니다.\n플랫폼 관리자에게 문의해주세요.');
+      }
+    } else {
+      // For downgrades
+      const confirmed = confirm(
+        `${planTier} 플랜으로 다운그레이드하시겠습니까?\n\n` +
+        `현재 결제 기간이 끝나면 ${planTier} 플랜으로 변경됩니다.\n` +
+        `일부 기능이 제한될 수 있습니다.`
+      );
+      if (confirmed) {
+        alert('다운그레이드 요청이 접수되었습니다.\n다음 결제일부터 적용됩니다.');
+      }
+    }
+  };
+
+  const handleAddonToggle = async (addon: 'haccp' | 'roasting') => {
+    const addonName = addon === 'haccp' ? 'HACCP 시스템' : '로스팅 시스템';
+    const isEnabled = addon === 'haccp'
+      ? subscription?.haccpAddonEnabled
+      : subscription?.roastingAddonEnabled;
+
+    if (isEnabled) {
+      // Disable addon
+      const confirmed = confirm(
+        `${addonName} 애드온을 해제하시겠습니까?\n\n` +
+        `현재 결제 기간이 끝나면 해당 기능이 비활성화됩니다.`
+      );
+      if (confirmed) {
+        alert('애드온 해제가 접수되었습니다.\n다음 결제일부터 적용됩니다.');
+      }
+    } else {
+      // Enable addon
+      const confirmed = confirm(
+        `${addonName} 애드온을 추가하시겠습니까?\n\n` +
+        `월 99,000원이 추가됩니다.\n계속하시려면 확인을 눌러주세요.`
+      );
+      if (confirmed) {
+        // TODO: Integrate with Toss Payments
+        alert('결제 시스템 연동 준비 중입니다.\n플랫폼 관리자에게 문의해주세요.');
+      }
+    }
+  };
+
+  const handleCancelSubscription = () => {
+    if (subscription?.planTier === 'FREE') return;
+
+    const confirmed = confirm(
+      '정말로 구독을 취소하시겠습니까?\n\n' +
+      '현재 결제 기간이 끝나면 FREE 플랜으로 전환됩니다.\n' +
+      '• 직원 제한: 5명\n' +
+      '• 매장 제한: 1개\n' +
+      '• 일부 기능 제한'
+    );
+    if (confirmed) {
+      alert('구독 취소가 접수되었습니다.\n다음 결제일부터 FREE 플랜으로 전환됩니다.');
+    }
+  };
+
+  const handlePaymentMethodChange = () => {
+    // TODO: Integrate with Toss Payments billing key management
+    alert('결제 수단 변경 기능은 준비 중입니다.\n플랫폼 관리자에게 문의해주세요.');
+  };
+
+  const handlePaymentHistory = () => {
+    // TODO: Show payment history modal or navigate to payment history page
+    alert('결제 내역 조회 기능은 준비 중입니다.');
+  };
+
   const handleSaveIntegration = async (provider: string) => {
     setLoading(true);
     setMessage({ type: '', text: '' });
@@ -1079,10 +1163,10 @@ function SettingsContent() {
                     </Alert>
                   )}
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={handlePaymentMethodChange}>
                       결제 수단 변경
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={handlePaymentHistory}>
                       결제 내역
                     </Button>
                   </div>
@@ -1090,7 +1174,10 @@ function SettingsContent() {
 
                 <h4 className="font-medium mb-4">플랜 선택</h4>
                 <div className="grid grid-cols-3 gap-4 mb-6">
-                  <Card className={`border-2 cursor-pointer transition-colors ${subscription?.planTier === 'FREE' ? 'border-primary' : 'hover:border-gray-300'}`}>
+                  <Card
+                    className={`border-2 cursor-pointer transition-colors ${subscription?.planTier === 'FREE' ? 'border-primary' : 'hover:border-gray-300'}`}
+                    onClick={() => handlePlanChange('FREE')}
+                  >
                     <CardContent className="pt-6 text-center">
                       <h4 className={`font-semibold ${subscription?.planTier === 'FREE' ? 'text-primary' : ''}`}>FREE</h4>
                       <p className="text-2xl font-bold mt-2">무료</p>
@@ -1100,12 +1187,16 @@ function SettingsContent() {
                         size="sm"
                         className="mt-4 w-full"
                         disabled={subscription?.planTier === 'FREE'}
+                        onClick={(e) => { e.stopPropagation(); handlePlanChange('FREE'); }}
                       >
                         {subscription?.planTier === 'FREE' ? '현재 플랜' : '다운그레이드'}
                       </Button>
                     </CardContent>
                   </Card>
-                  <Card className={`border-2 cursor-pointer transition-colors ${subscription?.planTier === 'STARTER' ? 'border-primary' : 'hover:border-gray-300'}`}>
+                  <Card
+                    className={`border-2 cursor-pointer transition-colors ${subscription?.planTier === 'STARTER' ? 'border-primary' : 'hover:border-gray-300'}`}
+                    onClick={() => handlePlanChange('STARTER')}
+                  >
                     <CardContent className="pt-6 text-center">
                       <h4 className={`font-semibold ${subscription?.planTier === 'STARTER' ? 'text-primary' : ''}`}>STARTER</h4>
                       <p className="text-2xl font-bold mt-2">₩39,000</p>
@@ -1115,13 +1206,17 @@ function SettingsContent() {
                         size="sm"
                         className="mt-4 w-full"
                         disabled={subscription?.planTier === 'STARTER'}
+                        onClick={(e) => { e.stopPropagation(); handlePlanChange('STARTER'); }}
                       >
                         {subscription?.planTier === 'STARTER' ? '현재 플랜' :
                          subscription?.planTier === 'PRO' ? '다운그레이드' : '업그레이드'}
                       </Button>
                     </CardContent>
                   </Card>
-                  <Card className={`border-2 cursor-pointer transition-colors ${subscription?.planTier === 'PRO' ? 'border-primary' : 'hover:border-gray-300'}`}>
+                  <Card
+                    className={`border-2 cursor-pointer transition-colors ${subscription?.planTier === 'PRO' ? 'border-primary' : 'hover:border-gray-300'}`}
+                    onClick={() => handlePlanChange('PRO')}
+                  >
                     <CardContent className="pt-6 text-center">
                       <h4 className={`font-semibold ${subscription?.planTier === 'PRO' ? 'text-primary' : ''}`}>PRO</h4>
                       <p className="text-2xl font-bold mt-2">₩99,000</p>
@@ -1131,6 +1226,7 @@ function SettingsContent() {
                         size="sm"
                         className="mt-4 w-full"
                         disabled={subscription?.planTier === 'PRO'}
+                        onClick={(e) => { e.stopPropagation(); handlePlanChange('PRO'); }}
                       >
                         {subscription?.planTier === 'PRO' ? '현재 플랜' : '업그레이드'}
                       </Button>
@@ -1167,6 +1263,7 @@ function SettingsContent() {
                               size="sm"
                               variant={subscription?.haccpAddonEnabled ? 'outline' : 'default'}
                               className="mt-3 w-full"
+                              onClick={() => handleAddonToggle('haccp')}
                             >
                               {subscription?.haccpAddonEnabled ? '관리' : '추가하기'}
                             </Button>
@@ -1197,6 +1294,7 @@ function SettingsContent() {
                               size="sm"
                               variant={subscription?.roastingAddonEnabled ? 'outline' : 'default'}
                               className="mt-3 w-full"
+                              onClick={() => handleAddonToggle('roasting')}
                             >
                               {subscription?.roastingAddonEnabled ? '관리' : '추가하기'}
                             </Button>
@@ -1213,7 +1311,12 @@ function SettingsContent() {
                     구독을 취소하면 다음 결제일부터 FREE 플랜으로 전환됩니다.
                     현재 결제 기간이 끝날 때까지 {subscription?.planTier || 'PRO'} 기능을 계속 사용할 수 있습니다.
                   </p>
-                  <Button variant="destructive" size="sm" disabled={subscription?.planTier === 'FREE'}>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={subscription?.planTier === 'FREE'}
+                    onClick={handleCancelSubscription}
+                  >
                     {subscription?.planTier === 'FREE' ? '무료 플랜 사용중' : '구독 취소'}
                   </Button>
                 </div>
