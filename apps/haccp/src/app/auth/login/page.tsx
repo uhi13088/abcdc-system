@@ -76,7 +76,7 @@ export default function LoginPage() {
         .from('company_subscriptions')
         .select('haccp_addon_enabled')
         .eq('company_id', userData.company_id)
-        .single();
+        .maybeSingle();
 
       if (!subscription?.haccp_addon_enabled) {
         setError('HACCP 애드온이 활성화되지 않았습니다. 관리자에게 문의하세요.');

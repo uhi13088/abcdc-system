@@ -53,7 +53,7 @@ export async function hasRoastingAccess(
       .from('company_subscriptions')
       .select('roasting_addon_enabled')
       .eq('company_id', user.company_id)
-      .single();
+      .maybeSingle();
 
     // 1. 회사가 로스팅 애드온 구독 중인지 확인
     const companyHasAddon = subscription?.roasting_addon_enabled || false;
@@ -106,7 +106,7 @@ export async function hasHaccpAccess(
       .from('company_subscriptions')
       .select('haccp_addon_enabled')
       .eq('company_id', user.company_id)
-      .single();
+      .maybeSingle();
 
     // 1. 회사가 HACCP 애드온 구독 중인지 확인
     const companyHasAddon = subscription?.haccp_addon_enabled || false;
@@ -162,7 +162,7 @@ export async function checkAddonAccess(
       .from('company_subscriptions')
       .select('haccp_addon_enabled, roasting_addon_enabled')
       .eq('company_id', user.company_id)
-      .single();
+      .maybeSingle();
 
     const companyHasHaccp = subscription?.haccp_addon_enabled || false;
     const companyHasRoasting = subscription?.roasting_addon_enabled || false;

@@ -196,6 +196,30 @@ export async function POST(request: NextRequest) {
           console.error('Company creation error:', companyError);
         } else {
           companyId = newCompany.id;
+
+          // Create company_subscriptions record with FREE plan
+          const { data: freePlan } = await supabase
+            .from('subscription_plans')
+            .select('id')
+            .eq('name', 'FREE')
+            .single();
+
+          if (freePlan) {
+            const { error: subscriptionError } = await supabase
+              .from('company_subscriptions')
+              .insert({
+                company_id: companyId,
+                plan_id: freePlan.id,
+                status: 'ACTIVE',
+                billing_cycle: 'MONTHLY',
+                haccp_addon_enabled: false,
+                roasting_addon_enabled: false,
+              });
+
+            if (subscriptionError) {
+              console.error('Subscription creation error:', subscriptionError);
+            }
+          }
         }
       }
     }
