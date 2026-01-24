@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Edit2, Search, CreditCard, TrendingUp, Building2, AlertCircle } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, addMonths, addYears } from 'date-fns';
 
 interface Plan {
   id: string;
@@ -47,6 +47,14 @@ export default function SubscriptionsPage() {
   const [isEditSubscriptionOpen, setIsEditSubscriptionOpen] = useState(false);
   const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
   const [savingSubscription, setSavingSubscription] = useState(false);
+  const [editFormData, setEditFormData] = useState<{
+    planId: string;
+    status: string;
+    billingCycle: 'MONTHLY' | 'YEARLY';
+    currentPeriodEnd: string;
+    haccpAddonEnabled: boolean;
+    roastingAddonEnabled: boolean;
+  } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -94,6 +102,64 @@ export default function SubscriptionsPage() {
       console.error('Failed to fetch data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Check if a plan is paid (has price > 0)
+  const isPaidPlan = (planId: string) => {
+    const plan = plans.find(p => p.id === planId);
+    return plan ? plan.priceMonthly > 0 : false;
+  };
+
+  // Calculate expiration date based on billing cycle
+  const calculateExpirationDate = (billingCycle: 'MONTHLY' | 'YEARLY') => {
+    const today = new Date();
+    return billingCycle === 'YEARLY'
+      ? format(addYears(today, 1), 'yyyy-MM-dd')
+      : format(addMonths(today, 1), 'yyyy-MM-dd');
+  };
+
+  // Handle plan change in edit form
+  const handlePlanChange = (newPlanId: string) => {
+    if (!editFormData) return;
+
+    const wasPaid = isPaidPlan(editFormData.planId);
+    const willBePaid = isPaidPlan(newPlanId);
+
+    let newPeriodEnd = editFormData.currentPeriodEnd;
+
+    // FREE → Paid: Set new expiration date
+    if (!wasPaid && willBePaid) {
+      newPeriodEnd = calculateExpirationDate(editFormData.billingCycle);
+    }
+    // Paid → FREE: Clear expiration date
+    else if (wasPaid && !willBePaid) {
+      newPeriodEnd = '';
+    }
+
+    setEditFormData({
+      ...editFormData,
+      planId: newPlanId,
+      currentPeriodEnd: newPeriodEnd,
+    });
+  };
+
+  // Handle billing cycle change
+  const handleBillingCycleChange = (newCycle: 'MONTHLY' | 'YEARLY') => {
+    if (!editFormData) return;
+
+    // Only recalculate if it's a paid plan
+    if (isPaidPlan(editFormData.planId)) {
+      setEditFormData({
+        ...editFormData,
+        billingCycle: newCycle,
+        currentPeriodEnd: calculateExpirationDate(newCycle),
+      });
+    } else {
+      setEditFormData({
+        ...editFormData,
+        billingCycle: newCycle,
+      });
     }
   };
 
@@ -374,6 +440,14 @@ export default function SubscriptionsPage() {
                     <button
                       onClick={() => {
                         setEditingSubscription(sub);
+                        setEditFormData({
+                          planId: sub.planId,
+                          status: sub.status,
+                          billingCycle: sub.billingCycle,
+                          currentPeriodEnd: sub.currentPeriodEnd === '2099-12-31' ? '' : sub.currentPeriodEnd,
+                          haccpAddonEnabled: sub.haccpAddonEnabled,
+                          roastingAddonEnabled: sub.roastingAddonEnabled,
+                        });
                         setIsEditSubscriptionOpen(true);
                       }}
                       className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
@@ -509,19 +583,19 @@ export default function SubscriptionsPage() {
       )}
 
       {/* 구독 수정 모달 */}
-      {isEditSubscriptionOpen && editingSubscription && (
+      {isEditSubscriptionOpen && editingSubscription && editFormData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b">
               <h2 className="text-xl font-bold">구독 수정</h2>
               <p className="text-sm text-gray-500 mt-1">{editingSubscription.companyName}</p>
             </div>
-            <form id="subscriptionEditForm" className="p-6 space-y-4">
+            <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">플랜</label>
                 <select
-                  name="planId"
-                  defaultValue={editingSubscription.planId}
+                  value={editFormData.planId}
+                  onChange={(e) => handlePlanChange(e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   {plans.map(p => (
@@ -534,8 +608,8 @@ export default function SubscriptionsPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">상태</label>
                 <select
-                  name="status"
-                  defaultValue={editingSubscription.status}
+                  value={editFormData.status}
+                  onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="ACTIVE">활성</option>
@@ -547,22 +621,44 @@ export default function SubscriptionsPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">결제 주기</label>
                 <select
-                  name="billingCycle"
-                  defaultValue={editingSubscription.billingCycle}
+                  value={editFormData.billingCycle}
+                  onChange={(e) => handleBillingCycleChange(e.target.value as 'MONTHLY' | 'YEARLY')}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="MONTHLY">월간</option>
                   <option value="YEARLY">연간</option>
                 </select>
               </div>
+
+              {/* 유료 플랜일 때만 만료일 표시 */}
+              {isPaidPlan(editFormData.planId) && (
+                <div className="border-t pt-4 mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">유료 플랜 설정</label>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1">만료일</label>
+                      <input
+                        type="date"
+                        value={editFormData.currentPeriodEnd}
+                        onChange={(e) => setEditFormData({ ...editFormData, currentPeriodEnd: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        만료일이 지나면 자동으로 무료 플랜으로 변경됩니다
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="border-t pt-4 mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-3">애드온</label>
                 <div className="space-y-3">
                   <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
                     <input
                       type="checkbox"
-                      name="haccpAddonEnabled"
-                      defaultChecked={editingSubscription.haccpAddonEnabled}
+                      checked={editFormData.haccpAddonEnabled}
+                      onChange={(e) => setEditFormData({ ...editFormData, haccpAddonEnabled: e.target.checked })}
                       className="w-4 h-4 text-orange-600 rounded"
                     />
                     <div>
@@ -573,8 +669,8 @@ export default function SubscriptionsPage() {
                   <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
                     <input
                       type="checkbox"
-                      name="roastingAddonEnabled"
-                      defaultChecked={editingSubscription.roastingAddonEnabled}
+                      checked={editFormData.roastingAddonEnabled}
+                      onChange={(e) => setEditFormData({ ...editFormData, roastingAddonEnabled: e.target.checked })}
                       className="w-4 h-4 text-amber-600 rounded"
                     />
                     <div>
@@ -584,12 +680,13 @@ export default function SubscriptionsPage() {
                   </label>
                 </div>
               </div>
-            </form>
+            </div>
             <div className="px-6 py-4 border-t flex justify-end gap-3">
               <button
                 onClick={() => {
                   setIsEditSubscriptionOpen(false);
                   setEditingSubscription(null);
+                  setEditFormData(null);
                 }}
                 className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                 disabled={savingSubscription}
@@ -601,24 +698,24 @@ export default function SubscriptionsPage() {
                 onClick={async () => {
                   try {
                     setSavingSubscription(true);
-                    const form = document.getElementById('subscriptionEditForm') as HTMLFormElement;
-                    const formData = new FormData(form);
 
                     const response = await fetch(`/api/company-subscriptions/${editingSubscription.id}`, {
                       method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
-                        plan_id: formData.get('planId'),
-                        status: formData.get('status'),
-                        billing_cycle: formData.get('billingCycle'),
-                        haccp_addon_enabled: formData.get('haccpAddonEnabled') === 'on',
-                        roasting_addon_enabled: formData.get('roastingAddonEnabled') === 'on',
+                        plan_id: editFormData.planId,
+                        status: editFormData.status,
+                        billing_cycle: editFormData.billingCycle,
+                        current_period_end: isPaidPlan(editFormData.planId) ? editFormData.currentPeriodEnd : null,
+                        haccp_addon_enabled: editFormData.haccpAddonEnabled,
+                        roasting_addon_enabled: editFormData.roastingAddonEnabled,
                       }),
                     });
 
                     if (response.ok) {
                       setIsEditSubscriptionOpen(false);
                       setEditingSubscription(null);
+                      setEditFormData(null);
                       fetchData();
                     } else {
                       const error = await response.json();
