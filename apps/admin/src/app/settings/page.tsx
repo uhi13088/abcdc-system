@@ -104,10 +104,47 @@ function SettingsContent() {
     roastingAddonEnabled: boolean;
   } | null>(null);
 
+  // Labor law settings
+  const [laborLaw, setLaborLaw] = useState<{
+    active: {
+      version: string;
+      effective_date: string;
+      minimum_wage_hourly: number;
+      overtime_rate: number;
+      night_rate: number;
+      holiday_rate: number;
+      national_pension_rate: number;
+      health_insurance_rate: number;
+      long_term_care_rate: number;
+      employment_insurance_rate: number;
+      weekly_work_hours?: number;
+      daily_work_hours?: number;
+    };
+    previous: {
+      version: string;
+      minimum_wage_hourly: number;
+      health_insurance_rate: number;
+      long_term_care_rate: number;
+    } | null;
+  } | null>(null);
+
   useEffect(() => {
     fetchSettings();
     fetchTaxAccountant();
+    fetchLaborLaw();
   }, []);
+
+  const fetchLaborLaw = async () => {
+    try {
+      const response = await fetch('/api/labor-law');
+      if (response.ok) {
+        const data = await response.json();
+        setLaborLaw(data);
+      }
+    } catch (error) {
+      console.error('Error fetching labor law:', error);
+    }
+  };
 
   const fetchTaxAccountant = async () => {
     try {
@@ -861,102 +898,136 @@ function SettingsContent() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* 전년도 대비 변경사항 */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                    <Info className="h-4 w-4" />
-                    2025년 변경사항
-                  </h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between py-2 border-b border-blue-100">
-                      <span className="text-blue-800">최저시급</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500 line-through">₩9,860</span>
-                        <span className="text-blue-600">→</span>
-                        <span className="font-semibold text-blue-900">₩10,030</span>
-                        <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">+1.7%</span>
+                {laborLaw ? (
+                  <>
+                    {/* 전년도 대비 변경사항 */}
+                    {laborLaw.previous && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                          <Info className="h-4 w-4" />
+                          {laborLaw.active.version.split('.')[0]}년 변경사항
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center justify-between py-2 border-b border-blue-100">
+                            <span className="text-blue-800">최저시급</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-500 line-through">₩{laborLaw.previous.minimum_wage_hourly.toLocaleString()}</span>
+                              <span className="text-blue-600">→</span>
+                              <span className="font-semibold text-blue-900">₩{laborLaw.active.minimum_wage_hourly.toLocaleString()}</span>
+                              {(() => {
+                                const change = ((laborLaw.active.minimum_wage_hourly - laborLaw.previous.minimum_wage_hourly) / laborLaw.previous.minimum_wage_hourly * 100).toFixed(1);
+                                const isPositive = parseFloat(change) > 0;
+                                return (
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                    {isPositive ? '+' : ''}{change}%
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between py-2 border-b border-blue-100">
+                            <span className="text-blue-800">건강보험료율</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-500 line-through">{laborLaw.previous.health_insurance_rate}%</span>
+                              <span className="text-blue-600">→</span>
+                              <span className="font-semibold text-blue-900">{laborLaw.active.health_insurance_rate}%</span>
+                              {(() => {
+                                const change = (laborLaw.active.health_insurance_rate - laborLaw.previous.health_insurance_rate).toFixed(2);
+                                const isPositive = parseFloat(change) > 0;
+                                return (
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${isPositive ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                                    {isPositive ? '+' : ''}{change}%p
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between py-2">
+                            <span className="text-blue-800">장기요양보험료율</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-500 line-through">{laborLaw.previous.long_term_care_rate}%</span>
+                              <span className="text-blue-600">→</span>
+                              <span className="font-semibold text-blue-900">{laborLaw.active.long_term_care_rate}%</span>
+                              {(() => {
+                                const change = (laborLaw.active.long_term_care_rate - laborLaw.previous.long_term_care_rate).toFixed(2);
+                                const isPositive = parseFloat(change) > 0;
+                                return (
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${isPositive ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                                    {isPositive ? '+' : ''}{change}%p
+                                  </span>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-xs text-blue-600 mt-3">
+                          * 시행일: {new Date(laborLaw.active.effective_date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })} | 플랫폼에서 자동 관리됩니다
+                        </p>
                       </div>
-                    </div>
-                    <div className="flex items-center justify-between py-2 border-b border-blue-100">
-                      <span className="text-blue-800">건강보험료율</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500 line-through">3.495%</span>
-                        <span className="text-blue-600">→</span>
-                        <span className="font-semibold text-blue-900">3.545%</span>
-                        <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">+0.05%p</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between py-2">
-                      <span className="text-blue-800">장기요양보험료율</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500 line-through">12.27%</span>
-                        <span className="text-blue-600">→</span>
-                        <span className="font-semibold text-blue-900">12.81%</span>
-                        <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">+0.54%p</span>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-blue-600 mt-3">
-                    * 시행일: 2025년 1월 1일 | 플랫폼에서 자동 관리됩니다
-                  </p>
-                </div>
+                    )}
 
-                {/* 현재 적용 중인 설정 */}
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-4">현재 적용 중인 설정</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-xs text-gray-500 mb-1">최저시급</p>
-                      <p className="text-xl font-bold text-gray-900">₩10,030</p>
+                    {/* 현재 적용 중인 설정 */}
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-4">현재 적용 중인 설정</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <p className="text-xs text-gray-500 mb-1">최저시급</p>
+                          <p className="text-xl font-bold text-gray-900">₩{laborLaw.active.minimum_wage_hourly.toLocaleString()}</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <p className="text-xs text-gray-500 mb-1">1일 소정근로시간</p>
+                          <p className="text-xl font-bold text-gray-900">{laborLaw.active.daily_work_hours || 8}시간</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <p className="text-xs text-gray-500 mb-1">주 소정근로시간</p>
+                          <p className="text-xl font-bold text-gray-900">{laborLaw.active.weekly_work_hours || 40}시간</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <p className="text-xs text-gray-500 mb-1">연장근로 할증</p>
+                          <p className="text-xl font-bold text-gray-900">{(laborLaw.active.overtime_rate * 100).toFixed(0)}%</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <p className="text-xs text-gray-500 mb-1">야간근로 할증</p>
+                          <p className="text-xl font-bold text-gray-900">{(laborLaw.active.night_rate * 100).toFixed(0)}%</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <p className="text-xs text-gray-500 mb-1">휴일근로 할증</p>
+                          <p className="text-xl font-bold text-gray-900">{(laborLaw.active.holiday_rate * 100).toFixed(0)}%</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-xs text-gray-500 mb-1">1일 소정근로시간</p>
-                      <p className="text-xl font-bold text-gray-900">8시간</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-xs text-gray-500 mb-1">주 소정근로시간</p>
-                      <p className="text-xl font-bold text-gray-900">40시간</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-xs text-gray-500 mb-1">연장근로 할증</p>
-                      <p className="text-xl font-bold text-gray-900">150%</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-xs text-gray-500 mb-1">야간근로 할증</p>
-                      <p className="text-xl font-bold text-gray-900">50%</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-xs text-gray-500 mb-1">휴일근로 할증</p>
-                      <p className="text-xl font-bold text-gray-900">150%</p>
-                    </div>
-                  </div>
-                </div>
 
-                {/* 4대보험 요율 */}
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-4">4대보험 요율 (근로자 부담분)</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-xs text-gray-500 mb-1">국민연금</p>
-                      <p className="text-xl font-bold text-gray-900">4.5%</p>
+                    {/* 4대보험 요율 */}
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-4">4대보험 요율 (근로자 부담분)</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <p className="text-xs text-gray-500 mb-1">국민연금</p>
+                          <p className="text-xl font-bold text-gray-900">{laborLaw.active.national_pension_rate}%</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <p className="text-xs text-gray-500 mb-1">건강보험</p>
+                          <p className="text-xl font-bold text-gray-900">{laborLaw.active.health_insurance_rate}%</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <p className="text-xs text-gray-500 mb-1">장기요양보험</p>
+                          <p className="text-xl font-bold text-gray-900">{laborLaw.active.long_term_care_rate}%</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <p className="text-xs text-gray-500 mb-1">고용보험</p>
+                          <p className="text-xl font-bold text-gray-900">{laborLaw.active.employment_insurance_rate}%</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        * 장기요양보험은 건강보험료의 {laborLaw.active.long_term_care_rate}%입니다
+                      </p>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-xs text-gray-500 mb-1">건강보험</p>
-                      <p className="text-xl font-bold text-gray-900">3.545%</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-xs text-gray-500 mb-1">장기요양보험</p>
-                      <p className="text-xl font-bold text-gray-900">12.81%</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-xs text-gray-500 mb-1">고용보험</p>
-                      <p className="text-xl font-bold text-gray-900">0.9%</p>
-                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center py-12">
+                    <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    * 장기요양보험은 건강보험료의 12.81%입니다
-                  </p>
-                </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
