@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, Bell, Shield, Globe, Server, Check } from 'lucide-react';
+import { Save, Shield, Globe, Server, Check, Info, ExternalLink } from 'lucide-react';
 
 const defaultSettings = {
-  platformName: 'ABC Staff System',
+  platformName: 'Peanote',
   supportEmail: 'support@abcstaff.com',
   maxUsersPerCompany: 100,
   maxStoresPerCompany: 50,
@@ -12,10 +12,6 @@ const defaultSettings = {
   requireEmailVerification: true,
   enableTwoFactor: false,
   maintenanceMode: false,
-  backupEnabled: true,
-  backupFrequency: 'daily',
-  emailNotifications: true,
-  slackNotifications: false,
 };
 
 export default function SettingsPage() {
@@ -39,10 +35,6 @@ export default function SettingsPage() {
               requireEmailVerification: data.require_email_verification ?? defaultSettings.requireEmailVerification,
               enableTwoFactor: data.enable_two_factor ?? defaultSettings.enableTwoFactor,
               maintenanceMode: data.maintenance_mode ?? defaultSettings.maintenanceMode,
-              backupEnabled: data.backup_enabled ?? defaultSettings.backupEnabled,
-              backupFrequency: data.backup_frequency || defaultSettings.backupFrequency,
-              emailNotifications: data.email_notifications ?? defaultSettings.emailNotifications,
-              slackNotifications: data.slack_notifications ?? defaultSettings.slackNotifications,
             });
           }
         }
@@ -187,19 +179,19 @@ export default function SettingsPage() {
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
             </label>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between opacity-50">
             <div>
               <p className="font-medium text-gray-900">2단계 인증</p>
-              <p className="text-sm text-gray-500">모든 관리자에게 2단계 인증을 요구합니다</p>
+              <p className="text-sm text-gray-500">모든 관리자에게 2단계 인증을 요구합니다 (준비중)</p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
+            <label className="relative inline-flex items-center cursor-not-allowed">
               <input
                 type="checkbox"
                 checked={settings.enableTwoFactor}
-                onChange={(e) => setSettings({ ...settings, enableTwoFactor: e.target.checked })}
+                disabled
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              <div className="w-11 h-6 bg-gray-200 rounded-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5"></div>
             </label>
           </div>
         </div>
@@ -215,7 +207,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium text-gray-900">유지보수 모드</p>
-              <p className="text-sm text-gray-500">플랫폼을 유지보수 모드로 전환합니다</p>
+              <p className="text-sm text-gray-500">활성화 시 모든 사용자에게 점검 안내 페이지가 표시됩니다</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -224,74 +216,47 @@ export default function SettingsPage() {
                 onChange={(e) => setSettings({ ...settings, maintenanceMode: e.target.checked })}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
             </label>
           </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-gray-900">자동 백업</p>
-              <p className="text-sm text-gray-500">데이터베이스를 자동으로 백업합니다</p>
+          {settings.maintenanceMode && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-red-800">유지보수 모드 활성화됨</p>
+                  <p className="text-sm text-red-600 mt-1">
+                    super_admin을 제외한 모든 사용자가 서비스에 접근할 수 없습니다.
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <select
-                value={settings.backupFrequency}
-                onChange={(e) => setSettings({ ...settings, backupFrequency: e.target.value })}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <option value="hourly">매시간</option>
-                <option value="daily">매일</option>
-                <option value="weekly">매주</option>
-              </select>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.backupEnabled}
-                  onChange={(e) => setSettings({ ...settings, backupEnabled: e.target.checked })}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
+          )}
 
-      {/* Notification Settings */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center">
-          <Bell className="w-5 h-5 text-gray-400 mr-2" />
-          <h2 className="text-lg font-semibold text-gray-900">알림 설정</h2>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-gray-900">이메일 알림</p>
-              <p className="text-sm text-gray-500">중요한 이벤트 발생 시 이메일로 알림을 받습니다</p>
+          {/* Backup Info */}
+          <div className="border-t pt-4 mt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-gray-900">데이터 백업</p>
+                <p className="text-sm text-gray-500">Supabase에서 자동으로 관리됩니다</p>
+              </div>
+              <a
+                href="https://supabase.com/dashboard"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-sm text-primary hover:underline"
+              >
+                Supabase 대시보드
+                <ExternalLink className="w-4 h-4" />
+              </a>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={settings.emailNotifications}
-                onChange={(e) => setSettings({ ...settings, emailNotifications: e.target.checked })}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-            </label>
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-gray-900">Slack 알림</p>
-              <p className="text-sm text-gray-500">Slack 채널로 알림을 전송합니다</p>
+            <div className="mt-3 bg-gray-50 rounded-lg p-4">
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li>• 자동 일일 백업 (Pro 플랜)</li>
+                <li>• Point-in-Time Recovery 지원</li>
+                <li>• 7일간 백업 보관</li>
+              </ul>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={settings.slackNotifications}
-                onChange={(e) => setSettings({ ...settings, slackNotifications: e.target.checked })}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-            </label>
           </div>
         </div>
       </div>
