@@ -3,5 +3,6 @@
 
 export * from './services/email.service';
 export * from './services/push-notification.service';
+export * from './services/tosspayments.service';
 export * from './utils/pdf-generator';
 export * from './utils/excel-generator';
