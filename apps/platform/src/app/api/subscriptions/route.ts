@@ -31,7 +31,7 @@ export async function GET() {
       const { data } = await adminClient
         .from('subscription_plans')
         .select('*')
-        .order('price', { ascending: true });
+        .order('price_monthly', { ascending: true });
       plans = data || [];
     } catch {
       // Table might not exist

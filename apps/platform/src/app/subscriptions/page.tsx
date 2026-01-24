@@ -52,14 +52,14 @@ export default function SubscriptionsPage() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setPlans((data.plans || []).map((p: any) => ({
           id: p.id,
-          name: p.tier?.toUpperCase() || p.name,
-          displayName: p.name,
-          priceMonthly: p.price || 0,
-          priceYearly: (p.price || 0) * 12 * 0.8, // 20% discount for yearly
-          maxEmployees: p.max_employees || 10,
-          maxStores: p.max_stores || 1,
-          features: p.features || [],
-          active: true,
+          name: p.name?.toUpperCase() || p.name,
+          displayName: p.display_name || p.name,
+          priceMonthly: p.price_monthly || 0,
+          priceYearly: p.price_yearly || (p.price_monthly || 0) * 12 * 0.8,
+          maxEmployees: p.max_employees ?? 10,
+          maxStores: p.max_stores ?? 1,
+          features: Array.isArray(p.features) ? p.features : Object.keys(p.features || {}).filter(k => p.features[k]),
+          active: p.is_active !== false,
           subscriberCount: p.subscriber_count || 0,
         })));
 
@@ -67,13 +67,13 @@ export default function SubscriptionsPage() {
         setSubscriptions((data.subscriptions || []).map((s: any) => ({
           id: s.id,
           companyId: s.company_id,
-          companyName: s.companies?.name || '알 수 없음',
+          companyName: s.companies?.name || '(회사 정보 없음)',
           planId: s.plan_id,
-          planName: s.subscription_plans?.name || '무료',
+          planName: s.subscription_plans?.display_name || s.subscription_plans?.name || '무료',
           status: s.status || 'ACTIVE',
           billingCycle: s.billing_cycle || 'MONTHLY',
           currentPeriodEnd: s.current_period_end || '2099-12-31',
-          amount: s.subscription_plans?.price || 0,
+          amount: s.subscription_plans?.price_monthly || 0,
           cancelAtPeriodEnd: s.cancel_at_period_end || false,
         })));
       }
