@@ -19,14 +19,12 @@ export async function GET(request: NextRequest) {
   const date = searchParams.get('date');
 
   try {
+    // 기본 쿼리 (FK 조인 최소화)
     let query = supabase
       .from('ccp_records')
       .select(`
         *,
-        ccp_definitions (id, ccp_number, process, critical_limit),
-        recorder:users!ccp_records_recorded_by_fkey (name),
-        verifier:users!ccp_records_verified_by_fkey (name),
-        corrective_action:corrective_actions!ccp_records_corrective_action_id_fkey (id, action_number, status)
+        ccp_definitions (id, ccp_number, process, critical_limit)
       `)
       .order('record_date', { ascending: false })
       .order('record_time', { ascending: false });
@@ -46,7 +44,61 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data || []);
+    if (!data || data.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    // 사용자 및 개선조치 정보 별도 조회
+    const userIds = new Set<string>();
+    const caIds = new Set<string>();
+
+    data.forEach(record => {
+      if (record.recorded_by) userIds.add(record.recorded_by);
+      if (record.verified_by) userIds.add(record.verified_by);
+      if (record.corrective_action_id) caIds.add(record.corrective_action_id);
+    });
+
+    // 사용자 정보 조회
+    let usersMap: Record<string, { name: string }> = {};
+    if (userIds.size > 0) {
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, name')
+        .in('id', Array.from(userIds));
+
+      if (users) {
+        usersMap = users.reduce((acc, u) => {
+          acc[u.id] = { name: u.name };
+          return acc;
+        }, {} as Record<string, { name: string }>);
+      }
+    }
+
+    // 개선조치 정보 조회
+    let caMap: Record<string, { id: string; action_number: string; status: string }> = {};
+    if (caIds.size > 0) {
+      const { data: actions } = await supabase
+        .from('corrective_actions')
+        .select('id, action_number, status')
+        .in('id', Array.from(caIds));
+
+      if (actions) {
+        caMap = actions.reduce((acc, a) => {
+          acc[a.id] = a;
+          return acc;
+        }, {} as Record<string, { id: string; action_number: string; status: string }>);
+      }
+    }
+
+    // 데이터 병합
+    const enrichedData = data.map(record => ({
+      ...record,
+      recorder: record.recorded_by ? usersMap[record.recorded_by] || null : null,
+      verifier: record.verified_by ? usersMap[record.verified_by] || null : null,
+      corrective_action: record.corrective_action_id ? caMap[record.corrective_action_id] || null : null,
+    }));
+
+    return NextResponse.json(enrichedData);
   } catch (error) {
     console.error('Error in GET /api/haccp/ccp/records:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

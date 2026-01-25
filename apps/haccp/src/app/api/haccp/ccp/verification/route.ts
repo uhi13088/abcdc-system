@@ -37,9 +37,7 @@ export async function GET(request: NextRequest) {
         .select(`
           *,
           ccp_definitions (id, ccp_number, process, hazard, control_measure, critical_limit, monitoring_method, corrective_action),
-          process_type:process_type_id (id, code, name, parameters),
-          verifier:users!ccp_verifications_verified_by_fkey (id, name),
-          approver:users!ccp_verifications_approved_by_fkey (id, name)
+          process_type:process_type_id (id, code, name, parameters)
         `)
         .eq('id', id)
         .eq('company_id', userData.company_id)
@@ -50,20 +48,67 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
+      // 사용자 정보 별도 조회
+      const userIds = new Set<string>();
+      if (verification.verified_by) userIds.add(verification.verified_by);
+      if (verification.approved_by) userIds.add(verification.approved_by);
+
+      let usersMap: Record<string, { id: string; name: string }> = {};
+      if (userIds.size > 0) {
+        const { data: users } = await supabase
+          .from('users')
+          .select('id, name')
+          .in('id', Array.from(userIds));
+
+        if (users) {
+          usersMap = users.reduce((acc, u) => {
+            acc[u.id] = u;
+            return acc;
+          }, {} as Record<string, { id: string; name: string }>);
+        }
+      }
+
       // 체크리스트 응답 조회
       const { data: responses } = await supabase
         .from('ccp_verification_responses')
         .select(`
           *,
           question:question_id (id, question_code, question_text, question_category, help_text),
-          common_question:common_question_id (id, question_code, question_text, question_category, equipment_type, help_text),
-          checker:checked_by (id, name)
+          common_question:common_question_id (id, question_code, question_text, question_category, equipment_type, help_text)
         `)
         .eq('verification_id', id);
 
+      // 응답의 checker 정보 조회
+      const checkerIds = new Set<string>();
+      responses?.forEach(r => {
+        if (r.checked_by) checkerIds.add(r.checked_by);
+      });
+
+      let checkersMap: Record<string, { id: string; name: string }> = {};
+      if (checkerIds.size > 0) {
+        const { data: checkers } = await supabase
+          .from('users')
+          .select('id, name')
+          .in('id', Array.from(checkerIds));
+
+        if (checkers) {
+          checkersMap = checkers.reduce((acc, u) => {
+            acc[u.id] = u;
+            return acc;
+          }, {} as Record<string, { id: string; name: string }>);
+        }
+      }
+
+      const enrichedResponses = responses?.map(r => ({
+        ...r,
+        checker: r.checked_by ? checkersMap[r.checked_by] || null : null,
+      })) || [];
+
       return NextResponse.json({
         ...verification,
-        responses: responses || [],
+        verifier: verification.verified_by ? usersMap[verification.verified_by] || null : null,
+        approver: verification.approved_by ? usersMap[verification.approved_by] || null : null,
+        responses: enrichedResponses,
       });
     }
 
@@ -73,9 +118,7 @@ export async function GET(request: NextRequest) {
       .select(`
         *,
         ccp_definitions (id, ccp_number, process, critical_limit),
-        process_type:process_type_id (id, code, name),
-        verifier:users!ccp_verifications_verified_by_fkey (name),
-        approver:users!ccp_verifications_approved_by_fkey (name)
+        process_type:process_type_id (id, code, name)
       `)
       .eq('company_id', userData.company_id)
       .order('verification_year', { ascending: false })
@@ -104,7 +147,39 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data || []);
+    if (!data || data.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    // 사용자 정보 별도 조회
+    const userIds = new Set<string>();
+    data.forEach(v => {
+      if (v.verified_by) userIds.add(v.verified_by);
+      if (v.approved_by) userIds.add(v.approved_by);
+    });
+
+    let usersMap: Record<string, { name: string }> = {};
+    if (userIds.size > 0) {
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, name')
+        .in('id', Array.from(userIds));
+
+      if (users) {
+        usersMap = users.reduce((acc, u) => {
+          acc[u.id] = { name: u.name };
+          return acc;
+        }, {} as Record<string, { name: string }>);
+      }
+    }
+
+    const enrichedData = data.map(v => ({
+      ...v,
+      verifier: v.verified_by ? usersMap[v.verified_by] || null : null,
+      approver: v.approved_by ? usersMap[v.approved_by] || null : null,
+    }));
+
+    return NextResponse.json(enrichedData);
   } catch (error) {
     console.error('Error in GET /api/haccp/ccp/verification:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

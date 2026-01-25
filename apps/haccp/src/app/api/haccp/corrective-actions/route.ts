@@ -69,13 +69,10 @@ export async function GET(request: NextRequest) {
     const sourceType = request.nextUrl.searchParams.get('source_type');
     const limit = parseInt(request.nextUrl.searchParams.get('limit') || '50');
 
+    // 기본 쿼리 (FK 조인 없이)
     let query = supabase
       .from('corrective_actions')
-      .select(`
-        *,
-        responsible:users!corrective_actions_responsible_person_fkey(id, name),
-        verifier:users!corrective_actions_verified_by_fkey(id, name)
-      `)
+      .select('*')
       .eq('company_id', userData.company_id)
       .order('created_at', { ascending: false })
       .limit(limit);
@@ -94,7 +91,40 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data || []);
+    if (!data || data.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    // 담당자 및 검증자 정보 별도 조회 (더 안정적)
+    const userIds = new Set<string>();
+    data.forEach(action => {
+      if (action.responsible_person) userIds.add(action.responsible_person);
+      if (action.verified_by) userIds.add(action.verified_by);
+    });
+
+    let usersMap: Record<string, { id: string; name: string }> = {};
+    if (userIds.size > 0) {
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, name')
+        .in('id', Array.from(userIds));
+
+      if (users) {
+        usersMap = users.reduce((acc, u) => {
+          acc[u.id] = u;
+          return acc;
+        }, {} as Record<string, { id: string; name: string }>);
+      }
+    }
+
+    // 데이터에 사용자 정보 병합
+    const enrichedData = data.map(action => ({
+      ...action,
+      responsible: action.responsible_person ? usersMap[action.responsible_person] || null : null,
+      verifier: action.verified_by ? usersMap[action.verified_by] || null : null,
+    }));
+
+    return NextResponse.json(enrichedData);
   } catch (error) {
     console.error('Failed to fetch corrective actions:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
