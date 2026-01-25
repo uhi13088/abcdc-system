@@ -1,64 +1,115 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Calendar, CheckCircle, XCircle, Clock, User } from 'lucide-react';
+import {
+  Plus,
+  Calendar,
+  CheckCircle,
+  XCircle,
+  Clock,
+  User,
+  Thermometer,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+} from 'lucide-react';
+
+// 점검 항목 정의
+const CHECK_ITEMS = {
+  pre_work: {
+    title: '일일(작업전)',
+    items: [
+      { key: 'work_clothes_clean', label: '작업복, 작업화 이상', type: 'boolean' },
+      { key: 'hand_wash_sanitize', label: '손세척 및 소독상태', type: 'boolean' },
+      { key: 'entrance_sanitize', label: '출입구 소독실 정상', type: 'boolean' },
+      { key: 'equipment_hygiene', label: '주변 설비 위생상태', type: 'boolean' },
+      { key: 'floor_drain_clean', label: '바닥 및 배수구 청소', type: 'boolean' },
+      { key: 'cross_contamination', label: '교차오염 방지', type: 'boolean' },
+      { key: 'ingredients_check', label: '사용재료 유통기한 확인', type: 'boolean' },
+    ],
+    temperatures: [
+      { key: 'freezer_temp', label: '냉동창고', target: -18 },
+      { key: 'mixing_room_fridge', label: '배합실 냉장고', target: 5 },
+      { key: 'packaging_room_fridge', label: '내포장실 냉장고/냉동고', target: 5 },
+    ],
+  },
+  during_work: {
+    title: '일일(작업중)',
+    items: [
+      { key: 'thaw_water_temp', label: '해동수조 온도 확인', type: 'temperature', target: 10 },
+      { key: 'foreign_matter_sort', label: '이물선별 여부', type: 'boolean' },
+      { key: 'environment_temp_humidity', label: '환경온습도 확인', type: 'boolean' },
+    ],
+    temperatures: [],
+  },
+  post_work: {
+    title: '일일(작업후)',
+    items: [
+      { key: 'facility_equipment_clean', label: '시설 설비 청소상태 (물청소)', type: 'boolean' },
+      { key: 'cooking_tools_sanitize', label: '조리기구 세척 살균', type: 'boolean' },
+      { key: 'floor_drain_disinfect', label: '바닥 및 배수구 소독', type: 'boolean' },
+      { key: 'waste_disposal', label: '폐기물 처리 상태', type: 'boolean' },
+      { key: 'window_close', label: '창문 닫힘 상태', type: 'boolean' },
+    ],
+    temperatures: [
+      { key: 'freezer_temp_post', label: '냉동창고', target: -18 },
+      { key: 'mixing_room_fridge_post', label: '배합실 냉장고', target: 5 },
+      { key: 'packaging_room_fridge_post', label: '내포장실 냉장고/냉동고', target: 5 },
+    ],
+  },
+};
+
+type CheckPeriod = '작업전' | '작업중' | '작업후';
 
 interface HygieneCheck {
   id: string;
   check_date: string;
-  shift: '오전' | '오후' | '야간';
+  check_period: CheckPeriod;
   checked_by_name?: string;
-  personal_hygiene: Record<string, boolean>;
-  facility_hygiene: Record<string, boolean>;
-  equipment_hygiene: Record<string, boolean>;
-  material_management: Record<string, boolean>;
+  pre_work_checks: Record<string, boolean>;
+  during_work_checks: Record<string, boolean>;
+  post_work_checks: Record<string, boolean>;
+  temperature_records: Record<string, number>;
+  remarks?: string;
+  improvement_result?: string;
   overall_status: 'PASS' | 'FAIL';
   corrective_action?: string;
   verified_by_name?: string;
   verified_at?: string;
 }
 
+interface FormData {
+  check_period: CheckPeriod;
+  pre_work_checks: Record<string, boolean>;
+  during_work_checks: Record<string, boolean>;
+  post_work_checks: Record<string, boolean>;
+  temperature_records: Record<string, number | ''>;
+  remarks: string;
+}
+
+const getInitialFormData = (period: CheckPeriod): FormData => ({
+  check_period: period,
+  pre_work_checks: Object.fromEntries(
+    CHECK_ITEMS.pre_work.items.map((item) => [item.key, false])
+  ),
+  during_work_checks: Object.fromEntries(
+    CHECK_ITEMS.during_work.items.map((item) => [item.key, false])
+  ),
+  post_work_checks: Object.fromEntries(
+    CHECK_ITEMS.post_work.items.map((item) => [item.key, false])
+  ),
+  temperature_records: {},
+  remarks: '',
+});
+
 export default function HygienePage() {
   const [checks, setChecks] = useState<HygieneCheck[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [formData, setFormData] = useState<{
-    shift: '오전' | '오후' | '야간';
-    personal_hygiene: Record<string, boolean>;
-    facility_hygiene: Record<string, boolean>;
-    equipment_hygiene: Record<string, boolean>;
-    material_management: Record<string, boolean>;
-  }>({
-    shift: '오전',
-    personal_hygiene: {
-      '작업복 청결': false,
-      '위생모 착용': false,
-      '위생화 청결': false,
-      '손톱 상태': false,
-      '손 세척/소독': false,
-      '장신구 미착용': false,
-    },
-    facility_hygiene: {
-      '바닥 청결': false,
-      '벽면 청결': false,
-      '배수구 청결': false,
-      '조명 상태': false,
-      '환기 상태': false,
-    },
-    equipment_hygiene: {
-      '작업대 청결': false,
-      '도구류 청결': false,
-      '용기류 청결': false,
-      '설비 청결': false,
-    },
-    material_management: {
-      '원료 보관상태': false,
-      '선입선출': false,
-      '유통기한 확인': false,
-      '온도 관리': false,
-    },
-  });
+  const [selectedPeriod, setSelectedPeriod] = useState<CheckPeriod>('작업전');
+  const [formData, setFormData] = useState<FormData>(getInitialFormData('작업전'));
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchChecks();
@@ -83,13 +134,47 @@ export default function HygienePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const allChecks = [
-      ...Object.values(formData.personal_hygiene),
-      ...Object.values(formData.facility_hygiene),
-      ...Object.values(formData.equipment_hygiene),
-      ...Object.values(formData.material_management),
-    ];
-    const overall_status = allChecks.every(v => v) ? 'PASS' : 'FAIL';
+    const periodKey =
+      selectedPeriod === '작업전'
+        ? 'pre_work'
+        : selectedPeriod === '작업중'
+          ? 'during_work'
+          : 'post_work';
+    const checkItems = CHECK_ITEMS[periodKey];
+    const checksData =
+      selectedPeriod === '작업전'
+        ? formData.pre_work_checks
+        : selectedPeriod === '작업중'
+          ? formData.during_work_checks
+          : formData.post_work_checks;
+
+    // 모든 항목이 체크되었는지 확인
+    const allChecked = checkItems.items.every((item) => checksData[item.key]);
+
+    // 온도가 기준 범위 내인지 확인
+    let tempOk = true;
+    checkItems.temperatures.forEach((temp) => {
+      const value = formData.temperature_records[temp.key];
+      if (value !== undefined && value !== '') {
+        if (temp.target < 0) {
+          // 냉동: 기준 +3도까지 허용
+          tempOk = tempOk && Number(value) <= temp.target + 3;
+        } else {
+          // 냉장: 기준 +5도까지 허용
+          tempOk = tempOk && Number(value) <= temp.target + 5 && Number(value) >= 0;
+        }
+      }
+    });
+
+    const overall_status = allChecked && tempOk ? 'PASS' : 'FAIL';
+
+    // 빈 문자열을 제거한 온도 기록
+    const cleanedTempRecords: Record<string, number> = {};
+    Object.entries(formData.temperature_records).forEach(([key, value]) => {
+      if (value !== '' && value !== undefined) {
+        cleanedTempRecords[key] = Number(value);
+      }
+    });
 
     try {
       const response = await fetch('/api/haccp/hygiene', {
@@ -97,13 +182,19 @@ export default function HygienePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           check_date: selectedDate,
-          ...formData,
+          check_period: selectedPeriod,
+          pre_work_checks: formData.pre_work_checks,
+          during_work_checks: formData.during_work_checks,
+          post_work_checks: formData.post_work_checks,
+          temperature_records: cleanedTempRecords,
+          remarks: formData.remarks,
           overall_status,
         }),
       });
 
       if (response.ok) {
         setShowModal(false);
+        setFormData(getInitialFormData(selectedPeriod));
         fetchChecks();
       }
     } catch (error) {
@@ -111,53 +202,90 @@ export default function HygienePage() {
     }
   };
 
-  const shiftColors = {
-    '오전': 'bg-yellow-100 text-yellow-700',
-    '오후': 'bg-blue-100 text-blue-700',
-    '야간': 'bg-purple-100 text-purple-700',
+  const handleVerify = async (id: string) => {
+    try {
+      const response = await fetch('/api/haccp/hygiene', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action: 'verify' }),
+      });
+
+      if (response.ok) {
+        fetchChecks();
+      }
+    } catch (error) {
+      console.error('Failed to verify:', error);
+    }
   };
 
-  const CheckSection = ({ title, items, category }: { title: string; items: Record<string, boolean>; category: 'personal_hygiene' | 'facility_hygiene' | 'equipment_hygiene' | 'material_management' }) => (
-    <div className="bg-gray-50 rounded-lg p-4">
-      <h4 className="font-medium text-gray-900 mb-3">{title}</h4>
-      <div className="grid grid-cols-2 gap-2">
-        {Object.entries(items).map(([key, value]) => (
-          <label key={key} className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={value}
-              onChange={(e) => {
-                setFormData((prev) => ({
-                  ...prev,
-                  [category]: {
-                    ...prev[category],
-                    [key]: e.target.checked,
-                  },
-                }));
-              }}
-              className="rounded text-blue-600"
-            />
-            <span className="text-sm">{key}</span>
-          </label>
-        ))}
-      </div>
-    </div>
-  );
+  const toggleCard = (id: string) => {
+    setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const openModal = (period: CheckPeriod) => {
+    setSelectedPeriod(period);
+    setFormData(getInitialFormData(period));
+    setShowModal(true);
+  };
+
+  const periodColors: Record<CheckPeriod, string> = {
+    작업전: 'bg-amber-100 text-amber-700 border-amber-200',
+    작업중: 'bg-blue-100 text-blue-700 border-blue-200',
+    작업후: 'bg-purple-100 text-purple-700 border-purple-200',
+  };
+
+  const periodBgColors: Record<CheckPeriod, string> = {
+    작업전: 'bg-amber-50',
+    작업중: 'bg-blue-50',
+    작업후: 'bg-purple-50',
+  };
+
+  const getChecksByPeriod = (period: CheckPeriod) => {
+    return checks.filter((c) => c.check_period === period);
+  };
+
+  const getCurrentPeriodItems = () => {
+    const periodKey =
+      selectedPeriod === '작업전'
+        ? 'pre_work'
+        : selectedPeriod === '작업중'
+          ? 'during_work'
+          : 'post_work';
+    return CHECK_ITEMS[periodKey];
+  };
+
+  const getChecksForPeriod = () => {
+    if (selectedPeriod === '작업전') return formData.pre_work_checks;
+    if (selectedPeriod === '작업중') return formData.during_work_checks;
+    return formData.post_work_checks;
+  };
+
+  const setChecksForPeriod = (key: string, value: boolean) => {
+    if (selectedPeriod === '작업전') {
+      setFormData((prev) => ({
+        ...prev,
+        pre_work_checks: { ...prev.pre_work_checks, [key]: value },
+      }));
+    } else if (selectedPeriod === '작업중') {
+      setFormData((prev) => ({
+        ...prev,
+        during_work_checks: { ...prev.during_work_checks, [key]: value },
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        post_work_checks: { ...prev.post_work_checks, [key]: value },
+      }));
+    }
+  };
 
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">일일 위생점검</h1>
-          <p className="mt-1 text-sm text-gray-500">일일 위생점검 기록을 관리합니다</p>
+          <h1 className="text-2xl font-bold text-gray-900">일반위생 공정관리 점검표</h1>
+          <p className="mt-1 text-sm text-gray-500">일일점검 (작업전/작업중/작업후)</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          <Plus className="w-4 h-4" />
-          점검 기록
-        </button>
       </div>
 
       {/* Date Selector */}
@@ -173,61 +301,244 @@ export default function HygienePage() {
         </div>
       </div>
 
-      {/* Checks */}
+      {/* Period Cards */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
-      ) : checks.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border p-12 text-center">
-          <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-          <p className="text-gray-500">해당 날짜의 위생점검 기록이 없습니다</p>
-        </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {checks.map((check) => (
-            <div key={check.id} className="bg-white rounded-xl shadow-sm border overflow-hidden">
-              <div className={`px-4 py-3 flex items-center justify-between ${
-                check.overall_status === 'PASS' ? 'bg-green-50' : 'bg-red-50'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <span className={`px-2 py-1 text-xs rounded-full ${shiftColors[check.shift]}`}>
-                    {check.shift}
-                  </span>
-                  {check.overall_status === 'PASS' ? (
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                  ) : (
-                    <XCircle className="w-5 h-5 text-red-600" />
-                  )}
-                </div>
-                <span className={`text-sm font-medium ${
-                  check.overall_status === 'PASS' ? 'text-green-700' : 'text-red-700'
-                }`}>
-                  {check.overall_status === 'PASS' ? '적합' : '부적합'}
-                </span>
-              </div>
+        <div className="space-y-6">
+          {(['작업전', '작업중', '작업후'] as CheckPeriod[]).map((period) => {
+            const periodChecks = getChecksByPeriod(period);
+            const hasCheck = periodChecks.length > 0;
+            const latestCheck = hasCheck ? periodChecks[periodChecks.length - 1] : null;
 
-              <div className="p-4 space-y-3">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <User className="w-4 h-4" />
-                  <span>점검자: {check.checked_by_name || '-'}</span>
+            return (
+              <div
+                key={period}
+                className={`bg-white rounded-xl shadow-sm border overflow-hidden ${
+                  latestCheck
+                    ? latestCheck.overall_status === 'PASS'
+                      ? 'border-green-200'
+                      : 'border-red-200'
+                    : 'border-gray-200'
+                }`}
+              >
+                {/* Header */}
+                <div
+                  className={`px-4 py-3 flex items-center justify-between ${periodBgColors[period]}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`px-3 py-1 text-sm font-medium rounded-full border ${periodColors[period]}`}
+                    >
+                      {period}
+                    </span>
+                    {latestCheck ? (
+                      <div className="flex items-center gap-2">
+                        {latestCheck.overall_status === 'PASS' ? (
+                          <CheckCircle className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <XCircle className="w-5 h-5 text-red-600" />
+                        )}
+                        <span
+                          className={`text-sm font-medium ${
+                            latestCheck.overall_status === 'PASS'
+                              ? 'text-green-700'
+                              : 'text-red-700'
+                          }`}
+                        >
+                          {latestCheck.overall_status === 'PASS' ? '적합' : '부적합'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-gray-500">미점검</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!hasCheck && (
+                      <button
+                        onClick={() => openModal(period)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                      >
+                        <Plus className="w-4 h-4" />
+                        점검 기록
+                      </button>
+                    )}
+                    {hasCheck && (
+                      <button
+                        onClick={() => toggleCard(period)}
+                        className="p-1 hover:bg-gray-100 rounded"
+                      >
+                        {expandedCards[period] ? (
+                          <ChevronUp className="w-5 h-5 text-gray-500" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5 text-gray-500" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {check.corrective_action && (
-                  <div className="bg-yellow-50 rounded p-2">
-                    <p className="text-xs font-medium text-yellow-800">개선조치</p>
-                    <p className="text-sm text-yellow-700">{check.corrective_action}</p>
+                {/* Content */}
+                {latestCheck && expandedCards[period] && (
+                  <div className="p-4 space-y-4">
+                    {/* 점검자 정보 */}
+                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <User className="w-4 h-4" />
+                        <span>점검자: {latestCheck.checked_by_name || '-'}</span>
+                      </div>
+                      {latestCheck.verified_by_name && (
+                        <div className="flex items-center gap-1">
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                          <span>
+                            검증: {latestCheck.verified_by_name} (
+                            {latestCheck.verified_at
+                              ? new Date(latestCheck.verified_at).toLocaleString('ko-KR')
+                              : ''}
+                            )
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 점검 항목 */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                      {CHECK_ITEMS[
+                        period === '작업전'
+                          ? 'pre_work'
+                          : period === '작업중'
+                            ? 'during_work'
+                            : 'post_work'
+                      ].items.map((item) => {
+                        const checksData =
+                          period === '작업전'
+                            ? latestCheck.pre_work_checks
+                            : period === '작업중'
+                              ? latestCheck.during_work_checks
+                              : latestCheck.post_work_checks;
+                        const isChecked = checksData?.[item.key];
+                        return (
+                          <div
+                            key={item.key}
+                            className={`flex items-center gap-2 text-sm px-2 py-1 rounded ${
+                              isChecked ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                            }`}
+                          >
+                            {isChecked ? (
+                              <CheckCircle className="w-4 h-4" />
+                            ) : (
+                              <XCircle className="w-4 h-4" />
+                            )}
+                            <span>{item.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* 온도 기록 */}
+                    {CHECK_ITEMS[
+                      period === '작업전'
+                        ? 'pre_work'
+                        : period === '작업중'
+                          ? 'during_work'
+                          : 'post_work'
+                    ].temperatures.length > 0 && (
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Thermometer className="w-4 h-4 text-blue-600" />
+                          <span className="font-medium text-sm">온도 기록</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                          {CHECK_ITEMS[
+                            period === '작업전'
+                              ? 'pre_work'
+                              : period === '작업중'
+                                ? 'during_work'
+                                : 'post_work'
+                          ].temperatures.map((temp) => {
+                            const value = latestCheck.temperature_records?.[temp.key];
+                            const isOk =
+                              value !== undefined &&
+                              (temp.target < 0
+                                ? value <= temp.target + 3
+                                : value <= temp.target + 5 && value >= 0);
+                            return (
+                              <div key={temp.key} className="text-sm">
+                                <div className="text-gray-500">{temp.label}</div>
+                                <div
+                                  className={`font-medium ${
+                                    value !== undefined
+                                      ? isOk
+                                        ? 'text-green-600'
+                                        : 'text-red-600'
+                                      : 'text-gray-400'
+                                  }`}
+                                >
+                                  {value !== undefined ? `${value}°C` : '-'}
+                                  {value !== undefined && !isOk && (
+                                    <AlertTriangle className="w-4 h-4 inline ml-1" />
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-400">기준: {temp.target}°C</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 특이사항 / 개선조치 */}
+                    {(latestCheck.remarks || latestCheck.corrective_action) && (
+                      <div className="space-y-2">
+                        {latestCheck.remarks && (
+                          <div className="bg-yellow-50 rounded p-2">
+                            <p className="text-xs font-medium text-yellow-800">특이사항</p>
+                            <p className="text-sm text-yellow-700">{latestCheck.remarks}</p>
+                          </div>
+                        )}
+                        {latestCheck.corrective_action && (
+                          <div className="bg-orange-50 rounded p-2">
+                            <p className="text-xs font-medium text-orange-800">개선조치</p>
+                            <p className="text-sm text-orange-700">{latestCheck.corrective_action}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 검증 버튼 */}
+                    {!latestCheck.verified_by_name && (
+                      <div className="flex justify-end pt-2 border-t">
+                        <button
+                          onClick={() => handleVerify(latestCheck.id)}
+                          className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+                        >
+                          검증 완료
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {check.verified_by_name && (
-                  <div className="text-xs text-gray-500 pt-2 border-t">
-                    검증: {check.verified_by_name} ({check.verified_at ? new Date(check.verified_at).toLocaleString('ko-KR') : ''})
+                {/* 간략 정보 (접힌 상태) */}
+                {latestCheck && !expandedCards[period] && (
+                  <div className="px-4 py-2 border-t border-gray-100 text-sm text-gray-500 flex items-center gap-4">
+                    <span>점검자: {latestCheck.checked_by_name || '-'}</span>
+                    {latestCheck.verified_by_name && (
+                      <span className="text-green-600">검증 완료</span>
+                    )}
+                    <button
+                      onClick={() => toggleCard(period)}
+                      className="text-blue-600 hover:underline ml-auto"
+                    >
+                      상세보기
+                    </button>
                   </div>
                 )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -236,42 +547,132 @@ export default function HygienePage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">위생점검 기록</h2>
-              <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700">
+              <div>
+                <h2 className="text-xl font-bold">위생점검 기록</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  {selectedDate} - {getCurrentPeriodItems().title}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
                 닫기
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">근무조</label>
-                <div className="flex gap-2">
-                  {(['오전', '오후', '야간'] as const).map((shift) => (
-                    <button
-                      key={shift}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, shift })}
-                      className={`px-4 py-2 rounded-lg ${
-                        formData.shift === shift
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+
+            {/* Period Selector */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">점검 시점</label>
+              <div className="flex gap-2">
+                {(['작업전', '작업중', '작업후'] as CheckPeriod[]).map((period) => (
+                  <button
+                    key={period}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPeriod(period);
+                      setFormData(getInitialFormData(period));
+                    }}
+                    className={`px-4 py-2 rounded-lg border ${
+                      selectedPeriod === period
+                        ? periodColors[period] + ' border-current'
+                        : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                    }`}
+                  >
+                    {period}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* 점검 항목 */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="font-medium text-gray-900 mb-3">점검 항목</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {getCurrentPeriodItems().items.map((item) => (
+                    <label
+                      key={item.key}
+                      className="flex items-center gap-3 bg-white p-3 rounded-lg border cursor-pointer hover:border-blue-300"
                     >
-                      {shift}
-                    </button>
+                      <input
+                        type="checkbox"
+                        checked={getChecksForPeriod()[item.key] || false}
+                        onChange={(e) => setChecksForPeriod(item.key, e.target.checked)}
+                        className="w-5 h-5 rounded text-blue-600"
+                      />
+                      <span className="text-sm">{item.label}</span>
+                    </label>
                   ))}
                 </div>
               </div>
 
-              <CheckSection title="개인위생" items={formData.personal_hygiene} category="personal_hygiene" />
-              <CheckSection title="시설위생" items={formData.facility_hygiene} category="facility_hygiene" />
-              <CheckSection title="설비위생" items={formData.equipment_hygiene} category="equipment_hygiene" />
-              <CheckSection title="원료관리" items={formData.material_management} category="material_management" />
+              {/* 온도 기록 */}
+              {getCurrentPeriodItems().temperatures.length > 0 && (
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Thermometer className="w-5 h-5 text-blue-600" />
+                    <h3 className="font-medium text-gray-900">온도 기록</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {getCurrentPeriodItems().temperatures.map((temp) => (
+                      <div key={temp.key} className="bg-white p-3 rounded-lg border">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {temp.label}
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={formData.temperature_records[temp.key] ?? ''}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                temperature_records: {
+                                  ...prev.temperature_records,
+                                  [temp.key]: e.target.value === '' ? '' : parseFloat(e.target.value),
+                                },
+                              }))
+                            }
+                            className="w-full px-3 py-2 border rounded-lg"
+                            placeholder={`기준: ${temp.target}°C`}
+                          />
+                          <span className="text-gray-500">°C</span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">기준: {temp.target}°C</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
+              {/* 특이사항 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  특이사항 및 개선조치
+                </label>
+                <textarea
+                  value={formData.remarks}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, remarks: e.target.value }))}
+                  rows={3}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="특이사항이나 개선이 필요한 사항을 기록하세요"
+                />
+              </div>
+
+              {/* Buttons */}
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+                >
                   취소
                 </button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
                   저장
                 </button>
               </div>

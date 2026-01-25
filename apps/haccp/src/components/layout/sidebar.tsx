@@ -49,6 +49,7 @@ const navigation: NavItem[] = [
     ],
   },
   { name: '위생 점검', href: '/hygiene', icon: Sparkles },
+  { name: '장비 온도 기록', href: '/equipment-temperature', icon: Thermometer },
   { name: '정기 점검', href: '/inspections', icon: ClipboardCheck },
   { name: '방충/방서', href: '/pest-control', icon: Bug },
   {
