@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Calendar, Bug, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Plus, Calendar, Bug, AlertTriangle, CheckCircle, Settings } from 'lucide-react';
+import Link from 'next/link';
 
 interface PestControlCheck {
   id: string;
@@ -129,13 +130,22 @@ export default function PestControlPage() {
           <h1 className="text-2xl font-bold text-gray-900">방충방서 관리</h1>
           <p className="mt-1 text-sm text-gray-500">방충방서 점검 기록을 관리합니다</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          <Plus className="w-4 h-4" />
-          점검 기록
-        </button>
+        <div className="flex gap-2">
+          <Link
+            href="/pest-control/settings"
+            className="inline-flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50"
+          >
+            <Settings className="w-4 h-4" />
+            설정
+          </Link>
+          <button
+            onClick={() => setShowModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4" />
+            점검 기록
+          </button>
+        </div>
       </div>
 
       {/* Date Selector */}

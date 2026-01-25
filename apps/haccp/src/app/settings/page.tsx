@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Save, Building2, Bell, Shield, Users, Clock, Database, RefreshCw, AlertCircle } from 'lucide-react';
+import { Save, Building2, Bell, Shield, Users, Clock, Database, RefreshCw, AlertCircle, MapPin, Sun, Plus, Trash2, Edit2 } from 'lucide-react';
 
 interface CompanySettings {
   company_name: string;
@@ -37,12 +37,38 @@ interface HaccpSettings {
   record_retention_years: number;
 }
 
+interface Zone {
+  id?: string;
+  zone_code: string;
+  zone_name: string;
+  zone_grade: '청결구역' | '일반구역';
+  sort_order: number;
+  is_active: boolean;
+}
+
+interface SeasonConfig {
+  동절기: { start_month: number; end_month: number };
+  하절기: { start_month: number; end_month: number };
+}
+
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'company' | 'notification' | 'haccp' | 'users'>('company');
+  const [activeTab, setActiveTab] = useState<'company' | 'notification' | 'haccp' | 'zones' | 'seasons' | 'users'>('company');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Zone settings
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [editingZone, setEditingZone] = useState<Zone | null>(null);
+  const [showZoneModal, setShowZoneModal] = useState(false);
+
+  // Season settings
+  const [seasonConfig, setSeasonConfig] = useState<SeasonConfig>({
+    동절기: { start_month: 11, end_month: 3 },
+    하절기: { start_month: 4, end_month: 10 },
+  });
+  const [currentSeason, setCurrentSeason] = useState<string>('');
 
   const [companySettings, setCompanySettings] = useState<CompanySettings>({
     company_name: '',
@@ -126,6 +152,20 @@ export default function SettingsPage() {
           record_retention_years: data.haccpSettings.record_retention_years ?? 3,
         });
       }
+    // Fetch zones
+      const zonesRes = await fetch('/api/haccp/settings/zones');
+      if (zonesRes.ok) {
+        const zonesData = await zonesRes.json();
+        setZones(zonesData);
+      }
+
+      // Fetch seasons
+      const seasonsRes = await fetch('/api/haccp/settings/seasons');
+      if (seasonsRes.ok) {
+        const seasonsData = await seasonsRes.json();
+        setSeasonConfig(seasonsData.config);
+        setCurrentSeason(seasonsData.currentSeason);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '설정을 불러오는데 실패했습니다.');
     } finally {
@@ -136,6 +176,76 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
+
+  // Zone handlers
+  const handleSaveZone = async () => {
+    if (!editingZone) return;
+
+    try {
+      setSaving(true);
+      const isNew = !editingZone.id;
+      const response = await fetch('/api/haccp/settings/zones', {
+        method: isNew ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(isNew ? editingZone : { zones: [editingZone] }),
+      });
+
+      if (response.ok) {
+        setShowZoneModal(false);
+        setEditingZone(null);
+        fetchSettings();
+        setSuccessMessage('구역이 저장되었습니다.');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+    } catch (err) {
+      setError('구역 저장에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteZone = async (id: string) => {
+    if (!confirm('이 구역을 삭제하시겠습니까?')) return;
+
+    try {
+      const response = await fetch(`/api/haccp/settings/zones?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        fetchSettings();
+        setSuccessMessage('구역이 삭제되었습니다.');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+    } catch (err) {
+      setError('구역 삭제에 실패했습니다.');
+    }
+  };
+
+  // Season handlers
+  const handleSaveSeasons = async () => {
+    try {
+      setSaving(true);
+      const response = await fetch('/api/haccp/settings/seasons', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: seasonConfig }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentSeason(data.currentSeason);
+        setSuccessMessage('시즌 설정이 저장되었습니다.');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+    } catch (err) {
+      setError('시즌 설정 저장에 실패했습니다.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const monthNames = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
 
   const handleSave = async () => {
     setSaving(true);
@@ -169,6 +279,8 @@ export default function SettingsPage() {
 
   const tabs = [
     { id: 'company', name: '회사 정보', icon: Building2 },
+    { id: 'zones', name: '구역 관리', icon: MapPin },
+    { id: 'seasons', name: '시즌 설정', icon: Sun },
     { id: 'notification', name: '알림 설정', icon: Bell },
     { id: 'haccp', name: 'HACCP 설정', icon: Shield },
     { id: 'users', name: '사용자 관리', icon: Users },
@@ -575,6 +687,236 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {/* Zones Tab */}
+      {activeTab === 'zones' && (
+        <div className="bg-white rounded-xl shadow-sm border p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-gray-400" />
+              구역 관리
+            </h2>
+            <button
+              onClick={() => {
+                setEditingZone({
+                  zone_code: '',
+                  zone_name: '',
+                  zone_grade: '일반구역',
+                  sort_order: zones.length,
+                  is_active: true,
+                });
+                setShowZoneModal(true);
+              }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4" />
+              구역 추가
+            </button>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            HACCP 시스템에서 사용할 구역을 관리합니다. 구역 등급(청결/일반)은 방충방서 관리 기준에 적용됩니다.
+          </p>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500">순서</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500">구역 코드</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500">구역명</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500">등급</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500">상태</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-500">관리</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {zones.map((zone, idx) => (
+                  <tr key={zone.id || idx} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">{idx + 1}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{zone.zone_code}</td>
+                    <td className="px-4 py-3 font-medium">{zone.zone_name}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 text-xs rounded-full ${
+                        zone.zone_grade === '청결구역'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {zone.zone_grade}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 text-xs rounded-full ${
+                        zone.is_active
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {zone.is_active ? '활성' : '비활성'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => {
+                          setEditingZone(zone);
+                          setShowZoneModal(true);
+                        }}
+                        className="p-1 text-gray-400 hover:text-blue-600"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => zone.id && handleDeleteZone(zone.id)}
+                        className="p-1 text-gray-400 hover:text-red-600 ml-1"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {zones.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              등록된 구역이 없습니다. 구역을 추가해주세요.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Seasons Tab */}
+      {activeTab === 'seasons' && (
+        <div className="bg-white rounded-xl shadow-sm border p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Sun className="w-5 h-5 text-gray-400" />
+              시즌 설정
+            </h2>
+            <button
+              onClick={handleSaveSeasons}
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? '저장 중...' : '저장'}
+            </button>
+          </div>
+          <p className="text-sm text-gray-500 mb-6">
+            방충방서 관리 기준은 시즌(동절기/하절기)에 따라 다르게 적용됩니다.
+          </p>
+
+          <div className="bg-blue-50 rounded-lg p-4 mb-6">
+            <p className="text-sm text-blue-800">
+              <strong>현재 시즌:</strong>{' '}
+              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                currentSeason === '동절기' ? 'bg-blue-200' : 'bg-orange-200'
+              }`}>
+                {currentSeason || '계산 중...'}
+              </span>
+              <span className="ml-2 text-blue-600">
+                (현재 {new Date().getMonth() + 1}월)
+              </span>
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-6">
+            {/* 동절기 */}
+            <div className="border rounded-lg p-4">
+              <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
+                <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
+                동절기 (겨울)
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">시작 월</label>
+                  <select
+                    value={seasonConfig.동절기.start_month}
+                    onChange={(e) => setSeasonConfig({
+                      ...seasonConfig,
+                      동절기: { ...seasonConfig.동절기, start_month: parseInt(e.target.value) }
+                    })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  >
+                    {monthNames.map((name, idx) => (
+                      <option key={idx} value={idx + 1}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">종료 월</label>
+                  <select
+                    value={seasonConfig.동절기.end_month}
+                    onChange={(e) => setSeasonConfig({
+                      ...seasonConfig,
+                      동절기: { ...seasonConfig.동절기, end_month: parseInt(e.target.value) }
+                    })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  >
+                    {monthNames.map((name, idx) => (
+                      <option key={idx} value={idx + 1}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {seasonConfig.동절기.start_month}월 ~ {seasonConfig.동절기.end_month}월
+              </p>
+            </div>
+
+            {/* 하절기 */}
+            <div className="border rounded-lg p-4">
+              <h3 className="font-medium text-gray-900 mb-4 flex items-center gap-2">
+                <span className="w-3 h-3 bg-orange-500 rounded-full"></span>
+                하절기 (여름)
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">시작 월</label>
+                  <select
+                    value={seasonConfig.하절기.start_month}
+                    onChange={(e) => setSeasonConfig({
+                      ...seasonConfig,
+                      하절기: { ...seasonConfig.하절기, start_month: parseInt(e.target.value) }
+                    })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  >
+                    {monthNames.map((name, idx) => (
+                      <option key={idx} value={idx + 1}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">종료 월</label>
+                  <select
+                    value={seasonConfig.하절기.end_month}
+                    onChange={(e) => setSeasonConfig({
+                      ...seasonConfig,
+                      하절기: { ...seasonConfig.하절기, end_month: parseInt(e.target.value) }
+                    })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  >
+                    {monthNames.map((name, idx) => (
+                      <option key={idx} value={idx + 1}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {seasonConfig.하절기.start_month}월 ~ {seasonConfig.하절기.end_month}월
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">시즌별 방충방서 관리 차이</h4>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• 하절기는 해충 활동이 활발하여 관리 기준이 높아집니다</li>
+              <li>• 동절기는 해충 활동이 감소하여 관리 기준이 낮아집니다</li>
+              <li>• 방충방서 점검 시 현재 시즌 기준이 자동 적용됩니다</li>
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Users Tab */}
       {activeTab === 'users' && (
         <div className="bg-white rounded-xl shadow-sm border p-6">
@@ -587,6 +929,79 @@ export default function SettingsPage() {
             <br />
             관리자에게 문의해 주세요.
           </p>
+        </div>
+      )}
+
+      {/* Zone Modal */}
+      {showZoneModal && editingZone && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6">
+            <h2 className="text-xl font-bold mb-4">
+              {editingZone.id ? '구역 수정' : '구역 추가'}
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">구역 코드</label>
+                <input
+                  type="text"
+                  value={editingZone.zone_code}
+                  onChange={(e) => setEditingZone({ ...editingZone, zone_code: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="예: mixing_room"
+                  disabled={!!editingZone.id}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">구역명</label>
+                <input
+                  type="text"
+                  value={editingZone.zone_name}
+                  onChange={(e) => setEditingZone({ ...editingZone, zone_name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="예: 배합실"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">구역 등급</label>
+                <select
+                  value={editingZone.zone_grade}
+                  onChange={(e) => setEditingZone({ ...editingZone, zone_grade: e.target.value as '청결구역' | '일반구역' })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="청결구역">청결구역</option>
+                  <option value="일반구역">일반구역</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="zone_active"
+                  checked={editingZone.is_active}
+                  onChange={(e) => setEditingZone({ ...editingZone, is_active: e.target.checked })}
+                  className="w-4 h-4 rounded"
+                />
+                <label htmlFor="zone_active" className="text-sm text-gray-700">활성화</label>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowZoneModal(false);
+                  setEditingZone(null);
+                }}
+                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSaveZone}
+                disabled={saving || !editingZone.zone_code || !editingZone.zone_name}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
