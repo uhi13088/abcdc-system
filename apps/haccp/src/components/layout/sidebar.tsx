@@ -68,10 +68,19 @@ const navigation: NavItem[] = [
     children: [
       { name: '완제품', href: '/products' },
       { name: '반제품', href: '/semi-products' },
+      { name: '레시피 관리', href: '/products/recipes' },
     ],
   },
   { name: '생산 관리', href: '/production', icon: Factory },
-  { name: '재고 관리', href: '/inventory', icon: Package },
+  {
+    name: '재고 관리',
+    href: '/inventory',
+    icon: Package,
+    children: [
+      { name: '재고 현황', href: '/inventory' },
+      { name: '원료수불부', href: '/inventory/ledger' },
+    ],
+  },
   { name: '출하 관리', href: '/shipments', icon: Truck },
   { name: '감사 보고서', href: '/audit-report', icon: FileText },
   { name: '교육 관리', href: '/training', icon: Users },
@@ -84,7 +93,7 @@ const navigation: NavItem[] = [
 function SidebarComponent() {
   const pathname = usePathname();
   const router = useRouter();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['CCP 관리', '원재료 관리', '제품 관리']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['CCP 관리', '원재료 관리', '제품 관리', '재고 관리']);
   const [isHovered, setIsHovered] = useState(false);
 
   const handleSignOut = useCallback(async () => {
