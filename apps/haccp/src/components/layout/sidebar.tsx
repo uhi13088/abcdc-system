@@ -46,6 +46,7 @@ const navigation: NavItem[] = [
       { name: 'CCP 현황', href: '/ccp' },
       { name: 'CCP 기록', href: '/ccp/records' },
       { name: 'CCP 검증', href: '/ccp/verification' },
+      { name: '개선조치', href: '/corrective-actions' },
     ],
   },
   { name: '위생 점검', href: '/hygiene', icon: Sparkles },
