@@ -1,6 +1,6 @@
 /**
- * 식품의약품안전처 식품영양성분 API 연동
- * https://www.data.go.kr/data/15127578/openapi.do
+ * 식품의약품안전처 식품영양성분DB 정보 API 연동
+ * https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo02
  *
  * 환경변수: NUTRITION_API_KEY
  */
@@ -22,37 +22,40 @@ export interface NutritionApiResult {
   source?: string;
 }
 
-interface ApiResponse {
+// data.go.kr API 응답 형식
+interface DataGoKrResponse {
   header: {
     resultCode: string;
     resultMsg: string;
   };
   body: {
+    pageNo: number;
     totalCount: number;
+    numOfRows: number;
     items: Array<{
-      FOOD_CD?: string;
-      FOOD_NM_KR?: string;
-      FOOD_NM?: string;
-      DB_GRP_NM?: string;
-      MAKER_NM?: string;
-      SERVING_SIZE?: string;
-      NUTR_CONT1?: string;  // 열량
-      NUTR_CONT2?: string;  // 탄수화물
-      NUTR_CONT3?: string;  // 단백질
-      NUTR_CONT4?: string;  // 지방
-      NUTR_CONT5?: string;  // 당류
-      NUTR_CONT6?: string;  // 나트륨
-      NUTR_CONT7?: string;  // 콜레스테롤
-      NUTR_CONT8?: string;  // 포화지방산
-      NUTR_CONT9?: string;  // 트랜스지방
+      FOOD_CD?: string;       // 식품코드
+      FOOD_NM_KR?: string;    // 식품명(한글)
+      DB_GRP_NM?: string;     // DB그룹명
+      FOOD_OR_NM?: string;    // 식품기원명
+      SERVING_SIZE?: string;  // 1회제공량
+      AMT_NUM1?: string;      // 열량(kcal)
+      AMT_NUM2?: string;      // 탄수화물(g)
+      AMT_NUM3?: string;      // 단백질(g)
+      AMT_NUM4?: string;      // 지방(g)
+      AMT_NUM5?: string;      // 총당류(g)
+      AMT_NUM6?: string;      // 나트륨(mg)
+      AMT_NUM7?: string;      // 콜레스테롤(mg)
+      AMT_NUM8?: string;      // 포화지방산(g)
+      AMT_NUM9?: string;      // 트랜스지방산(g)
     }>;
   };
 }
 
-const API_BASE_URL = 'https://openapi.foodsafetykorea.go.kr/api';
+const API_BASE_URL = 'https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo02';
 
 /**
  * 식품명으로 영양성분 검색
+ * data.go.kr API 사용
  */
 export async function searchNutrition(
   foodName: string,
@@ -67,7 +70,17 @@ export async function searchNutrition(
 
   try {
     const limit = options?.limit || 10;
-    const url = `${API_BASE_URL}/${apiKey}/I2790/json/1/${limit}/FOOD_NM_KR=${encodeURIComponent(foodName)}`;
+
+    // data.go.kr API 형식
+    const params = new URLSearchParams({
+      serviceKey: apiKey,
+      pageNo: '1',
+      numOfRows: String(limit),
+      type: 'json',
+      FOOD_NM_KR: foodName,
+    });
+
+    const url = `${API_BASE_URL}/getFoodNtrItdntList?${params.toString()}`;
 
     const response = await fetch(url, {
       headers: { 'Accept': 'application/json' },
@@ -78,28 +91,33 @@ export async function searchNutrition(
       throw new Error(`API request failed: ${response.status}`);
     }
 
-    const data: ApiResponse = await response.json();
+    const data: DataGoKrResponse = await response.json();
 
-    if (data.header?.resultCode !== '00' && data.header?.resultCode !== 'INFO-000') {
-      console.error('API error:', data.header?.resultMsg);
-      return [];
+    // 결과 코드 확인 (00: 정상, 03: 데이터 없음)
+    if (data.header?.resultCode !== '00') {
+      if (data.header?.resultCode === '03') {
+        // 데이터 없음 - 정상적인 상황
+        return [];
+      }
+      console.error('API error:', data.header?.resultCode, data.header?.resultMsg);
+      return getMockNutritionData(foodName);
     }
 
     return (data.body?.items || []).map(item => ({
-      food_name: item.FOOD_NM_KR || item.FOOD_NM || '',
+      food_name: item.FOOD_NM_KR || '',
       food_code: item.FOOD_CD,
-      manufacturer: item.MAKER_NM,
+      manufacturer: item.FOOD_OR_NM,
       serving_size: parseFloat(item.SERVING_SIZE || '100') || 100,
-      calories: parseFloat(item.NUTR_CONT1 || '0') || 0,
-      carbohydrate: parseFloat(item.NUTR_CONT2 || '0') || 0,
-      protein: parseFloat(item.NUTR_CONT3 || '0') || 0,
-      fat: parseFloat(item.NUTR_CONT4 || '0') || 0,
-      sugar: parseFloat(item.NUTR_CONT5 || '0') || 0,
-      sodium: parseFloat(item.NUTR_CONT6 || '0') || 0,
-      cholesterol: parseFloat(item.NUTR_CONT7 || '0') || 0,
-      saturated_fat: parseFloat(item.NUTR_CONT8 || '0') || 0,
-      trans_fat: parseFloat(item.NUTR_CONT9 || '0') || 0,
-      source: 'foodsafetykorea',
+      calories: parseFloat(item.AMT_NUM1 || '0') || 0,
+      carbohydrate: parseFloat(item.AMT_NUM2 || '0') || 0,
+      protein: parseFloat(item.AMT_NUM3 || '0') || 0,
+      fat: parseFloat(item.AMT_NUM4 || '0') || 0,
+      sugar: parseFloat(item.AMT_NUM5 || '0') || 0,
+      sodium: parseFloat(item.AMT_NUM6 || '0') || 0,
+      cholesterol: parseFloat(item.AMT_NUM7 || '0') || 0,
+      saturated_fat: parseFloat(item.AMT_NUM8 || '0') || 0,
+      trans_fat: parseFloat(item.AMT_NUM9 || '0') || 0,
+      source: 'data.go.kr',
     }));
   } catch (error) {
     console.error('Nutrition API error:', error);
