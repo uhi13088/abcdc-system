@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react';
 import { Plus, Search, Package, Edit, Trash2, X } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 
+interface PackingSpec {
+  id: string;
+  name: string;
+  description: string;
+}
+
 interface Product {
   id: string;
   code: string;
@@ -12,11 +18,15 @@ interface Product {
   specification: string;
   shelf_life: number;
   storage_condition: string;
+  manufacturing_report_number: string;
+  packing_spec_id: string;
+  packing_spec?: PackingSpec;
   status: string;
 }
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [packingSpecs, setPackingSpecs] = useState<PackingSpec[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,11 +37,26 @@ export default function ProductsPage() {
     specification: '',
     shelf_life: 0,
     storage_condition: '',
+    manufacturing_report_number: '',
+    packing_spec_id: '',
   });
 
   useEffect(() => {
     fetchProducts();
+    fetchPackingSpecs();
   }, []);
+
+  const fetchPackingSpecs = async () => {
+    try {
+      const response = await fetch('/api/haccp/packing-specs');
+      if (response.ok) {
+        const data = await response.json();
+        setPackingSpecs(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch packing specs:', error);
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -60,7 +85,7 @@ export default function ProductsPage() {
       if (response.ok) {
         setShowModal(false);
         fetchProducts();
-        setFormData({ code: '', name: '', category: '', specification: '', shelf_life: 0, storage_condition: '' });
+        setFormData({ code: '', name: '', category: '', specification: '', shelf_life: 0, storage_condition: '', manufacturing_report_number: '', packing_spec_id: '' });
       }
     } catch (error) {
       console.error('Failed to create product:', error);
@@ -124,9 +149,9 @@ export default function ProductsPage() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">코드</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">제품명</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">카테고리</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">품목제조보고번호</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">패킹규격</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">유통기한</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">보관조건</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">관리</th>
               </tr>
@@ -144,9 +169,9 @@ export default function ProductsPage() {
                   <tr key={product.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-mono">{product.code}</td>
                     <td className="px-6 py-4 text-sm font-medium">{product.name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{product.category}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{product.manufacturing_report_number || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{product.packing_spec?.name || '-'}</td>
                     <td className="px-6 py-4 text-sm">{product.shelf_life}일</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{product.storage_condition}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 text-xs rounded-full ${
                         product.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
@@ -204,13 +229,38 @@ export default function ProductsPage() {
                 </div>
               </div>
               <div>
-                <Label>카테고리</Label>
+                <Label>품목제조보고번호</Label>
                 <input
                   type="text"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  value={formData.manufacturing_report_number}
+                  onChange={(e) => setFormData({ ...formData, manufacturing_report_number: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="예: 2024012345"
                 />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>카테고리</Label>
+                  <input
+                    type="text"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                </div>
+                <div>
+                  <Label>패킹 규격</Label>
+                  <select
+                    value={formData.packing_spec_id}
+                    onChange={(e) => setFormData({ ...formData, packing_spec_id: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  >
+                    <option value="">선택하세요</option>
+                    {packingSpecs.map((spec) => (
+                      <option key={spec.id} value={spec.id}>{spec.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div>
                 <Label>규격</Label>

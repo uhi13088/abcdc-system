@@ -25,7 +25,10 @@ export async function GET(_request: NextRequest) {
 
     const { data, error } = await supabase
       .from('products')
-      .select('*')
+      .select(`
+        *,
+        packing_spec:packing_spec_id (id, name, description)
+      `)
       .eq('company_id', userProfile.company_id)
       .order('created_at', { ascending: false });
 
@@ -62,12 +65,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // Handle empty packing_spec_id
+    const productData = {
+      company_id: userProfile.company_id,
+      ...body,
+      packing_spec_id: body.packing_spec_id || null,
+    };
+
     const { data, error } = await supabase
       .from('products')
-      .insert({
-        company_id: userProfile.company_id,
-        ...body,
-      })
+      .insert(productData)
       .select()
       .single();
 
