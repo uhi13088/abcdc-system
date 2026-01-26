@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { generateSemiProductLotNumber } from '@/lib/utils/lot-number';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,14 +115,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user info
+    // Get user info (auth_id로 조회)
     const { data: userData } = await supabase
       .from('users')
       .select('id, company_id, store_id, role')
-      .eq('id', user.id)
+      .eq('auth_id', user.id)
       .single();
 
-    if (!userData || !['super_admin', 'company_admin', 'manager', 'store_manager'].includes(userData.role)) {
+    if (!userData || !['super_admin', 'company_admin', 'manager', 'store_manager', 'HACCP_MANAGER', 'COMPANY_ADMIN'].includes(userData.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -143,10 +144,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate LOT number
-    const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    const lotNumber = `SP-${today}-${randomSuffix}`;
+    // 로트번호 자동생성 (제품코드 포함)
+    const lotNumber = await generateSemiProductLotNumber(supabase, userData.company_id, product_code);
 
     // Calculate yield
     const yieldPercentage = production?.planned_qty > 0

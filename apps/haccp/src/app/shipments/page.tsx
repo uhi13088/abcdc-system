@@ -1,7 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Plus, Calendar, Truck, Package, ThermometerSun, MapPin } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Plus, Calendar, Truck, Package, ThermometerSun, MapPin,
+  Clock, CheckCircle2, XCircle, Eye, ClipboardCheck, Search,
+  ChevronDown, ChevronUp, AlertTriangle, User, FileCheck
+} from 'lucide-react';
+import { Label } from '@/components/ui/label';
+
+interface ShipmentItem {
+  product_id: string;
+  product_name?: string;
+  product_code?: string;
+  lot_number: string;
+  quantity: number;
+  unit: string;
+}
 
 interface ShipmentRecord {
   id: string;
@@ -9,50 +23,108 @@ interface ShipmentRecord {
   shipment_number: string;
   customer_name: string;
   customer_address: string;
-  items: Array<{
-    product_id: string;
-    product_name?: string;
-    lot_number: string;
-    quantity: number;
-    unit: string;
-  }>;
+  customer_contact?: string;
+  items: ShipmentItem[];
   vehicle_number: string;
-  vehicle_temp: number;
+  vehicle_temp?: number;
   driver_name: string;
+  driver_contact?: string;
   status: 'PENDING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+  // 출하 시간
+  shipment_time?: string;
+  expected_arrival_time?: string;
+  actual_arrival_time?: string;
+  // 출하 전 검사
+  pre_shipment_check?: boolean;
+  pre_shipment_checked_by?: string;
+  pre_shipment_checked_by_name?: string;
+  pre_shipment_checked_at?: string;
+  product_condition_check?: boolean;
+  packaging_condition_check?: boolean;
+  quantity_check?: boolean;
+  label_check?: boolean;
+  vehicle_cleanliness_check?: boolean;
+  vehicle_temp_check?: boolean;
+  departure_temp?: number;
+  // 수령 확인
+  received_at?: string;
+  received_by?: string;
+  receiver_signature?: string;
+  arrival_temp?: number;
+  // 담당자 정보
+  shipped_by?: string;
+  shipped_by_name?: string;
+  // 비고
+  notes?: string;
+  created_at?: string;
 }
 
 interface Product {
   id: string;
   name: string;
+  code?: string;
 }
+
+const PRE_SHIPMENT_CHECK_LABELS: Record<string, string> = {
+  product_condition_check: '제품 상태',
+  packaging_condition_check: '포장 상태',
+  quantity_check: '수량 확인',
+  label_check: '라벨 확인',
+  vehicle_cleanliness_check: '차량 청결',
+  vehicle_temp_check: '차량 온도',
+};
 
 export default function ShipmentsPage() {
   const [shipments, setShipments] = useState<ShipmentRecord[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showPreCheckModal, setShowPreCheckModal] = useState(false);
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<ShipmentRecord | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [filterStatus, setFilterStatus] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
   const [formData, setFormData] = useState({
     shipment_number: '',
     customer_name: '',
     customer_address: '',
-    items: [{ product_id: '', lot_number: '', quantity: 0, unit: 'box' }],
+    customer_contact: '',
+    items: [{ product_id: '', lot_number: '', quantity: 0, unit: 'box' }] as ShipmentItem[],
     vehicle_number: '',
-    vehicle_temp: 0,
+    vehicle_temp: undefined as number | undefined,
     driver_name: '',
+    driver_contact: '',
+    expected_arrival_time: '',
+    notes: '',
   });
 
-  useEffect(() => {
-    fetchShipments();
-    fetchProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate]);
+  const [preCheckData, setPreCheckData] = useState({
+    product_condition_check: false,
+    packaging_condition_check: false,
+    quantity_check: false,
+    label_check: false,
+    vehicle_cleanliness_check: false,
+    vehicle_temp_check: false,
+    departure_temp: undefined as number | undefined,
+  });
 
-  const fetchShipments = async () => {
+  const [receiveData, setReceiveData] = useState({
+    received_by: '',
+    arrival_temp: undefined as number | undefined,
+    notes: '',
+  });
+
+  const fetchShipments = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/haccp/shipments?date=${selectedDate}`);
+      let url = `/api/haccp/shipments?date=${selectedDate}`;
+      if (filterStatus) url += `&status=${filterStatus}`;
+
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setShipments(data);
@@ -62,7 +134,7 @@ export default function ShipmentsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate, filterStatus]);
 
   const fetchProducts = async () => {
     try {
@@ -76,34 +148,199 @@ export default function ShipmentsPage() {
     }
   };
 
+  useEffect(() => {
+    fetchShipments();
+  }, [fetchShipments]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const submitData = {
+        shipment_date: selectedDate,
+        ...formData,
+        items: formData.items.filter(item => item.product_id),
+      };
+
       const response = await fetch('/api/haccp/shipments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          shipment_date: selectedDate,
-          ...formData,
-        }),
+        body: JSON.stringify(submitData),
       });
 
       if (response.ok) {
         setShowModal(false);
         fetchShipments();
-        setFormData({
-          shipment_number: '',
-          customer_name: '',
-          customer_address: '',
-          items: [{ product_id: '', lot_number: '', quantity: 0, unit: 'box' }],
-          vehicle_number: '',
-          vehicle_temp: 0,
-          driver_name: '',
-        });
+        resetForm();
       }
     } catch (error) {
       console.error('Failed to create shipment:', error);
     }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      shipment_number: '',
+      customer_name: '',
+      customer_address: '',
+      customer_contact: '',
+      items: [{ product_id: '', lot_number: '', quantity: 0, unit: 'box' }],
+      vehicle_number: '',
+      vehicle_temp: undefined,
+      driver_name: '',
+      driver_contact: '',
+      expected_arrival_time: '',
+      notes: '',
+    });
+  };
+
+  const handlePreShipmentCheck = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRecord) return;
+
+    try {
+      const response = await fetch('/api/haccp/shipments', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedRecord.id,
+          action: 'pre_shipment_check',
+          ...preCheckData,
+        }),
+      });
+
+      if (response.ok) {
+        setShowPreCheckModal(false);
+        fetchShipments();
+      }
+    } catch (error) {
+      console.error('Failed to submit pre-shipment check:', error);
+    }
+  };
+
+  const handleShip = async (recordId: string) => {
+    try {
+      const response = await fetch('/api/haccp/shipments', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: recordId,
+          action: 'ship',
+        }),
+      });
+
+      if (response.ok) {
+        fetchShipments();
+      }
+    } catch (error) {
+      console.error('Failed to ship:', error);
+    }
+  };
+
+  const handleDeliver = async (recordId: string) => {
+    try {
+      const response = await fetch('/api/haccp/shipments', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: recordId,
+          action: 'deliver',
+        }),
+      });
+
+      if (response.ok) {
+        fetchShipments();
+      }
+    } catch (error) {
+      console.error('Failed to deliver:', error);
+    }
+  };
+
+  const handleReceive = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRecord) return;
+
+    try {
+      const response = await fetch('/api/haccp/shipments', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedRecord.id,
+          action: 'receive',
+          ...receiveData,
+        }),
+      });
+
+      if (response.ok) {
+        setShowReceiveModal(false);
+        fetchShipments();
+      }
+    } catch (error) {
+      console.error('Failed to receive:', error);
+    }
+  };
+
+  const handleCancel = async (recordId: string) => {
+    if (!confirm('이 출하를 취소하시겠습니까?')) return;
+
+    try {
+      const response = await fetch('/api/haccp/shipments', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: recordId,
+          action: 'cancel',
+        }),
+      });
+
+      if (response.ok) {
+        fetchShipments();
+      }
+    } catch (error) {
+      console.error('Failed to cancel:', error);
+    }
+  };
+
+  const openPreCheckModal = (record: ShipmentRecord) => {
+    setSelectedRecord(record);
+    setPreCheckData({
+      product_condition_check: record.product_condition_check || false,
+      packaging_condition_check: record.packaging_condition_check || false,
+      quantity_check: record.quantity_check || false,
+      label_check: record.label_check || false,
+      vehicle_cleanliness_check: record.vehicle_cleanliness_check || false,
+      vehicle_temp_check: record.vehicle_temp_check || false,
+      departure_temp: record.departure_temp,
+    });
+    setShowPreCheckModal(true);
+  };
+
+  const openReceiveModal = (record: ShipmentRecord) => {
+    setSelectedRecord(record);
+    setReceiveData({
+      received_by: '',
+      arrival_temp: undefined,
+      notes: '',
+    });
+    setShowReceiveModal(true);
+  };
+
+  const openDetailModal = (record: ShipmentRecord) => {
+    setSelectedRecord(record);
+    setShowDetailModal(true);
+  };
+
+  const toggleRowExpand = (id: string) => {
+    const newExpanded = new Set(expandedRows);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedRows(newExpanded);
   };
 
   const addItem = () => {
@@ -127,18 +364,39 @@ export default function ShipmentsPage() {
     setFormData({ ...formData, items: newItems });
   };
 
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     'PENDING': 'bg-yellow-100 text-yellow-700',
     'SHIPPED': 'bg-blue-100 text-blue-700',
     'DELIVERED': 'bg-green-100 text-green-700',
     'CANCELLED': 'bg-gray-100 text-gray-700',
   };
 
-  const statusText = {
+  const statusText: Record<string, string> = {
     'PENDING': '대기',
     'SHIPPED': '출하',
     'DELIVERED': '배송완료',
     'CANCELLED': '취소',
+  };
+
+  const filteredShipments = shipments.filter(s => {
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      return (
+        s.shipment_number?.toLowerCase().includes(search) ||
+        s.customer_name?.toLowerCase().includes(search) ||
+        s.driver_name?.toLowerCase().includes(search)
+      );
+    }
+    return true;
+  });
+
+  const summaryStats = {
+    total: shipments.length,
+    pending: shipments.filter(s => s.status === 'PENDING').length,
+    shipped: shipments.filter(s => s.status === 'SHIPPED').length,
+    delivered: shipments.filter(s => s.status === 'DELIVERED').length,
+    needsPreCheck: shipments.filter(s => s.status === 'PENDING' && !s.pre_shipment_check).length,
+    totalItems: shipments.reduce((sum, s) => sum + (s.items?.length || 0), 0),
   };
 
   return (
@@ -146,19 +404,19 @@ export default function ShipmentsPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">출하 기록</h1>
-          <p className="mt-1 text-sm text-gray-500">제품 출하 기록을 관리합니다</p>
+          <p className="mt-1 text-sm text-gray-500">제품 출하 및 배송 현황을 관리합니다</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Plus className="w-4 h-4" />
-          출하 기록
+          출하 등록
         </button>
       </div>
 
-      {/* Date Selector */}
-      <div className="mb-6 flex items-center gap-4">
+      {/* Filters */}
+      <div className="mb-6 flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
           <Calendar className="w-5 h-5 text-gray-400" />
           <input
@@ -168,151 +426,476 @@ export default function ShipmentsPage() {
             className="px-3 py-2 border rounded-lg"
           />
         </div>
+        <div className="flex items-center gap-2">
+          <Search className="w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="출하번호, 고객명, 기사명 검색..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="px-3 py-2 border rounded-lg w-56"
+          />
+        </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="px-3 py-2 border rounded-lg"
+        >
+          <option value="">전체 상태</option>
+          <option value="PENDING">대기</option>
+          <option value="SHIPPED">출하</option>
+          <option value="DELIVERED">배송완료</option>
+          <option value="CANCELLED">취소</option>
+        </select>
       </div>
 
-      {/* Shipments */}
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm border p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Truck className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">총 출하건</p>
+              <p className="text-lg font-bold">{summaryStats.total}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-yellow-100 rounded-lg">
+              <Clock className="w-5 h-5 text-yellow-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">대기</p>
+              <p className="text-lg font-bold">{summaryStats.pending}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Truck className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">출하중</p>
+              <p className="text-lg font-bold">{summaryStats.shipped}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">배송완료</p>
+              <p className="text-lg font-bold text-green-600">{summaryStats.delivered}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-orange-100 rounded-lg">
+              <ClipboardCheck className="w-5 h-5 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">검사필요</p>
+              <p className="text-lg font-bold text-orange-600">{summaryStats.needsPreCheck}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <Package className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">총 품목수</p>
+              <p className="text-lg font-bold">{summaryStats.totalItems}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Shipments List */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
-      ) : shipments.length === 0 ? (
+      ) : filteredShipments.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border p-12 text-center">
           <Truck className="w-12 h-12 mx-auto mb-4 text-gray-300" />
           <p className="text-gray-500">해당 날짜의 출하 기록이 없습니다</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {shipments.map((shipment) => (
+          {filteredShipments.map((shipment) => (
             <div key={shipment.id} className="bg-white rounded-xl shadow-sm border overflow-hidden">
+              {/* Shipment Header */}
               <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <span className="font-mono font-medium">{shipment.shipment_number}</span>
-                  <span className={`px-2 py-1 text-xs rounded-full ${statusColors[shipment.status]}`}>
-                    {statusText[shipment.status]}
-                  </span>
+                  <button
+                    onClick={() => toggleRowExpand(shipment.id)}
+                    className="p-1 hover:bg-gray-200 rounded"
+                  >
+                    {expandedRows.has(shipment.id) ? (
+                      <ChevronUp className="w-5 h-5 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-gray-500" />
+                    )}
+                  </button>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-medium text-lg">{shipment.shipment_number}</span>
+                      <span className={`px-2 py-0.5 text-xs rounded-full ${statusColors[shipment.status]}`}>
+                        {statusText[shipment.status]}
+                      </span>
+                      {shipment.status === 'PENDING' && !shipment.pre_shipment_check && (
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-orange-100 text-orange-700">
+                          검사필요
+                        </span>
+                      )}
+                      {shipment.pre_shipment_check && (
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700">
+                          검사완료
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-500">{shipment.customer_name}</div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4 text-sm text-gray-500">
-                  <span className="flex items-center gap-1">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
                     <Truck className="w-4 h-4" />
-                    {shipment.vehicle_number}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <ThermometerSun className="w-4 h-4" />
-                    {shipment.vehicle_temp}°C
-                  </span>
+                    <span>{shipment.vehicle_number}</span>
+                  </div>
+                  {shipment.vehicle_temp !== undefined && (
+                    <div className="flex items-center gap-1 text-sm text-gray-500">
+                      <ThermometerSun className="w-4 h-4" />
+                      <span>{shipment.vehicle_temp}°C</span>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => openDetailModal(shipment)}
+                    className="p-2 hover:bg-gray-200 rounded-lg"
+                    title="상세보기"
+                  >
+                    <Eye className="w-4 h-4 text-gray-600" />
+                  </button>
+
+                  {/* 상태별 액션 버튼 */}
+                  {shipment.status === 'PENDING' && !shipment.pre_shipment_check && (
+                    <button
+                      onClick={() => openPreCheckModal(shipment)}
+                      className="px-3 py-1.5 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+                    >
+                      출하전검사
+                    </button>
+                  )}
+                  {shipment.status === 'PENDING' && shipment.pre_shipment_check && (
+                    <button
+                      onClick={() => handleShip(shipment.id)}
+                      className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      출하처리
+                    </button>
+                  )}
+                  {shipment.status === 'SHIPPED' && (
+                    <>
+                      <button
+                        onClick={() => handleDeliver(shipment.id)}
+                        className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      >
+                        배송완료
+                      </button>
+                      <button
+                        onClick={() => openReceiveModal(shipment)}
+                        className="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-100"
+                      >
+                        수령확인
+                      </button>
+                    </>
+                  )}
+                  {shipment.status === 'PENDING' && (
+                    <button
+                      onClick={() => handleCancel(shipment.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                      title="취소"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div className="p-4">
-                <div className="flex items-start gap-4 mb-4">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{shipment.customer_name}</p>
-                    <p className="text-sm text-gray-500 flex items-center gap-1">
-                      <MapPin className="w-4 h-4" />
-                      {shipment.customer_address}
-                    </p>
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    배송기사: {shipment.driver_name}
-                  </div>
+              {/* Shipment Summary */}
+              <div className="p-4 grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div>
+                  <p className="text-xs text-gray-500">배송지</p>
+                  <p className="font-medium text-sm flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-gray-400" />
+                    {shipment.customer_address || '-'}
+                  </p>
                 </div>
+                <div>
+                  <p className="text-xs text-gray-500">배송기사</p>
+                  <p className="font-medium">{shipment.driver_name || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">출하시간</p>
+                  <p className="font-medium">{shipment.shipment_time?.slice(0, 5) || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">품목수</p>
+                  <p className="font-medium">{shipment.items?.length || 0}개</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">담당자</p>
+                  <p className="font-medium">{shipment.shipped_by_name || '-'}</p>
+                </div>
+              </div>
 
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <h4 className="text-xs font-medium text-gray-500 uppercase mb-2">출하품목</h4>
-                  <div className="space-y-2">
-                    {shipment.items.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-4 text-sm">
-                        <Package className="w-4 h-4 text-gray-400" />
-                        <span className="font-medium">{item.product_name || products.find(p => p.id === item.product_id)?.name}</span>
-                        <span className="font-mono text-gray-500">LOT: {item.lot_number}</span>
-                        <span>{item.quantity} {item.unit}</span>
+              {/* Expanded Details */}
+              {expandedRows.has(shipment.id) && (
+                <div className="p-4 border-t bg-gray-50 space-y-4">
+                  {/* 출하품목 */}
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase mb-2">출하품목</p>
+                    <div className="bg-white rounded-lg p-3 space-y-2">
+                      {shipment.items?.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-4 text-sm py-2 border-b last:border-0">
+                          <Package className="w-4 h-4 text-gray-400" />
+                          <span className="font-medium flex-1">
+                            {item.product_name || products.find(p => p.id === item.product_id)?.name || '-'}
+                          </span>
+                          <span className="font-mono text-gray-500">LOT: {item.lot_number}</span>
+                          <span className="font-medium">{item.quantity} {item.unit}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 출하전 검사 결과 */}
+                  {shipment.pre_shipment_check !== undefined && (
+                    <div className={`rounded-lg p-3 ${
+                      shipment.pre_shipment_check ? 'bg-green-50' : 'bg-red-50'
+                    }`}>
+                      <p className="text-xs font-medium mb-2 flex items-center gap-2">
+                        {shipment.pre_shipment_check ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            <span className="text-green-700">출하전 검사 합격</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="w-4 h-4 text-red-600" />
+                            <span className="text-red-700">출하전 검사 불합격</span>
+                          </>
+                        )}
+                      </p>
+                      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 text-sm">
+                        {Object.entries(PRE_SHIPMENT_CHECK_LABELS).map(([key, label]) => {
+                          const passed = shipment[key as keyof ShipmentRecord];
+                          return (
+                            <div key={key} className={`text-center p-2 rounded ${
+                              passed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            }`}>
+                              <p className="text-xs">{label}</p>
+                              <p className="font-medium">{passed ? '적합' : '부적합'}</p>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
-                  </div>
+                      {shipment.departure_temp !== undefined && (
+                        <p className="mt-2 text-sm">
+                          출발 온도: <span className="font-medium">{shipment.departure_temp}°C</span>
+                        </p>
+                      )}
+                      <p className="mt-2 text-xs text-gray-500">
+                        검사자: {shipment.pre_shipment_checked_by_name} /
+                        {shipment.pre_shipment_checked_at?.slice(0, 16).replace('T', ' ')}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 배송 정보 */}
+                  {shipment.status === 'DELIVERED' && (
+                    <div className="bg-green-50 rounded-lg p-3">
+                      <p className="text-xs font-medium text-green-700 mb-2 flex items-center gap-2">
+                        <FileCheck className="w-4 h-4" />
+                        배송 완료
+                      </p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <p className="text-xs text-green-600">도착 시간</p>
+                          <p className="font-medium">
+                            {shipment.actual_arrival_time?.slice(11, 16) || '-'}
+                          </p>
+                        </div>
+                        {shipment.arrival_temp !== undefined && (
+                          <div>
+                            <p className="text-xs text-green-600">도착 온도</p>
+                            <p className="font-medium">{shipment.arrival_temp}°C</p>
+                          </div>
+                        )}
+                        {shipment.received_by && (
+                          <div>
+                            <p className="text-xs text-green-600">수령인</p>
+                            <p className="font-medium">{shipment.received_by}</p>
+                          </div>
+                        )}
+                        {shipment.received_at && (
+                          <div>
+                            <p className="text-xs text-green-600">수령 시간</p>
+                            <p className="font-medium">
+                              {shipment.received_at?.slice(11, 16)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 비고 */}
+                  {shipment.notes && (
+                    <div>
+                      <p className="text-xs text-gray-500">비고</p>
+                      <p className="text-sm">{shipment.notes}</p>
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      {/* Modal */}
+      {/* Create Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">출하 기록</h2>
+              <h2 className="text-xl font-bold">출하 등록</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700">
                 닫기
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* 기본 정보 */}
+              <div className="space-y-4">
+                <h3 className="font-medium text-gray-900 border-b pb-2">기본 정보</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>출하번호</Label>
+                    <input
+                      type="text"
+                      value={formData.shipment_number}
+                      onChange={(e) => setFormData({ ...formData, shipment_number: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="자동 생성됩니다"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">비워두면 자동 생성 (SHP-날짜-순번)</p>
+                  </div>
+                  <div>
+                    <Label required>고객명</Label>
+                    <input
+                      type="text"
+                      value={formData.customer_name}
+                      onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      required
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">출하번호</label>
+                  <Label>배송지</Label>
                   <input
                     type="text"
-                    value={formData.shipment_number}
-                    onChange={(e) => setFormData({ ...formData, shipment_number: e.target.value })}
+                    value={formData.customer_address}
+                    onChange={(e) => setFormData({ ...formData, customer_address: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg"
-                    required
+                    placeholder="배송지 주소"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">고객명</label>
+                  <Label>고객 연락처</Label>
                   <input
                     type="text"
-                    value={formData.customer_name}
-                    onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                    value={formData.customer_contact}
+                    onChange={(e) => setFormData({ ...formData, customer_contact: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg"
-                    required
+                    placeholder="010-0000-0000"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">배송지</label>
-                <input
-                  type="text"
-                  value={formData.customer_address}
-                  onChange={(e) => setFormData({ ...formData, customer_address: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                />
+              {/* 차량/기사 정보 */}
+              <div className="space-y-4">
+                <h3 className="font-medium text-gray-900 border-b pb-2">차량/기사 정보</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label>차량번호</Label>
+                    <input
+                      type="text"
+                      value={formData.vehicle_number}
+                      onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <Label>차량온도 (°C)</Label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.vehicle_temp ?? ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        vehicle_temp: e.target.value ? parseFloat(e.target.value) : undefined
+                      })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <Label>예상 도착시간</Label>
+                    <input
+                      type="time"
+                      value={formData.expected_arrival_time}
+                      onChange={(e) => setFormData({ ...formData, expected_arrival_time: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>배송기사</Label>
+                    <input
+                      type="text"
+                      value={formData.driver_name}
+                      onChange={(e) => setFormData({ ...formData, driver_name: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <Label>기사 연락처</Label>
+                    <input
+                      type="text"
+                      value={formData.driver_contact}
+                      onChange={(e) => setFormData({ ...formData, driver_contact: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="010-0000-0000"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">차량번호</label>
-                  <input
-                    type="text"
-                    value={formData.vehicle_number}
-                    onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">차량온도 (°C)</label>
-                  <input
-                    type="number"
-                    value={formData.vehicle_temp}
-                    onChange={(e) => setFormData({ ...formData, vehicle_temp: parseFloat(e.target.value) })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">배송기사</label>
-                  <input
-                    type="text"
-                    value={formData.driver_name}
-                    onChange={(e) => setFormData({ ...formData, driver_name: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  />
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium text-gray-900">출하품목</h4>
+              {/* 출하품목 */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h3 className="font-medium text-gray-900">출하품목</h3>
                   <button type="button" onClick={addItem} className="text-sm text-blue-600 hover:text-blue-700">
                     + 품목 추가
                   </button>
@@ -347,7 +930,7 @@ export default function ShipmentsPage() {
                         <input
                           type="number"
                           value={item.quantity}
-                          onChange={(e) => updateItem(idx, 'quantity', parseFloat(e.target.value))}
+                          onChange={(e) => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)}
                           className="w-full px-2 py-1.5 border rounded text-sm"
                         />
                       </div>
@@ -376,15 +959,365 @@ export default function ShipmentsPage() {
                 </div>
               </div>
 
+              {/* 비고 */}
+              <div>
+                <Label>비고</Label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  rows={3}
+                  placeholder="특이사항이 있으면 입력하세요"
+                />
+              </div>
+
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+                >
                   취소
                 </button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  저장
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  등록
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Pre-Shipment Check Modal */}
+      {showPreCheckModal && selectedRecord && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold">출하전 검사</h2>
+                <p className="text-sm text-gray-500">{selectedRecord.shipment_number}</p>
+              </div>
+              <button onClick={() => setShowPreCheckModal(false)} className="text-gray-500 hover:text-gray-700">
+                닫기
+              </button>
+            </div>
+            <form onSubmit={handlePreShipmentCheck} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                {Object.entries(PRE_SHIPMENT_CHECK_LABELS).map(([key, label]) => (
+                  <label
+                    key={key}
+                    className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${
+                      preCheckData[key as keyof typeof preCheckData]
+                        ? 'bg-green-50 border-green-300'
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={preCheckData[key as keyof typeof preCheckData] as boolean}
+                      onChange={(e) => setPreCheckData({
+                        ...preCheckData,
+                        [key]: e.target.checked,
+                      })}
+                      className="w-5 h-5 rounded"
+                    />
+                    <div>
+                      <p className="font-medium">{label}</p>
+                      <p className="text-xs text-gray-500">
+                        {preCheckData[key as keyof typeof preCheckData] ? '적합' : '부적합'}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              <div>
+                <Label>출발 온도 (°C)</Label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={preCheckData.departure_temp ?? ''}
+                  onChange={(e) => setPreCheckData({
+                    ...preCheckData,
+                    departure_temp: e.target.value ? parseFloat(e.target.value) : undefined
+                  })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="차량 출발 시 온도"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowPreCheckModal(false)}
+                  className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  검사 완료
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Receive Confirmation Modal */}
+      {showReceiveModal && selectedRecord && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold">수령 확인</h2>
+                <p className="text-sm text-gray-500">{selectedRecord.shipment_number}</p>
+              </div>
+              <button onClick={() => setShowReceiveModal(false)} className="text-gray-500 hover:text-gray-700">
+                닫기
+              </button>
+            </div>
+            <form onSubmit={handleReceive} className="space-y-4">
+              <div>
+                <Label required>수령인</Label>
+                <input
+                  type="text"
+                  value={receiveData.received_by}
+                  onChange={(e) => setReceiveData({ ...receiveData, received_by: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="수령인 성명"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label>도착 온도 (°C)</Label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={receiveData.arrival_temp ?? ''}
+                  onChange={(e) => setReceiveData({
+                    ...receiveData,
+                    arrival_temp: e.target.value ? parseFloat(e.target.value) : undefined
+                  })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="도착 시 제품 온도"
+                />
+              </div>
+
+              <div>
+                <Label>비고</Label>
+                <textarea
+                  value={receiveData.notes}
+                  onChange={(e) => setReceiveData({ ...receiveData, notes: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  rows={2}
+                  placeholder="특이사항"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowReceiveModal(false)}
+                  className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  수령 확인
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {showDetailModal && selectedRecord && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold">출하 상세</h2>
+                <p className="text-sm text-gray-500">{selectedRecord.shipment_number}</p>
+              </div>
+              <button onClick={() => setShowDetailModal(false)} className="text-gray-500 hover:text-gray-700">
+                닫기
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* 기본 정보 */}
+              <div>
+                <h3 className="font-medium text-gray-900 mb-3 border-b pb-2">기본 정보</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-500">출하번호</p>
+                    <p className="font-medium">{selectedRecord.shipment_number}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">상태</p>
+                    <span className={`px-2 py-1 text-xs rounded-full ${statusColors[selectedRecord.status]}`}>
+                      {statusText[selectedRecord.status]}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">고객명</p>
+                    <p className="font-medium">{selectedRecord.customer_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">배송지</p>
+                    <p className="font-medium">{selectedRecord.customer_address || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">출하일자</p>
+                    <p className="font-medium">{selectedRecord.shipment_date}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">출하시간</p>
+                    <p className="font-medium">{selectedRecord.shipment_time?.slice(0, 5) || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 차량/기사 정보 */}
+              <div>
+                <h3 className="font-medium text-gray-900 mb-3 border-b pb-2">차량/기사 정보</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-gray-400" />
+                    <div>
+                      <p className="text-gray-500">차량번호</p>
+                      <p className="font-medium">{selectedRecord.vehicle_number || '-'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ThermometerSun className="w-4 h-4 text-gray-400" />
+                    <div>
+                      <p className="text-gray-500">차량온도</p>
+                      <p className="font-medium">
+                        {selectedRecord.vehicle_temp !== undefined ? `${selectedRecord.vehicle_temp}°C` : '-'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-gray-400" />
+                    <div>
+                      <p className="text-gray-500">배송기사</p>
+                      <p className="font-medium">{selectedRecord.driver_name || '-'}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-gray-500">담당자</p>
+                    <p className="font-medium">{selectedRecord.shipped_by_name || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 출하품목 */}
+              <div>
+                <h3 className="font-medium text-gray-900 mb-3 border-b pb-2">출하품목</h3>
+                <div className="space-y-2">
+                  {selectedRecord.items?.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-4 text-sm p-2 bg-gray-50 rounded">
+                      <Package className="w-4 h-4 text-gray-400" />
+                      <span className="font-medium flex-1">{item.product_name || '-'}</span>
+                      <span className="font-mono text-gray-500">LOT: {item.lot_number}</span>
+                      <span className="font-medium">{item.quantity} {item.unit}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 출하전 검사 */}
+              {selectedRecord.pre_shipment_checked_at && (
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3 border-b pb-2">출하전 검사</h3>
+                  <div className={`p-3 rounded-lg ${
+                    selectedRecord.pre_shipment_check ? 'bg-green-50' : 'bg-red-50'
+                  }`}>
+                    <div className="grid grid-cols-3 gap-2 text-sm">
+                      {Object.entries(PRE_SHIPMENT_CHECK_LABELS).map(([key, label]) => {
+                        const passed = selectedRecord[key as keyof ShipmentRecord];
+                        return (
+                          <div key={key} className={`text-center p-2 rounded ${
+                            passed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            <p className="text-xs">{label}</p>
+                            <p className="font-medium">{passed ? '적합' : '부적합'}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      검사자: {selectedRecord.pre_shipment_checked_by_name} /
+                      {selectedRecord.pre_shipment_checked_at?.slice(0, 16).replace('T', ' ')}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* 배송 완료 정보 */}
+              {selectedRecord.status === 'DELIVERED' && (
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3 border-b pb-2">배송 완료</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">도착 시간</p>
+                      <p className="font-medium">
+                        {selectedRecord.actual_arrival_time?.slice(11, 16) || '-'}
+                      </p>
+                    </div>
+                    {selectedRecord.arrival_temp !== undefined && (
+                      <div>
+                        <p className="text-gray-500">도착 온도</p>
+                        <p className="font-medium">{selectedRecord.arrival_temp}°C</p>
+                      </div>
+                    )}
+                    {selectedRecord.received_by && (
+                      <div>
+                        <p className="text-gray-500">수령인</p>
+                        <p className="font-medium">{selectedRecord.received_by}</p>
+                      </div>
+                    )}
+                    {selectedRecord.received_at && (
+                      <div>
+                        <p className="text-gray-500">수령 시간</p>
+                        <p className="font-medium">
+                          {selectedRecord.received_at?.slice(11, 16)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 비고 */}
+              {selectedRecord.notes && (
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-3 border-b pb-2">비고</h3>
+                  <p className="text-sm">{selectedRecord.notes}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end mt-6 pt-4 border-t">
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                닫기
+              </button>
+            </div>
           </div>
         </div>
       )}

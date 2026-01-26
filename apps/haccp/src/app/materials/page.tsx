@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Package, Edit, Trash2, X } from 'lucide-react';
+import { Plus, Search, Package, Edit, Trash2, X, AlertTriangle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
+import { ALLERGENS, formatAllergens } from '@/lib/constants/allergens';
 
 interface Material {
   id: string;
@@ -16,6 +17,7 @@ interface Material {
   shelf_life: number;
   unit: string;
   status: string;
+  allergens?: string[];
 }
 
 interface Supplier {
@@ -38,6 +40,7 @@ export default function MaterialsPage() {
     storage_temp: '',
     shelf_life: 0,
     unit: 'kg',
+    allergens: [] as string[],
   });
 
   useEffect(() => {
@@ -84,7 +87,7 @@ export default function MaterialsPage() {
       if (response.ok) {
         setShowModal(false);
         fetchMaterials();
-        setFormData({ code: '', name: '', type: '원료', supplier_id: '', specification: '', storage_temp: '', shelf_life: 0, unit: 'kg' });
+        setFormData({ code: '', name: '', type: '원료', supplier_id: '', specification: '', storage_temp: '', shelf_life: 0, unit: 'kg', allergens: [] });
       }
     } catch (error) {
       console.error('Failed to create material:', error);
@@ -155,9 +158,9 @@ export default function MaterialsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">코드</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">원부재료명</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">구분</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">알레르기</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">공급업체</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">보관온도</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">유통기한</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">보관</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">관리</th>
               </tr>
@@ -180,9 +183,20 @@ export default function MaterialsPage() {
                         {material.type}
                       </span>
                     </td>
+                    <td className="px-6 py-4">
+                      {material.allergens && material.allergens.length > 0 ? (
+                        <div className="flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3 text-orange-500" />
+                          <span className="text-xs text-orange-600" title={formatAllergens(material.allergens)}>
+                            {material.allergens.length}종
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">없음</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-500">{material.supplier_name || '-'}</td>
-                    <td className="px-6 py-4 text-sm">{material.storage_temp || '-'}</td>
-                    <td className="px-6 py-4 text-sm">{material.shelf_life ? `${material.shelf_life}일` : '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{material.storage_temp || '-'}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 text-xs rounded-full ${
                         material.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
@@ -209,7 +223,7 @@ export default function MaterialsPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-lg mx-4 p-6">
+          <div className="bg-white rounded-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold">원부재료 등록</h2>
               <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
@@ -311,6 +325,36 @@ export default function MaterialsPage() {
                     <option value="box">box</option>
                   </select>
                 </div>
+              </div>
+              {/* 알레르기 유발물질 선택 */}
+              <div>
+                <Label>알레르기 유발물질 (해당 시 선택)</Label>
+                <div className="mt-2 p-3 border rounded-lg bg-orange-50 max-h-40 overflow-y-auto">
+                  <div className="grid grid-cols-3 gap-2">
+                    {ALLERGENS.map((allergen) => (
+                      <label key={allergen.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-orange-100 p-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={formData.allergens.includes(allergen.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({ ...formData, allergens: [...formData.allergens, allergen.id] });
+                            } else {
+                              setFormData({ ...formData, allergens: formData.allergens.filter(a => a !== allergen.id) });
+                            }
+                          }}
+                          className="rounded border-orange-300 text-orange-600 focus:ring-orange-500"
+                        />
+                        <span className="text-gray-700">{allergen.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {formData.allergens.length > 0 && (
+                  <p className="mt-2 text-xs text-orange-600">
+                    선택됨: {formatAllergens(formData.allergens)}
+                  </p>
+                )}
               </div>
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">

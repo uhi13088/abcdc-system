@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Check, X, AlertTriangle, Calendar, Filter } from 'lucide-react';
+import { Plus, Check, X, AlertTriangle, Calendar, Filter, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
@@ -35,6 +35,11 @@ interface CCPRecord {
   ccp_definitions?: CCPDefinition;
   recorder?: { name: string };
   verifier?: { name: string };
+  corrective_action?: {
+    id: string;
+    action_number: string;
+    status: string;
+  };
 }
 
 function CCPRecordsContent() {
@@ -291,10 +296,21 @@ function CCPRecordsContent() {
                         적합
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
-                        <X className="w-3 h-3" />
-                        이탈
-                      </span>
+                      <div>
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                          <X className="w-3 h-3" />
+                          이탈
+                        </span>
+                        {record.corrective_action && (
+                          <Link
+                            href="/corrective-actions"
+                            className="mt-1 inline-flex items-center gap-1 text-xs text-orange-600 hover:text-orange-700"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            {record.corrective_action.action_number}
+                          </Link>
+                        )}
+                      </div>
                     )}
                     {!record.is_within_limit && record.deviation_action && (
                       <p className="text-xs text-red-500 mt-1">{record.deviation_action}</p>

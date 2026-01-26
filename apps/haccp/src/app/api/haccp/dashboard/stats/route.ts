@@ -90,20 +90,19 @@ export async function GET(_request: NextRequest) {
         .eq('company_id', companyId)
         .eq('record_date', todayStr),
 
-      // 3. CCP 이탈 (오늘 중 부적합 판정)
+      // 3. CCP 이탈 (오늘 중 한계기준 이탈)
       supabase
         .from('ccp_records')
         .select('id', { count: 'exact' })
         .eq('company_id', companyId)
         .eq('record_date', todayStr)
-        .eq('result', 'FAIL'),
+        .eq('is_within_limit', false),
 
-      // 4. 재고 부족 원료 (안전재고 이하)
+      // 4. 재고 부족 원료 (안전재고 이하) - 컬럼간 비교는 JS에서 처리
       supabase
         .from('material_stocks')
-        .select('id', { count: 'exact' })
-        .eq('company_id', companyId)
-        .filter('current_balance', 'lte', 'safety_stock'),
+        .select('id, current_balance, safety_stock')
+        .eq('company_id', companyId),
 
       // 5. 입고검사 대기
       supabase
@@ -183,13 +182,19 @@ export async function GET(_request: NextRequest) {
       createdAt: alert.created_at,
     }));
 
+    // 재고 부족 계산 (current_balance <= safety_stock)
+    const lowStockCount = (lowStockResult.data || []).filter(
+      (s: { current_balance: number; safety_stock: number }) =>
+        s.current_balance <= (s.safety_stock || 0)
+    ).length;
+
     const stats: DashboardStats = {
       todayHygieneChecks: {
         completed: completedShifts.size,
         total: totalShifts,
       },
       pendingCcpRecords: Math.max(0, totalCcpDefs * 3 - (ccpRecordsResult.count || 0)), // 예상 필요 기록 수
-      lowStockMaterials: lowStockResult.count || 0,
+      lowStockMaterials: lowStockCount,
       pendingInspections: pendingInspectionsResult.count || 0,
       todayProduction: productionResult.count || 0,
       ccpDeviations: ccpDeviationsResult.count || 0,
