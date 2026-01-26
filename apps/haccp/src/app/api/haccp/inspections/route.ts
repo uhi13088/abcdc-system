@@ -180,7 +180,89 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data, { status: 201 });
+    // ========================================
+    // 검사 합격 시 자동 재고 반영
+    // ========================================
+    let stockCreated = null;
+    const finalResult = overallResult || body.overall_result;
+
+    if (finalResult === 'PASS' && body.material_id && body.quantity && body.quantity > 0) {
+      try {
+        // 원료 단위 정보 조회
+        const { data: material } = await supabase
+          .from('materials')
+          .select('unit')
+          .eq('id', body.material_id)
+          .single();
+
+        const unit = body.unit || material?.unit || 'kg';
+        const lotNumber = body.lot_number || `LOT-${new Date().toISOString().split('T')[0].replace(/-/g, '')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+        const today = new Date().toISOString().split('T')[0];
+
+        // 동일 LOT 번호 재고가 이미 있는지 확인
+        const { data: existingStock } = await supabase
+          .from('material_stocks')
+          .select('id, quantity')
+          .eq('company_id', userProfile.company_id)
+          .eq('material_id', body.material_id)
+          .eq('lot_number', lotNumber)
+          .maybeSingle();
+
+        if (existingStock) {
+          // 기존 재고에 수량 추가
+          await supabase
+            .from('material_stocks')
+            .update({
+              quantity: existingStock.quantity + body.quantity,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingStock.id);
+
+          stockCreated = { id: existingStock.id, action: 'updated' };
+        } else {
+          // 새 재고 생성
+          const { data: newStock } = await supabase
+            .from('material_stocks')
+            .insert({
+              company_id: userProfile.company_id,
+              material_id: body.material_id,
+              lot_number: lotNumber,
+              quantity: body.quantity,
+              unit: unit,
+              received_date: today,
+              expiry_date: body.expiry_date || null,
+              location: body.storage_location || null,
+              status: 'AVAILABLE',
+            })
+            .select()
+            .single();
+
+          stockCreated = { id: newStock?.id, action: 'created' };
+        }
+
+        // 입고 트랜잭션 기록
+        await supabase
+          .from('material_transactions')
+          .insert({
+            company_id: userProfile.company_id,
+            material_id: body.material_id,
+            transaction_type: 'IN',
+            transaction_date: today,
+            quantity: body.quantity,
+            unit: unit,
+            lot_number: lotNumber,
+            recorded_by: userProfile.id,
+            notes: `입고검사 합격 자동 입고 (검사ID: ${data.id})`,
+          });
+
+        console.log(`[Inspection] Auto-created stock for material ${body.material_id}, qty: ${body.quantity}`);
+      } catch (stockError) {
+        // 재고 생성 실패해도 검사 기록은 저장됨
+        console.error('Error auto-creating stock:', stockError);
+      }
+    }
+
+    return NextResponse.json({ ...data, stock_created: stockCreated }, { status: 201 });
   } catch (error) {
     console.error('Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

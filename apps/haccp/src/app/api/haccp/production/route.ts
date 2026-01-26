@@ -209,6 +209,187 @@ export async function PUT(request: NextRequest) {
 
     if (action === 'complete') {
       updateData.status = 'COMPLETED';
+      updateData.end_time = updateData.end_time || new Date().toTimeString().split(' ')[0];
+    }
+
+    // ========================================
+    // 생산 완료 시 원료 자동 차감
+    // ========================================
+    let materialUsageResult = null;
+
+    if (action === 'complete') {
+      try {
+        // 생산 기록 조회 (product_id, actual_quantity 등)
+        const { data: productionRecord } = await supabase
+          .from('production_records')
+          .select('product_id, semi_product_id, actual_quantity, lot_number, production_date, material_usage_processed')
+          .eq('id', id)
+          .single();
+
+        // 이미 원료 처리된 경우 스킵
+        if (productionRecord && !productionRecord.material_usage_processed) {
+          const productId = productionRecord.product_id;
+          const semiProductId = productionRecord.semi_product_id;
+          const quantityProduced = productionRecord.actual_quantity || updateData.actual_quantity;
+          const lotNumber = productionRecord.lot_number || id;
+          const productionDate = productionRecord.production_date;
+
+          if ((productId || semiProductId) && quantityProduced && quantityProduced > 0) {
+            // 레시피 조회
+            let recipeQuery = supabase
+              .from('product_recipes')
+              .select('*')
+              .eq('company_id', userProfile.company_id);
+
+            if (productId) {
+              recipeQuery = recipeQuery.eq('product_id', productId);
+            } else if (semiProductId) {
+              recipeQuery = recipeQuery.eq('semi_product_id', semiProductId);
+            }
+
+            const { data: recipes } = await recipeQuery;
+
+            if (recipes && recipes.length > 0) {
+              const usageResults: Array<{
+                material_name: string;
+                required: number;
+                actual: number;
+                shortage: number;
+              }> = [];
+
+              for (const recipe of recipes as Array<{
+                id: string;
+                material_code: string | null;
+                material_name: string;
+                amount: number;
+                unit: string;
+                amount_per_unit: number | null;
+                production_qty?: number;
+              }>) {
+                // 필요량 계산
+                let requiredAmount: number;
+                if (recipe.amount_per_unit && recipe.amount_per_unit > 0) {
+                  requiredAmount = recipe.amount_per_unit * quantityProduced;
+                } else if (recipes[0] && (recipes[0] as { production_qty?: number }).production_qty) {
+                  const batchQty = (recipes[0] as { production_qty: number }).production_qty;
+                  requiredAmount = (recipe.amount / batchQty) * quantityProduced;
+                } else {
+                  requiredAmount = recipe.amount;
+                }
+
+                // 원료 ID 찾기
+                let materialId: string | null = null;
+                if (recipe.material_code) {
+                  const { data: material } = await supabase
+                    .from('materials')
+                    .select('id')
+                    .eq('company_id', userProfile.company_id)
+                    .eq('code', recipe.material_code)
+                    .single();
+                  materialId = material?.id || null;
+                }
+
+                if (!materialId) {
+                  const { data: material } = await supabase
+                    .from('materials')
+                    .select('id')
+                    .eq('company_id', userProfile.company_id)
+                    .ilike('name', recipe.material_name)
+                    .single();
+                  materialId = material?.id || null;
+                }
+
+                if (!materialId) {
+                  usageResults.push({
+                    material_name: recipe.material_name,
+                    required: requiredAmount,
+                    actual: 0,
+                    shortage: requiredAmount,
+                  });
+                  continue;
+                }
+
+                // FIFO 재고 출고
+                const { data: stocks } = await supabase
+                  .from('material_stocks')
+                  .select('*')
+                  .eq('company_id', userProfile.company_id)
+                  .eq('material_id', materialId)
+                  .eq('status', 'AVAILABLE')
+                  .gt('quantity', 0)
+                  .order('expiry_date', { ascending: true, nullsFirst: false })
+                  .order('received_date', { ascending: true });
+
+                let remainingAmount = requiredAmount;
+                let actualDeducted = 0;
+
+                for (const stock of (stocks || []) as Array<{
+                  id: string;
+                  lot_number: string;
+                  quantity: number;
+                }>) {
+                  if (remainingAmount <= 0) break;
+
+                  const deductAmount = Math.min(stock.quantity, remainingAmount);
+
+                  // 출고 트랜잭션
+                  await supabase
+                    .from('material_transactions')
+                    .insert({
+                      company_id: userProfile.company_id,
+                      transaction_date: productionDate || new Date().toISOString().split('T')[0],
+                      transaction_type: 'OUT',
+                      material_id: materialId,
+                      lot_number: stock.lot_number,
+                      quantity: deductAmount,
+                      unit: recipe.unit,
+                      production_lot: lotNumber,
+                      notes: `생산 완료 자동출고 - ${recipe.material_name}`,
+                      recorded_by: userProfile.id,
+                    });
+
+                  // 재고 업데이트
+                  const newQty = stock.quantity - deductAmount;
+                  await supabase
+                    .from('material_stocks')
+                    .update({
+                      quantity: newQty,
+                      status: newQty <= 0 ? 'DISPOSED' : 'AVAILABLE',
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq('id', stock.id);
+
+                  actualDeducted += deductAmount;
+                  remainingAmount -= deductAmount;
+                }
+
+                usageResults.push({
+                  material_name: recipe.material_name,
+                  required: requiredAmount,
+                  actual: actualDeducted,
+                  shortage: remainingAmount > 0 ? remainingAmount : 0,
+                });
+              }
+
+              // 생산 기록에 원료 사용 정보 저장
+              updateData.material_usage_processed = true;
+              updateData.material_usage_summary = usageResults;
+
+              materialUsageResult = {
+                processed: true,
+                materials: usageResults,
+                has_shortage: usageResults.some(r => r.shortage > 0),
+              };
+
+              console.log(`[Production] Auto-deducted materials for production ${id}`);
+            }
+          }
+        }
+      } catch (materialError) {
+        // 원료 차감 실패해도 생산 완료는 진행
+        console.error('Error auto-deducting materials:', materialError);
+        materialUsageResult = { processed: false, error: 'Material deduction failed' };
+      }
     }
 
     // 생산조건 업데이트
@@ -241,7 +422,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data);
+    // 원료 사용 결과 포함하여 반환
+    return NextResponse.json({
+      ...data,
+      material_usage: materialUsageResult,
+    });
   } catch (error) {
     console.error('Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
