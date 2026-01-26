@@ -89,14 +89,15 @@ interface FormData {
 
 const getInitialFormData = (period: CheckPeriod): FormData => ({
   check_period: period,
+  // 모든 점검항목을 기본적으로 체크된 상태로 (정상 상태 기본값)
   pre_work_checks: Object.fromEntries(
-    CHECK_ITEMS.pre_work.items.map((item) => [item.key, false])
+    CHECK_ITEMS.pre_work.items.map((item) => [item.key, true])
   ),
   during_work_checks: Object.fromEntries(
-    CHECK_ITEMS.during_work.items.map((item) => [item.key, false])
+    CHECK_ITEMS.during_work.items.map((item) => [item.key, true])
   ),
   post_work_checks: Object.fromEntries(
-    CHECK_ITEMS.post_work.items.map((item) => [item.key, false])
+    CHECK_ITEMS.post_work.items.map((item) => [item.key, true])
   ),
   temperature_records: {},
   remarks: '',

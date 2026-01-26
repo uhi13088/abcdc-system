@@ -122,15 +122,16 @@ export default function ProductionPage() {
     notes: '',
   });
 
+  // 품질검사 항목을 모두 합격(true)으로 프리필 (정상 상태 기본값)
   const [qualityFormData, setQualityFormData] = useState({
-    appearance_check: false,
-    weight_check: false,
-    packaging_check: false,
-    label_check: false,
-    metal_detection_check: false,
-    taste_check: false,
-    smell_check: false,
-    color_check: false,
+    appearance_check: true,
+    weight_check: true,
+    packaging_check: true,
+    label_check: true,
+    metal_detection_check: true,
+    taste_check: true,
+    smell_check: true,
+    color_check: true,
     quality_notes: '',
   });
 

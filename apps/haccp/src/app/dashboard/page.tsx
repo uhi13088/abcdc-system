@@ -17,6 +17,8 @@ import {
   TrendingUp,
   Calendar,
   Clock,
+  Zap,
+  Loader2,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -69,6 +71,11 @@ export default function HACCPDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quickCheckLoading, setQuickCheckLoading] = useState(false);
+  const [quickCheckResult, setQuickCheckResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   const fetchStats = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);
@@ -97,6 +104,49 @@ export default function HACCPDashboard() {
     return () => clearInterval(interval);
   }, [fetchStats]);
 
+  // 원클릭 일일점검 완료
+  const handleQuickDailyCheck = async () => {
+    if (!confirm('오늘의 일일점검을 모두 정상값으로 완료하시겠습니까?\n\n• 위생점검 (작업전/작업중/작업후)\n• 저장소 온도점검\n\n이미 완료된 점검은 건너뜁니다.')) {
+      return;
+    }
+
+    setQuickCheckLoading(true);
+    setQuickCheckResult(null);
+
+    try {
+      const response = await fetch('/api/haccp/quick-daily-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          check_date: new Date().toISOString().split('T')[0],
+          skip_existing: true,
+        }),
+      });
+
+      const data = await response.json();
+
+      setQuickCheckResult({
+        success: response.ok,
+        message: data.message || (response.ok ? '일일점검이 완료되었습니다!' : '오류가 발생했습니다.'),
+      });
+
+      // 통계 새로고침
+      if (response.ok) {
+        fetchStats(false);
+      }
+
+      // 3초 후 결과 메시지 숨기기
+      setTimeout(() => setQuickCheckResult(null), 5000);
+    } catch (err) {
+      setQuickCheckResult({
+        success: false,
+        message: '네트워크 오류가 발생했습니다.',
+      });
+    } finally {
+      setQuickCheckLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -116,15 +166,47 @@ export default function HACCPDashboard() {
             식품 안전 관리 시스템 - 위해요소 중점관리
           </p>
         </div>
-        <button
-          onClick={() => fetchStats(true)}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-white border rounded-lg hover:bg-gray-50 disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          <span className="text-sm">새로고침</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* 원클릭 일일점검 버튼 */}
+          <button
+            onClick={handleQuickDailyCheck}
+            disabled={quickCheckLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 shadow-sm"
+            title="오늘의 일일점검을 정상값으로 한번에 완료합니다"
+          >
+            {quickCheckLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Zap className="w-4 h-4" />
+            )}
+            <span className="text-sm font-medium">원클릭 점검</span>
+          </button>
+          <button
+            onClick={() => fetchStats(true)}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-white border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="text-sm">새로고침</span>
+          </button>
+        </div>
       </div>
+
+      {/* 원클릭 점검 결과 알림 */}
+      {quickCheckResult && (
+        <div className={`mb-4 p-4 rounded-lg border flex items-center gap-3 ${
+          quickCheckResult.success
+            ? 'bg-green-50 border-green-200 text-green-700'
+            : 'bg-red-50 border-red-200 text-red-700'
+        }`}>
+          {quickCheckResult.success ? (
+            <CheckCircle className="w-5 h-5 flex-shrink-0" />
+          ) : (
+            <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+          )}
+          <span className="text-sm">{quickCheckResult.message}</span>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
