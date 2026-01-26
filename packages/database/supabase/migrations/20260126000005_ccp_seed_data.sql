@@ -4,7 +4,13 @@
 -- ============================================
 
 -- ============================================
--- 0. CCP 템플릿 테이블 생성
+-- 0-1. ccp_definitions 테이블의 ccp_number 컬럼 길이 확장
+-- ============================================
+ALTER TABLE ccp_definitions
+  ALTER COLUMN ccp_number TYPE VARCHAR(50);
+
+-- ============================================
+-- 0-2. CCP 템플릿 테이블 생성
 -- ============================================
 CREATE TABLE IF NOT EXISTS ccp_definitions_template (
   id SERIAL PRIMARY KEY,
