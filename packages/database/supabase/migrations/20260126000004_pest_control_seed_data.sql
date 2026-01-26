@@ -4,13 +4,46 @@
 -- ============================================
 
 -- ============================================
+-- 0. 템플릿 테이블이 없으면 먼저 생성
+-- ============================================
+
+-- haccp_zones_template
+CREATE TABLE IF NOT EXISTS haccp_zones_template (
+  id SERIAL PRIMARY KEY,
+  zone_code VARCHAR(50) NOT NULL UNIQUE,
+  zone_name VARCHAR(100) NOT NULL,
+  zone_grade VARCHAR(20) NOT NULL,
+  sort_order INTEGER DEFAULT 0
+);
+
+-- pest_types_template
+CREATE TABLE IF NOT EXISTS pest_types_template (
+  id SERIAL PRIMARY KEY,
+  pest_category VARCHAR(20) NOT NULL,
+  pest_name VARCHAR(100) NOT NULL,
+  sort_order INTEGER DEFAULT 0,
+  UNIQUE(pest_category, pest_name)
+);
+
+-- pest_control_standards_template
+CREATE TABLE IF NOT EXISTS pest_control_standards_template (
+  id SERIAL PRIMARY KEY,
+  season VARCHAR(20) NOT NULL,
+  zone_grade VARCHAR(20) NOT NULL,
+  pest_category VARCHAR(20) NOT NULL,
+  level INTEGER NOT NULL,
+  upper_limit INTEGER NOT NULL,
+  UNIQUE(season, zone_grade, pest_category, level)
+);
+
+-- ============================================
 -- 1. 템플릿 테이블 데이터 정리 및 업데이트
 -- ============================================
 
 -- 기존 템플릿 데이터 삭제 후 새로 입력
-TRUNCATE TABLE haccp_zones_template RESTART IDENTITY CASCADE;
-TRUNCATE TABLE pest_types_template RESTART IDENTITY CASCADE;
-TRUNCATE TABLE pest_control_standards_template RESTART IDENTITY CASCADE;
+DELETE FROM haccp_zones_template;
+DELETE FROM pest_types_template;
+DELETE FROM pest_control_standards_template;
 
 -- 구역 템플릿 (스프레드시트 기준)
 INSERT INTO haccp_zones_template (zone_code, zone_name, zone_grade, sort_order) VALUES
