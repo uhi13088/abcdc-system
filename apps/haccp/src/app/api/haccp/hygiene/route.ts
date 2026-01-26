@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { checkVerificationPermission } from '@/lib/utils/verification-permission';
 
 export const dynamic = 'force-dynamic';
 
@@ -180,7 +181,7 @@ export async function PUT(request: NextRequest) {
 
     const { data: userProfile } = await supabase
       .from('users')
-      .select('id, company_id, name')
+      .select('id, company_id, name, role')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -199,6 +200,34 @@ export async function PUT(request: NextRequest) {
     let updateData: UpdateData = {};
 
     if (action === 'verify') {
+      // 검증 대상 기록 조회 (작성자 확인용)
+      const { data: record } = await supabase
+        .from('daily_hygiene_checks')
+        .select('checked_by')
+        .eq('id', id)
+        .eq('company_id', userProfile.company_id)
+        .single();
+
+      if (!record) {
+        return NextResponse.json({ error: 'Record not found' }, { status: 404 });
+      }
+
+      // 검증 권한 체크
+      const permissionCheck = await checkVerificationPermission(
+        userProfile.company_id,
+        userProfile.id,
+        userProfile.role,
+        'hygiene',
+        record.checked_by
+      );
+
+      if (!permissionCheck.allowed) {
+        return NextResponse.json(
+          { error: permissionCheck.reason },
+          { status: 403 }
+        );
+      }
+
       updateData = {
         verified_by: userProfile.id,
         verified_by_name: userProfile.name,

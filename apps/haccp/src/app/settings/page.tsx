@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Save, Building2, Bell, Shield, Users, Clock, Database, RefreshCw, AlertCircle, MapPin, Sun, Plus, Trash2, Edit2 } from 'lucide-react';
+import { Save, Building2, Bell, Shield, Users, Clock, Database, RefreshCw, AlertCircle, MapPin, Sun, Plus, Trash2, Edit2, CheckCircle, Lock, Info } from 'lucide-react';
 
 interface CompanySettings {
   company_name: string;
@@ -37,6 +37,46 @@ interface HaccpSettings {
   record_retention_years: number;
 }
 
+// 역할 계층 정의
+type UserRole = 'super_admin' | 'company_admin' | 'manager' | 'store_manager' | 'team_leader' | 'staff';
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  super_admin: '슈퍼 관리자',
+  company_admin: '회사 관리자',
+  manager: '매니저',
+  store_manager: '매장 관리자',
+  team_leader: '팀장',
+  staff: '직원',
+};
+
+const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
+  super_admin: '플랫폼 전체 관리 권한',
+  company_admin: '회사 전체 관리 권한',
+  manager: '회사 내 운영 관리 권한',
+  store_manager: '매장 운영 관리 권한',
+  team_leader: '팀 관리 및 승인 권한',
+  staff: '기본 기록 작성 권한',
+};
+
+// 기록 유형
+type RecordType = 'hygiene' | 'ccp' | 'storage' | 'pest_control' | 'calibration' | 'training' | 'corrective_action';
+
+const RECORD_TYPE_LABELS: Record<RecordType, string> = {
+  hygiene: '위생점검',
+  ccp: 'CCP 모니터링',
+  storage: '저장소 점검',
+  pest_control: '방충방서 점검',
+  calibration: '검교정 기록',
+  training: '교육훈련 기록',
+  corrective_action: '개선조치',
+};
+
+interface VerificationSettings {
+  verification_min_role: UserRole;
+  allow_self_verification: boolean;
+  verification_roles_by_type: Record<string, UserRole>;
+}
+
 interface Zone {
   id?: string;
   zone_code: string;
@@ -52,7 +92,7 @@ interface SeasonConfig {
 }
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'company' | 'notification' | 'haccp' | 'zones' | 'seasons' | 'users'>('company');
+  const [activeTab, setActiveTab] = useState<'company' | 'notification' | 'haccp' | 'verification' | 'zones' | 'seasons' | 'users'>('company');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +144,15 @@ export default function SettingsPage() {
     record_retention_years: 3,
   });
 
+  const [verificationSettings, setVerificationSettings] = useState<VerificationSettings>({
+    verification_min_role: 'manager',
+    allow_self_verification: false,
+    verification_roles_by_type: {},
+  });
+
+  // 유형별 세부 설정 활성화 여부
+  const [useDetailedRoles, setUseDetailedRoles] = useState(false);
+
   const fetchSettings = useCallback(async () => {
     try {
       setError(null);
@@ -151,6 +200,18 @@ export default function SettingsPage() {
           temperature_unit: data.haccpSettings.temperature_unit || 'celsius',
           record_retention_years: data.haccpSettings.record_retention_years ?? 3,
         });
+      }
+
+      if (data.verificationSettings) {
+        setVerificationSettings({
+          verification_min_role: data.verificationSettings.verification_min_role || 'manager',
+          allow_self_verification: data.verificationSettings.allow_self_verification ?? false,
+          verification_roles_by_type: data.verificationSettings.verification_roles_by_type || {},
+        });
+        // 유형별 설정이 있으면 세부 설정 활성화
+        if (Object.keys(data.verificationSettings.verification_roles_by_type || {}).length > 0) {
+          setUseDetailedRoles(true);
+        }
       }
     // Fetch zones
       const zonesRes = await fetch('/api/haccp/settings/zones');
@@ -260,6 +321,11 @@ export default function SettingsPage() {
           companySettings,
           notificationSettings,
           haccpSettings,
+          verificationSettings: {
+            ...verificationSettings,
+            // 세부 설정을 사용하지 않으면 유형별 설정 초기화
+            verification_roles_by_type: useDetailedRoles ? verificationSettings.verification_roles_by_type : {},
+          },
         }),
       });
 
@@ -283,6 +349,7 @@ export default function SettingsPage() {
     { id: 'seasons', name: '시즌 설정', icon: Sun },
     { id: 'notification', name: '알림 설정', icon: Bell },
     { id: 'haccp', name: 'HACCP 설정', icon: Shield },
+    { id: 'verification', name: '검증 권한', icon: CheckCircle },
     { id: 'users', name: '사용자 관리', icon: Users },
   ] as const;
 
@@ -912,6 +979,191 @@ export default function SettingsPage() {
               <li>• 하절기는 해충 활동이 활발하여 관리 기준이 높아집니다</li>
               <li>• 동절기는 해충 활동이 감소하여 관리 기준이 낮아집니다</li>
               <li>• 방충방서 점검 시 현재 시즌 기준이 자동 적용됩니다</li>
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Verification Permission Tab */}
+      {activeTab === 'verification' && (
+        <div className="space-y-6">
+          {/* 역할 계층 설명 */}
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Info className="w-5 h-5 text-blue-500" />
+              역할 계층 구조
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              HACCP 시스템에서 사용되는 역할 계층입니다. 상위 역할은 하위 역할의 모든 권한을 포함합니다.
+            </p>
+            <div className="space-y-2">
+              {(['super_admin', 'company_admin', 'manager', 'store_manager', 'team_leader', 'staff'] as UserRole[]).map((role, idx) => (
+                <div
+                  key={role}
+                  className={`flex items-center gap-3 p-3 rounded-lg border ${
+                    idx === 0 ? 'bg-purple-50 border-purple-200' :
+                    idx === 1 ? 'bg-blue-50 border-blue-200' :
+                    idx === 2 ? 'bg-green-50 border-green-200' :
+                    idx === 3 ? 'bg-yellow-50 border-yellow-200' :
+                    idx === 4 ? 'bg-orange-50 border-orange-200' :
+                    'bg-gray-50 border-gray-200'
+                  }`}
+                >
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                    idx === 0 ? 'bg-purple-500' :
+                    idx === 1 ? 'bg-blue-500' :
+                    idx === 2 ? 'bg-green-500' :
+                    idx === 3 ? 'bg-yellow-500' :
+                    idx === 4 ? 'bg-orange-500' :
+                    'bg-gray-500'
+                  }`}>
+                    {idx + 1}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">{ROLE_LABELS[role]}</p>
+                    <p className="text-sm text-gray-500">{ROLE_DESCRIPTIONS[role]}</p>
+                  </div>
+                  {idx < 5 && (
+                    <div className="text-gray-300">↓</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 검증 권한 설정 */}
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Lock className="w-5 h-5 text-gray-400" />
+              검증(승인) 권한 설정
+            </h2>
+            <p className="text-sm text-gray-600 mb-6">
+              HACCP 기록물의 검증(승인)을 수행할 수 있는 최소 역할을 설정합니다.
+            </p>
+
+            <div className="space-y-6">
+              {/* 기본 검증 최소 역할 */}
+              <div className="border rounded-lg p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  검증 가능 최소 역할 (기본)
+                </label>
+                <select
+                  value={verificationSettings.verification_min_role}
+                  onChange={(e) => setVerificationSettings({
+                    ...verificationSettings,
+                    verification_min_role: e.target.value as UserRole,
+                  })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  {(['company_admin', 'manager', 'store_manager', 'team_leader'] as UserRole[]).map((role) => (
+                    <option key={role} value={role}>
+                      {ROLE_LABELS[role]} 이상
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-2">
+                  선택한 역할 이상의 사용자만 기록물 검증이 가능합니다.
+                </p>
+              </div>
+
+              {/* 본인 검증 허용 */}
+              <div className="flex items-center justify-between py-3 border-b">
+                <div>
+                  <p className="font-medium">본인 검증 허용</p>
+                  <p className="text-sm text-gray-500">
+                    자신이 작성한 기록을 본인이 검증할 수 있도록 허용합니다.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={verificationSettings.allow_self_verification}
+                    onChange={(e) => setVerificationSettings({
+                      ...verificationSettings,
+                      allow_self_verification: e.target.checked,
+                    })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+              {!verificationSettings.allow_self_verification && (
+                <div className="bg-yellow-50 rounded-lg p-3 text-sm text-yellow-800">
+                  <AlertCircle className="w-4 h-4 inline mr-1" />
+                  본인 검증이 비활성화되어 있습니다. 기록 작성자와 검증자는 다른 사람이어야 합니다.
+                </div>
+              )}
+
+              {/* 유형별 세부 설정 */}
+              <div className="border-t pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="font-medium">기록 유형별 세부 설정</p>
+                    <p className="text-sm text-gray-500">
+                      기록 유형마다 다른 검증 권한을 설정합니다.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useDetailedRoles}
+                      onChange={(e) => setUseDetailedRoles(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {useDetailedRoles && (
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    {(Object.keys(RECORD_TYPE_LABELS) as RecordType[]).map((recordType) => (
+                      <div key={recordType} className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">
+                          {RECORD_TYPE_LABELS[recordType]}
+                        </span>
+                        <select
+                          value={verificationSettings.verification_roles_by_type[recordType] || verificationSettings.verification_min_role}
+                          onChange={(e) => setVerificationSettings({
+                            ...verificationSettings,
+                            verification_roles_by_type: {
+                              ...verificationSettings.verification_roles_by_type,
+                              [recordType]: e.target.value as UserRole,
+                            },
+                          })}
+                          className="px-3 py-1.5 border rounded-lg text-sm"
+                        >
+                          {(['company_admin', 'manager', 'store_manager', 'team_leader'] as UserRole[]).map((role) => (
+                            <option key={role} value={role}>
+                              {ROLE_LABELS[role]} 이상
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 현재 설정 요약 */}
+          <div className="bg-blue-50 rounded-xl border border-blue-200 p-6">
+            <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5" />
+              현재 설정 요약
+            </h3>
+            <ul className="text-sm text-blue-800 space-y-2">
+              <li>
+                • 기본 검증 권한: <strong>{ROLE_LABELS[verificationSettings.verification_min_role]}</strong> 이상
+              </li>
+              <li>
+                • 본인 검증: <strong>{verificationSettings.allow_self_verification ? '허용' : '불허'}</strong>
+              </li>
+              {useDetailedRoles && Object.keys(verificationSettings.verification_roles_by_type).length > 0 && (
+                <li>
+                  • 유형별 세부 설정 활성화됨
+                </li>
+              )}
             </ul>
           </div>
         </div>
