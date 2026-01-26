@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { generateMaterialLotNumber } from '@/lib/utils/lot-number';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,15 +95,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 원부재료 정보 조회 (material_type 자동 설정)
+    // 원부재료 정보 조회 (material_type, code 자동 설정)
     let materialType = body.material_type;
-    if (body.material_id && !materialType) {
+    let materialCode = body.material_code;
+    if (body.material_id && (!materialType || !materialCode)) {
       const { data: material } = await supabase
         .from('materials')
-        .select('type')
+        .select('type, code')
         .eq('id', body.material_id)
         .single();
-      materialType = material?.type;
+      if (!materialType) materialType = material?.type;
+      if (!materialCode) materialCode = material?.code;
     }
 
     // 검사 기준 조회하여 결과 자동 계산
@@ -159,6 +162,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 로트번호 자동생성 (body에 없으면)
+    const autoLotNumber = body.lot_number || await generateMaterialLotNumber(supabase, userProfile.company_id, materialCode);
+
     const insertData = {
       company_id: userProfile.company_id,
       inspected_by: userProfile.id,
@@ -166,6 +172,7 @@ export async function POST(request: NextRequest) {
       material_type: materialType,
       overall_result: overallResult || body.overall_result,
       ...body,
+      lot_number: autoLotNumber,
       supplier_id: body.supplier_id || null,
     };
 
@@ -196,7 +203,8 @@ export async function POST(request: NextRequest) {
           .single();
 
         const unit = body.unit || material?.unit || 'kg';
-        const lotNumber = body.lot_number || `LOT-${new Date().toISOString().split('T')[0].replace(/-/g, '')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+        // 검사에서 생성된 로트번호 사용
+        const lotNumber = autoLotNumber;
         const today = new Date().toISOString().split('T')[0];
 
         // 동일 LOT 번호 재고가 이미 있는지 확인

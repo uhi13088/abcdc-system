@@ -788,14 +788,15 @@ export default function ShipmentsPage() {
                 <h3 className="font-medium text-gray-900 border-b pb-2">기본 정보</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label required>출하번호</Label>
+                    <Label>출하번호</Label>
                     <input
                       type="text"
                       value={formData.shipment_number}
                       onChange={(e) => setFormData({ ...formData, shipment_number: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg"
-                      required
+                      placeholder="자동 생성됩니다"
                     />
+                    <p className="text-xs text-gray-500 mt-1">비워두면 자동 생성 (SHP-날짜-순번)</p>
                   </div>
                   <div>
                     <Label required>고객명</Label>

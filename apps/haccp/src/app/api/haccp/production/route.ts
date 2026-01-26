@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { generateProductionLotNumber } from '@/lib/utils/lot-number';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,6 +101,20 @@ export async function POST(request: NextRequest) {
       ...(body.production_conditions || {}),
     };
 
+    // 제품코드 조회 (로트번호 생성용)
+    let productCode = body.product_code;
+    if (body.product_id && !productCode) {
+      const { data: product } = await supabase
+        .from('products')
+        .select('code')
+        .eq('id', body.product_id)
+        .single();
+      productCode = product?.code;
+    }
+
+    // 로트번호 자동생성
+    const autoLotNumber = body.lot_number || await generateProductionLotNumber(supabase, userProfile.company_id, productCode);
+
     const insertData = {
       company_id: userProfile.company_id,
       supervisor_id: userProfile.id,
@@ -109,6 +124,7 @@ export async function POST(request: NextRequest) {
       approval_status: 'PENDING',
       production_conditions: productionConditions,
       ...body,
+      lot_number: autoLotNumber,
     };
 
     const { data, error } = await supabase
@@ -156,18 +172,24 @@ export async function PUT(request: NextRequest) {
     }
 
     // 특수 액션 처리
+    let correctiveActionCreated = null;
+
     if (action === 'quality_check') {
       // 품질검사 수행
-      const qualityChecks = [
-        updateData.appearance_check,
-        updateData.weight_check,
-        updateData.packaging_check,
-        updateData.label_check,
-        updateData.metal_detection_check,
-        updateData.taste_check,
-        updateData.smell_check,
-        updateData.color_check,
-      ].filter(v => v !== undefined);
+      const qualityCheckItems = {
+        appearance_check: { label: '외관검사', value: updateData.appearance_check },
+        weight_check: { label: '중량검사', value: updateData.weight_check },
+        packaging_check: { label: '포장상태', value: updateData.packaging_check },
+        label_check: { label: '라벨표시', value: updateData.label_check },
+        metal_detection_check: { label: '금속검출', value: updateData.metal_detection_check },
+        taste_check: { label: '맛검사', value: updateData.taste_check },
+        smell_check: { label: '냄새검사', value: updateData.smell_check },
+        color_check: { label: '색상검사', value: updateData.color_check },
+      };
+
+      const qualityChecks = Object.values(qualityCheckItems)
+        .filter(item => item.value !== undefined)
+        .map(item => item.value);
 
       const passCount = qualityChecks.filter(Boolean).length;
       const totalChecks = qualityChecks.length;
@@ -187,6 +209,100 @@ export async function PUT(request: NextRequest) {
       updateData.quality_checked_by = userProfile.id;
       updateData.quality_checked_by_name = userProfile.name;
       updateData.quality_checked_at = new Date().toISOString();
+
+      // ========================================
+      // 품질 FAIL 시 자동 개선조치 생성
+      // ========================================
+      if (qualityStatus === 'FAIL') {
+        try {
+          // 생산 기록 조회
+          const { data: productionRecord } = await supabase
+            .from('production_records')
+            .select('lot_number, product_id, products:product_id(name, code)')
+            .eq('id', id)
+            .single();
+
+          // 실패한 항목 목록
+          const failedItems = Object.entries(qualityCheckItems)
+            .filter(([, item]) => item.value === false)
+            .map(([, item]) => item.label)
+            .join(', ');
+
+          const productInfo = productionRecord?.products as { name?: string; code?: string } | null;
+          const productName = productInfo?.name || '제품';
+          const lotNumber = productionRecord?.lot_number || id;
+
+          const problemDesc = `[생산품질검사 부적합]\n` +
+            `제품: ${productName}\n` +
+            `LOT: ${lotNumber}\n` +
+            `부적합 항목: ${failedItems}\n` +
+            `검사자: ${userProfile.name}`;
+
+          const today = new Date();
+          const dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + 3); // 3일 내 조치
+
+          const dateStr = today.toISOString().split('T')[0].replace(/-/g, '');
+          const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+          const actionNumber = `CA-${dateStr}-${random}`;
+
+          const { data: caData } = await supabase
+            .from('corrective_actions')
+            .insert({
+              company_id: userProfile.company_id,
+              action_number: actionNumber,
+              action_date: today.toISOString().split('T')[0],
+              source_type: 'PRODUCTION',
+              source_id: id,
+              problem_description: problemDesc,
+              severity: 'MAJOR',
+              due_date: dueDate.toISOString().split('T')[0],
+              status: 'OPEN',
+              assigned_to: userProfile.id,
+            })
+            .select()
+            .single();
+
+          if (caData) {
+            correctiveActionCreated = caData;
+            updateData.corrective_action_id = caData.id;
+
+            // 관리자에게 알림
+            const { data: managers } = await supabase
+              .from('users')
+              .select('id')
+              .eq('company_id', userProfile.company_id)
+              .in('role', ['HACCP_MANAGER', 'COMPANY_ADMIN']);
+
+            for (const manager of managers || []) {
+              await supabase.from('notifications').insert({
+                user_id: manager.id,
+                category: 'PRODUCTION',
+                priority: 'HIGH',
+                title: `⚠️ 생산품질검사 부적합 - ${productName}`,
+                message: `LOT ${lotNumber} 품질검사 부적합 (${failedItems}). 개선조치가 자동 생성되었습니다.`,
+                action_url: '/corrective-actions',
+                is_read: false,
+              });
+            }
+
+            console.log(`[Production] Auto-created corrective action for quality failure: ${id}`);
+          }
+        } catch (caError) {
+          console.error('Error creating corrective action for quality failure:', caError);
+        }
+      }
+
+      // ========================================
+      // 품질 PASS 시 자동 승인
+      // ========================================
+      if (qualityStatus === 'PASS') {
+        updateData.approval_status = 'APPROVED';
+        updateData.approved_by = userProfile.id;
+        updateData.approved_by_name = userProfile.name;
+        updateData.approved_at = new Date().toISOString();
+        console.log(`[Production] Auto-approved production ${id} after quality PASS`);
+      }
     }
 
     if (action === 'approve') {
@@ -422,10 +538,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // 원료 사용 결과 포함하여 반환
+    // 원료 사용 결과 및 개선조치 포함하여 반환
     return NextResponse.json({
       ...data,
       material_usage: materialUsageResult,
+      corrective_action: correctiveActionCreated,
     });
   } catch (error) {
     console.error('Error:', error);

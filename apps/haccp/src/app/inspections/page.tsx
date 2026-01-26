@@ -664,14 +664,15 @@ export default function InspectionsPage() {
               {/* 입고 정보 */}
               <div className="grid grid-cols-4 gap-4">
                 <div>
-                  <Label required>LOT 번호</Label>
+                  <Label>LOT 번호</Label>
                   <input
                     type="text"
                     value={formData.lot_number}
                     onChange={(e) => setFormData({ ...formData, lot_number: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg"
-                    required
+                    placeholder="자동 생성됩니다"
                   />
+                  <p className="text-xs text-gray-500 mt-1">비워두면 자동 생성</p>
                 </div>
                 <div>
                   <Label>입고수량</Label>

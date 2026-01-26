@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { generateShipmentNumber } from '@/lib/utils/lot-number';
 
 export const dynamic = 'force-dynamic';
 
@@ -102,6 +103,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 출하번호 자동생성
+    const autoShipmentNumber = body.shipment_number || await generateShipmentNumber(supabase, userProfile.company_id);
+
     const insertData = {
       company_id: userProfile.company_id,
       shipped_by: userProfile.id,
@@ -109,6 +113,7 @@ export async function POST(request: NextRequest) {
       status: body.status || 'PENDING',
       pre_shipment_check: false,
       ...body,
+      shipment_number: autoShipmentNumber,
     };
 
     const { data, error } = await supabase
