@@ -6,11 +6,18 @@ import { Label } from '@/components/ui/label';
 
 interface PackingSpec {
   id: string;
-  name: string;
-  description: string;
-  dimensions: string;
+  spec_name: string;
+  spec_code: string;
+  unit_type: string;
+  units_per_pack: number;
+  pack_weight: number | null;
   weight_unit: string;
-  pieces_per_box: number;
+  box_length: number | null;
+  box_width: number | null;
+  box_height: number | null;
+  packs_per_box: number | null;
+  boxes_per_pallet: number | null;
+  description: string;
   sort_order: number;
   is_active: boolean;
 }
@@ -21,11 +28,17 @@ export default function PackingSpecsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingSpec, setEditingSpec] = useState<PackingSpec | null>(null);
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    dimensions: '',
+    spec_name: '',
+    spec_code: '',
+    unit_type: '',
+    units_per_pack: 1,
+    pack_weight: '' as string | number,
     weight_unit: 'g',
-    pieces_per_box: 1,
+    box_length: '' as string | number,
+    box_width: '' as string | number,
+    box_height: '' as string | number,
+    packs_per_box: '' as string | number,
+    description: '',
     sort_order: 0,
   });
 
@@ -52,9 +65,20 @@ export default function PackingSpecsPage() {
     e.preventDefault();
     try {
       const method = editingSpec ? 'PUT' : 'POST';
+
+      // Convert empty strings to null for numeric fields
+      const submitData = {
+        ...formData,
+        pack_weight: formData.pack_weight === '' ? null : Number(formData.pack_weight),
+        box_length: formData.box_length === '' ? null : Number(formData.box_length),
+        box_width: formData.box_width === '' ? null : Number(formData.box_width),
+        box_height: formData.box_height === '' ? null : Number(formData.box_height),
+        packs_per_box: formData.packs_per_box === '' ? null : Number(formData.packs_per_box),
+      };
+
       const body = editingSpec
-        ? { id: editingSpec.id, ...formData }
-        : formData;
+        ? { id: editingSpec.id, ...submitData }
+        : submitData;
 
       const response = await fetch('/api/haccp/packing-specs', {
         method,
@@ -76,11 +100,17 @@ export default function PackingSpecsPage() {
   const handleEdit = (spec: PackingSpec) => {
     setEditingSpec(spec);
     setFormData({
-      name: spec.name,
-      description: spec.description || '',
-      dimensions: spec.dimensions || '',
+      spec_name: spec.spec_name || '',
+      spec_code: spec.spec_code || '',
+      unit_type: spec.unit_type || '',
+      units_per_pack: spec.units_per_pack || 1,
+      pack_weight: spec.pack_weight ?? '',
       weight_unit: spec.weight_unit || 'g',
-      pieces_per_box: spec.pieces_per_box || 1,
+      box_length: spec.box_length ?? '',
+      box_width: spec.box_width ?? '',
+      box_height: spec.box_height ?? '',
+      packs_per_box: spec.packs_per_box ?? '',
+      description: spec.description || '',
       sort_order: spec.sort_order || 0,
     });
     setShowModal(true);
@@ -102,11 +132,17 @@ export default function PackingSpecsPage() {
 
   const resetForm = () => {
     setFormData({
-      name: '',
-      description: '',
-      dimensions: '',
+      spec_name: '',
+      spec_code: '',
+      unit_type: '',
+      units_per_pack: 1,
+      pack_weight: '',
       weight_unit: 'g',
-      pieces_per_box: 1,
+      box_length: '',
+      box_width: '',
+      box_height: '',
+      packs_per_box: '',
+      description: '',
       sort_order: 0,
     });
     setEditingSpec(null);
@@ -115,6 +151,13 @@ export default function PackingSpecsPage() {
   const openNewModal = () => {
     resetForm();
     setShowModal(true);
+  };
+
+  const formatDimensions = (spec: PackingSpec) => {
+    if (spec.box_length && spec.box_width && spec.box_height) {
+      return `${spec.box_length}x${spec.box_width}x${spec.box_height}cm`;
+    }
+    return '-';
   };
 
   return (
@@ -144,18 +187,19 @@ export default function PackingSpecsPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">순서</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">규격코드</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">규격명</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">설명</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">크기</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">단위</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">포장단위</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">입수량</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">중량</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">박스크기</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">관리</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {specs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                     <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                     등록된 패킹 규격이 없습니다
                   </td>
@@ -164,11 +208,14 @@ export default function PackingSpecsPage() {
                 specs.map((spec) => (
                   <tr key={spec.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm text-gray-500">{spec.sort_order}</td>
-                    <td className="px-6 py-4 text-sm font-medium">{spec.name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{spec.description || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{spec.dimensions || '-'}</td>
-                    <td className="px-6 py-4 text-sm">{spec.weight_unit}</td>
-                    <td className="px-6 py-4 text-sm">{spec.pieces_per_box}개</td>
+                    <td className="px-6 py-4 text-sm font-mono">{spec.spec_code || '-'}</td>
+                    <td className="px-6 py-4 text-sm font-medium">{spec.spec_name}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{spec.unit_type || '-'}</td>
+                    <td className="px-6 py-4 text-sm">{spec.units_per_pack || '-'}개</td>
+                    <td className="px-6 py-4 text-sm">
+                      {spec.pack_weight ? `${spec.pack_weight}${spec.weight_unit}` : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{formatDimensions(spec)}</td>
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => handleEdit(spec)}
@@ -194,7 +241,7 @@ export default function PackingSpecsPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-lg mx-4 p-6">
+          <div className="bg-white rounded-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold">
                 {editingSpec ? '패킹 규격 수정' : '패킹 규격 추가'}
@@ -207,17 +254,30 @@ export default function PackingSpecsPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label required>규격명</Label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="예: 소형박스, 대형박스"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label required>규격명</Label>
+                  <input
+                    type="text"
+                    value={formData.spec_name}
+                    onChange={(e) => setFormData({ ...formData, spec_name: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="예: 소형박스, 대형박스"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label>규격코드</Label>
+                  <input
+                    type="text"
+                    value={formData.spec_code}
+                    onChange={(e) => setFormData({ ...formData, spec_code: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="예: BOX-10"
+                  />
+                </div>
               </div>
+
               <div>
                 <Label>설명</Label>
                 <input
@@ -225,22 +285,62 @@ export default function PackingSpecsPage() {
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="예: 쿠키류 전용 소형 포장"
+                  placeholder="예: 쿠키류 전용 10개입 박스포장"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <Label>크기 (가로x세로x높이)</Label>
-                  <input
-                    type="text"
-                    value={formData.dimensions}
-                    onChange={(e) => setFormData({ ...formData, dimensions: e.target.value })}
+                  <Label>포장단위</Label>
+                  <select
+                    value={formData.unit_type}
+                    onChange={(e) => setFormData({ ...formData, unit_type: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="예: 20x15x10cm"
+                  >
+                    <option value="">선택</option>
+                    <option value="박스">박스</option>
+                    <option value="봉지">봉지</option>
+                    <option value="개">개</option>
+                    <option value="세트">세트</option>
+                    <option value="팩">팩</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>입수량 (개)</Label>
+                  <input
+                    type="number"
+                    value={formData.units_per_pack}
+                    onChange={(e) => setFormData({ ...formData, units_per_pack: parseInt(e.target.value) || 1 })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    min={1}
                   />
                 </div>
                 <div>
-                  <Label>중량 단위</Label>
+                  <Label>박스당 팩수</Label>
+                  <input
+                    type="number"
+                    value={formData.packs_per_box}
+                    onChange={(e) => setFormData({ ...formData, packs_per_box: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="선택사항"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>포장중량</Label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.pack_weight}
+                    onChange={(e) => setFormData({ ...formData, pack_weight: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="선택사항"
+                  />
+                </div>
+                <div>
+                  <Label>중량단위</Label>
                   <select
                     value={formData.weight_unit}
                     onChange={(e) => setFormData({ ...formData, weight_unit: e.target.value })}
@@ -250,23 +350,10 @@ export default function PackingSpecsPage() {
                     <option value="kg">kg</option>
                     <option value="ml">ml</option>
                     <option value="L">L</option>
-                    <option value="ea">개 (ea)</option>
                   </select>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>박스당 입수량</Label>
-                  <input
-                    type="number"
-                    value={formData.pieces_per_box}
-                    onChange={(e) => setFormData({ ...formData, pieces_per_box: parseInt(e.target.value) || 1 })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    min={1}
-                  />
-                </div>
-                <div>
-                  <Label>정렬 순서</Label>
+                  <Label>정렬순서</Label>
                   <input
                     type="number"
                     value={formData.sort_order}
@@ -275,6 +362,46 @@ export default function PackingSpecsPage() {
                   />
                 </div>
               </div>
+
+              <div className="border-t pt-4">
+                <p className="text-sm text-gray-500 mb-3">박스 규격 (cm)</p>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label>가로 (길이)</Label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.box_length}
+                      onChange={(e) => setFormData({ ...formData, box_length: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="cm"
+                    />
+                  </div>
+                  <div>
+                    <Label>세로 (너비)</Label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.box_width}
+                      onChange={(e) => setFormData({ ...formData, box_width: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="cm"
+                    />
+                  </div>
+                  <div>
+                    <Label>높이</Label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.box_height}
+                      onChange={(e) => setFormData({ ...formData, box_height: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="cm"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"

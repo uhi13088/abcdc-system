@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 
 interface PackingSpec {
   id: string;
-  name: string;
+  spec_name: string;
   description: string;
 }
 
@@ -29,6 +29,7 @@ export default function ProductsPage() {
   const [packingSpecs, setPackingSpecs] = useState<PackingSpec[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     code: '',
@@ -76,20 +77,51 @@ export default function ProductsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const method = editingProduct ? 'PUT' : 'POST';
+      const body = editingProduct
+        ? { id: editingProduct.id, ...formData }
+        : formData;
+
       const response = await fetch('/api/haccp/products', {
-        method: 'POST',
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(body),
       });
 
       if (response.ok) {
         setShowModal(false);
+        setEditingProduct(null);
         fetchProducts();
-        setFormData({ code: '', name: '', category: '', specification: '', shelf_life: 0, storage_condition: '', manufacturing_report_number: '', packing_spec_id: '' });
+        resetForm();
       }
     } catch (error) {
-      console.error('Failed to create product:', error);
+      console.error('Failed to save product:', error);
     }
+  };
+
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setFormData({
+      code: product.code || '',
+      name: product.name || '',
+      category: product.category || '',
+      specification: product.specification || '',
+      shelf_life: product.shelf_life || 0,
+      storage_condition: product.storage_condition || '',
+      manufacturing_report_number: product.manufacturing_report_number || '',
+      packing_spec_id: product.packing_spec_id || '',
+    });
+    setShowModal(true);
+  };
+
+  const resetForm = () => {
+    setFormData({ code: '', name: '', category: '', specification: '', shelf_life: 0, storage_condition: '', manufacturing_report_number: '', packing_spec_id: '' });
+    setEditingProduct(null);
+  };
+
+  const openNewModal = () => {
+    resetForm();
+    setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -115,7 +147,7 @@ export default function ProductsPage() {
           <p className="mt-1 text-sm text-gray-500">제품 마스터 데이터를 관리합니다</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={openNewModal}
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Plus className="w-4 h-4" />
@@ -170,7 +202,7 @@ export default function ProductsPage() {
                     <td className="px-6 py-4 text-sm font-mono">{product.code}</td>
                     <td className="px-6 py-4 text-sm font-medium">{product.name}</td>
                     <td className="px-6 py-4 text-sm text-gray-500">{product.manufacturing_report_number || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{product.packing_spec?.name || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500">{product.packing_spec?.spec_name || '-'}</td>
                     <td className="px-6 py-4 text-sm">{product.shelf_life}일</td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 text-xs rounded-full ${
@@ -180,7 +212,7 @@ export default function ProductsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button className="p-1 hover:bg-gray-100 rounded mr-1">
+                      <button onClick={() => handleEdit(product)} className="p-1 hover:bg-gray-100 rounded mr-1">
                         <Edit className="w-4 h-4 text-gray-500" />
                       </button>
                       <button onClick={() => handleDelete(product.id)} className="p-1 hover:bg-red-100 rounded">
@@ -200,8 +232,8 @@ export default function ProductsPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl w-full max-w-lg mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">제품 등록</h2>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <h2 className="text-xl font-bold">{editingProduct ? '제품 수정' : '제품 등록'}</h2>
+              <button onClick={() => { setShowModal(false); resetForm(); }} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -257,7 +289,7 @@ export default function ProductsPage() {
                   >
                     <option value="">선택하세요</option>
                     {packingSpecs.map((spec) => (
-                      <option key={spec.id} value={spec.id}>{spec.name}</option>
+                      <option key={spec.id} value={spec.id}>{spec.spec_name}</option>
                     ))}
                   </select>
                 </div>
@@ -297,11 +329,11 @@ export default function ProductsPage() {
                 </div>
               </div>
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
+                <button type="button" onClick={() => { setShowModal(false); resetForm(); }} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
                   취소
                 </button>
                 <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  등록
+                  {editingProduct ? '수정' : '등록'}
                 </button>
               </div>
             </form>

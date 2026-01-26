@@ -27,7 +27,7 @@ export async function GET(_request: NextRequest) {
       .from('products')
       .select(`
         *,
-        packing_spec:packing_spec_id (id, name, description)
+        packing_spec:packing_spec_id (id, spec_name, description)
       `)
       .eq('company_id', userProfile.company_id)
       .order('created_at', { ascending: false });
