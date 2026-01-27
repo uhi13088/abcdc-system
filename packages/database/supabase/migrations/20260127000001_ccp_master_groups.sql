@@ -63,6 +63,8 @@ CREATE INDEX IF NOT EXISTS idx_ccp_definitions_master ON ccp_definitions(master_
 -- ============================================
 ALTER TABLE ccp_master ENABLE ROW LEVEL SECURITY;
 
+-- 기존 정책이 있으면 삭제 후 재생성
+DROP POLICY IF EXISTS ccp_master_policy ON ccp_master;
 CREATE POLICY ccp_master_policy ON ccp_master FOR ALL USING (
   company_id IN (SELECT company_id FROM users WHERE auth_id = auth.uid())
   OR EXISTS (SELECT 1 FROM users WHERE auth_id = auth.uid() AND role = 'super_admin')
