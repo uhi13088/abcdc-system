@@ -7,6 +7,7 @@ interface TuyaSettings {
   client_secret: string;
   region: 'cn' | 'us' | 'eu' | 'in';
   enabled: boolean;
+  webhook_secret?: string; // Tuya Message Service 검증용
 }
 
 // GET /api/settings/tuya - Tuya API 설정 조회 (super_admin only)
@@ -49,12 +50,22 @@ export async function GET() {
 
     // 민감 정보는 마스킹
     const tuyaSettings = settings.value as TuyaSettings;
+
+    // Webhook URL 생성 (실시간 알림용)
+    const baseUrl = process.env.NEXT_PUBLIC_HACCP_URL || process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3002';
+    const webhookUrl = `${baseUrl}/api/tuya/webhook`;
+
     return NextResponse.json({
       client_id: tuyaSettings.client_id ? '****' + tuyaSettings.client_id.slice(-4) : '',
       client_secret: tuyaSettings.client_secret ? '********' : '',
+      webhook_secret: tuyaSettings.webhook_secret ? '********' : '',
       region: tuyaSettings.region || 'us',
       enabled: tuyaSettings.enabled || false,
       configured: !!(tuyaSettings.client_id && tuyaSettings.client_secret),
+      webhook_url: webhookUrl,
+      webhook_configured: !!tuyaSettings.webhook_secret,
     });
   } catch (error) {
     console.error('[GET /api/settings/tuya] Error:', error);
@@ -84,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { client_id, client_secret, region, enabled } = body;
+    const { client_id, client_secret, webhook_secret, region, enabled } = body;
 
     if (!client_id || !client_secret) {
       return NextResponse.json({ error: 'Client ID와 Secret은 필수입니다.' }, { status: 400 });
@@ -97,13 +108,18 @@ export async function POST(request: NextRequest) {
       .eq('key', 'tuya_api')
       .single();
 
+    const existingValue = existingSettings?.value as TuyaSettings | undefined;
+
     const newSettings: TuyaSettings = {
       client_id: client_id.startsWith('****')
-        ? (existingSettings?.value as TuyaSettings)?.client_id || ''
+        ? existingValue?.client_id || ''
         : client_id,
       client_secret: client_secret === '********'
-        ? (existingSettings?.value as TuyaSettings)?.client_secret || ''
+        ? existingValue?.client_secret || ''
         : client_secret,
+      webhook_secret: webhook_secret === '********'
+        ? existingValue?.webhook_secret || ''
+        : webhook_secret || undefined,
       region: region || 'us',
       enabled: enabled ?? true,
     };
