@@ -17,6 +17,13 @@ interface CCPDefinition {
   };
 }
 
+interface Product {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+}
+
 interface CCPRecord {
   id: string;
   ccp_id: string;
@@ -24,9 +31,15 @@ interface CCPRecord {
   record_time: string;
   recorded_by: string;
   lot_number: string;
+  batch_number?: string;
+  product_id?: string;
+  product?: Product;
   measurement: {
     value: number;
     unit: string;
+    batch_number?: string;
+    product_name?: string;
+    product_category?: string;
   };
   is_within_limit: boolean;
   deviation_action?: string;
@@ -42,11 +55,31 @@ interface CCPRecord {
   };
 }
 
+// 로트번호 자동 생성
+function generateLotNumber(): string {
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+  const seq = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0');
+  return `LOT-${dateStr}-${seq}`;
+}
+
+// 배치번호 자동 생성 (제품코드 포함)
+function generateBatchNumber(productCode?: string): string {
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+  const seq = String(Math.floor(Math.random() * 99) + 1).padStart(2, '0');
+  if (productCode) {
+    return `${productCode}-${dateStr}-${seq}`;
+  }
+  return `B${dateStr}-${seq}`;
+}
+
 function CCPRecordsContent() {
   const searchParams = useSearchParams();
   const selectedCcpId = searchParams.get('ccp');
 
   const [ccpList, setCcpList] = useState<CCPDefinition[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [records, setRecords] = useState<CCPRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -58,13 +91,19 @@ function CCPRecordsContent() {
     record_date: new Date().toISOString().split('T')[0],
     record_time: new Date().toTimeString().slice(0, 5),
     lot_number: '',
+    batch_number: '',
+    product_id: '',
     measurement: { value: 0, unit: '' },
     is_within_limit: true,
     deviation_action: '',
   });
 
+  // 선택된 제품 정보
+  const selectedProduct = products.find(p => p.id === formData.product_id);
+
   useEffect(() => {
     fetchCCPs();
+    fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -94,6 +133,18 @@ function CCPRecordsContent() {
     }
   };
 
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch('/api/haccp/products');
+      if (response.ok) {
+        const data = await response.json();
+        setProducts(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch products:', error);
+    }
+  };
+
   const fetchRecords = async () => {
     try {
       setLoading(true);
@@ -118,6 +169,7 @@ function CCPRecordsContent() {
     try {
       const selectedCcpDef = ccpList.find(c => c.id === formData.ccp_id);
       const limit = selectedCcpDef?.critical_limit;
+      const productInfo = products.find(p => p.id === formData.product_id);
 
       // Auto-determine if within limit
       let isWithinLimit = true;
@@ -139,6 +191,9 @@ function CCPRecordsContent() {
           measurement: {
             ...formData.measurement,
             unit: limit?.unit || formData.measurement.unit,
+            batch_number: formData.batch_number,
+            product_name: productInfo?.name,
+            product_category: productInfo?.category,
           },
         }),
       });
@@ -151,6 +206,8 @@ function CCPRecordsContent() {
           record_date: new Date().toISOString().split('T')[0],
           record_time: new Date().toTimeString().slice(0, 5),
           lot_number: '',
+          batch_number: '',
+          product_id: '',
           measurement: { value: 0, unit: '' },
           is_within_limit: true,
           deviation_action: '',
@@ -188,15 +245,17 @@ function CCPRecordsContent() {
     }
     value = Math.round(value * 10) / 10;
 
-    // LOT 번호 생성
-    const today = new Date();
-    const lotNumber = `LOT-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')}`;
+    // 제품 자동 선택 (첫 번째 제품)
+    const autoProduct = products.length > 0 ? products[0] : null;
 
+    const today = new Date();
     setFormData(prev => ({
       ...prev,
       record_date: today.toISOString().split('T')[0],
       record_time: today.toTimeString().slice(0, 5),
-      lot_number: lotNumber,
+      lot_number: generateLotNumber(),
+      batch_number: autoProduct ? generateBatchNumber(autoProduct.code) : generateBatchNumber(),
+      product_id: autoProduct?.id || '',
       measurement: { value, unit: limit.unit },
       is_within_limit: true,
       deviation_action: '',
@@ -216,7 +275,16 @@ function CCPRecordsContent() {
           <p className="mt-1 text-sm text-gray-500">중요관리점 모니터링 결과를 기록하고 관리합니다</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setFormData(prev => ({
+              ...prev,
+              lot_number: generateLotNumber(),
+              batch_number: generateBatchNumber(),
+              record_date: new Date().toISOString().split('T')[0],
+              record_time: new Date().toTimeString().slice(0, 5),
+            }));
+            setShowModal(true);
+          }}
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Plus className="w-4 h-4" />
@@ -301,7 +369,8 @@ function CCPRecordsContent() {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">날짜/시간</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CCP</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">LOT 번호</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">LOT/배치</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">제품</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">측정값</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">결과</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">기록자</th>
@@ -323,7 +392,22 @@ function CCPRecordsContent() {
                       {record.ccp_definitions?.process || '-'}
                     </p>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{record.lot_number || '-'}</td>
+                  <td className="px-4 py-3">
+                    <p className="text-sm font-medium text-gray-900">{record.lot_number || '-'}</p>
+                    {record.measurement?.batch_number && (
+                      <p className="text-xs text-gray-500">{record.measurement.batch_number}</p>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {record.measurement?.product_name ? (
+                      <>
+                        <p className="text-sm font-medium text-gray-900">{record.measurement.product_name}</p>
+                        <p className="text-xs text-gray-500">{record.measurement.product_category}</p>
+                      </>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`text-sm font-bold ${record.is_within_limit ? 'text-green-600' : 'text-red-600'}`}>
                       {record.measurement.value}{record.measurement.unit}
@@ -436,16 +520,67 @@ function CCPRecordsContent() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">LOT 번호</label>
-                <input
-                  type="text"
-                  value={formData.lot_number}
-                  onChange={(e) => setFormData({ ...formData, lot_number: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="예: LOT-20240110-001"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">LOT 번호 *</label>
+                  <input
+                    type="text"
+                    value={formData.lot_number}
+                    onChange={(e) => setFormData({ ...formData, lot_number: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg bg-gray-50"
+                    placeholder="자동 생성됨"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">배치번호 *</label>
+                  <input
+                    type="text"
+                    value={formData.batch_number}
+                    onChange={(e) => setFormData({ ...formData, batch_number: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg bg-gray-50"
+                    placeholder="자동 생성됨"
+                    required
+                  />
+                </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">제품 선택 *</label>
+                <select
+                  value={formData.product_id}
+                  onChange={(e) => {
+                    const selectedProd = products.find(p => p.id === e.target.value);
+                    setFormData({
+                      ...formData,
+                      product_id: e.target.value,
+                      batch_number: selectedProd ? generateBatchNumber(selectedProd.code) : formData.batch_number,
+                    });
+                  }}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  required
+                >
+                  <option value="">제품을 선택하세요</option>
+                  {products.map((product) => (
+                    <option key={product.id} value={product.id}>
+                      [{product.category}] {product.name} ({product.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedProduct && (
+                <div className="grid grid-cols-2 gap-4 bg-blue-50 rounded-lg p-3">
+                  <div>
+                    <label className="block text-xs font-medium text-blue-600 mb-1">제품군</label>
+                    <p className="text-sm font-semibold text-blue-800">{selectedProduct.category}</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-blue-600 mb-1">제품명</label>
+                    <p className="text-sm font-semibold text-blue-800">{selectedProduct.name}</p>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">측정값</label>

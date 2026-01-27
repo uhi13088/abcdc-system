@@ -87,5 +87,143 @@ CREATE TRIGGER ccp_master_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_ccp_master_updated_at();
 
+-- ============================================
+-- 6. CCP 마스터 템플릿 테이블
+-- ============================================
+CREATE TABLE IF NOT EXISTS ccp_master_template (
+  id SERIAL PRIMARY KEY,
+  master_code VARCHAR(50) NOT NULL UNIQUE,
+  group_prefix VARCHAR(10) NOT NULL,
+  process_name VARCHAR(100) NOT NULL,
+  hazard_type VARCHAR(10),
+  monitoring_frequency VARCHAR(100),
+  description TEXT,
+  sort_order INTEGER DEFAULT 0
+);
+
+-- ============================================
+-- 7. CCP 마스터 템플릿 시드 데이터
+-- ============================================
+DELETE FROM ccp_master_template;
+
+INSERT INTO ccp_master_template (master_code, group_prefix, process_name, hazard_type, monitoring_frequency, description, sort_order) VALUES
+  ('1B-COOKIE', '1B', '오븐(굽기)-과자', 'B', '시작전/2시간마다/변경시/종료', '과자류 오븐 굽기 공정의 가열온도, 시간, 품온 관리', 1),
+  ('1B-BREAD', '1B', '오븐(굽기)-빵류', 'B', '시작전/2시간마다/변경시/종료', '빵류 오븐 굽기 공정의 가열온도, 시간, 품온 관리', 2),
+  ('2B-CREAM', '2B', '크림(휘핑)', 'B', '제조 직후/소진 직전/작업 중', '휘핑크림 온도 및 사용시간 관리', 3),
+  ('3B-SYRUP', '3B', '시럽가열', 'B', '매작업시', '시럽 가열온도, 시간, 품온 관리', 4),
+  ('4B-WASH', '4B', '세척원료', 'B', '매작업시', '원료 세척 조건 관리', 5),
+  ('5P-METAL', '5P', '금속검출', 'P', '작업시작/2시간/변경/종료', '금속 이물 검출 관리', 6);
+
+-- ============================================
+-- 8. CCP 마스터 시드 함수
+-- ============================================
+CREATE OR REPLACE FUNCTION seed_ccp_master_defaults(p_company_id UUID)
+RETURNS VOID AS $$
+DECLARE
+  tmpl RECORD;
+BEGIN
+  FOR tmpl IN SELECT * FROM ccp_master_template ORDER BY sort_order
+  LOOP
+    INSERT INTO ccp_master (
+      company_id,
+      master_code,
+      group_prefix,
+      process_name,
+      hazard_type,
+      monitoring_frequency,
+      description,
+      sort_order,
+      status
+    ) VALUES (
+      p_company_id,
+      tmpl.master_code,
+      tmpl.group_prefix,
+      tmpl.process_name,
+      tmpl.hazard_type,
+      tmpl.monitoring_frequency,
+      tmpl.description,
+      tmpl.sort_order,
+      'ACTIVE'
+    )
+    ON CONFLICT (company_id, master_code) DO NOTHING;
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================
+-- 9. 기존 회사들에 CCP 마스터 시드 적용
+-- ============================================
+DO $$
+DECLARE
+  company_rec RECORD;
+BEGIN
+  FOR company_rec IN SELECT id FROM companies
+  LOOP
+    PERFORM seed_ccp_master_defaults(company_rec.id);
+  END LOOP;
+END $$;
+
+-- ============================================
+-- 10. 트리거 업데이트 (회사 생성 시 CCP 마스터도 시드)
+-- ============================================
+CREATE OR REPLACE FUNCTION trigger_seed_all_haccp_defaults_on_company_insert()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- 방충방서 기본 데이터
+  PERFORM seed_pest_control_defaults(NEW.id);
+  -- CCP 기본 데이터
+  PERFORM seed_ccp_defaults(NEW.id);
+  -- CCP 마스터 기본 데이터
+  PERFORM seed_ccp_master_defaults(NEW.id);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- HACCP 활성화 시에도 CCP 마스터 시드
+CREATE OR REPLACE FUNCTION trigger_seed_all_haccp_on_haccp_enabled()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.haccp_addon_enabled = true AND (OLD.haccp_addon_enabled IS NULL OR OLD.haccp_addon_enabled = false) THEN
+    PERFORM seed_pest_control_defaults(NEW.company_id);
+    PERFORM seed_ccp_defaults(NEW.company_id);
+    PERFORM seed_ccp_master_defaults(NEW.company_id);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================
+-- 11. 기존 CCP 정의에 master_id 연결
+-- ============================================
+-- CCP 코드에서 마스터 코드 추출하여 연결
+CREATE OR REPLACE FUNCTION link_ccp_to_master()
+RETURNS VOID AS $$
+DECLARE
+  ccp_rec RECORD;
+  master_rec RECORD;
+  extracted_master_code VARCHAR(50);
+BEGIN
+  -- 마스터 코드 형식: 1B-COOKIE, 2B-CREAM 등
+  FOR ccp_rec IN SELECT id, company_id, ccp_number FROM ccp_definitions WHERE master_id IS NULL
+  LOOP
+    -- CCP 코드에서 마스터 코드 추출 (예: CCP-1B-COOKIE-TEMP -> 1B-COOKIE)
+    IF ccp_rec.ccp_number LIKE 'CCP-%-%-%-' OR ccp_rec.ccp_number ~ '^CCP-[0-9]+[A-Z]+-[A-Z]+-' THEN
+      extracted_master_code := SPLIT_PART(ccp_rec.ccp_number, '-', 2) || '-' || SPLIT_PART(ccp_rec.ccp_number, '-', 3);
+
+      SELECT id INTO master_rec FROM ccp_master
+      WHERE company_id = ccp_rec.company_id AND master_code = extracted_master_code;
+
+      IF master_rec.id IS NOT NULL THEN
+        UPDATE ccp_definitions SET master_id = master_rec.id, item_code = SPLIT_PART(ccp_rec.ccp_number, '-', 4)
+        WHERE id = ccp_rec.id;
+      END IF;
+    END IF;
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 기존 CCP들에 마스터 연결 실행
+SELECT link_ccp_to_master();
+
 -- Done
-SELECT 'CCP Master Groups table created successfully!' as result;
+SELECT 'CCP Master Groups table and seed data created successfully!' as result;
