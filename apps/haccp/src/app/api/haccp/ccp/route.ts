@@ -27,7 +27,15 @@ export async function GET(_request: NextRequest) {
 
     const { data, error } = await adminClient
       .from('ccp_definitions')
-      .select('*')
+      .select(`
+        *,
+        ccp_master:master_id (
+          id,
+          master_code,
+          group_prefix,
+          process_name
+        )
+      `)
       .eq('company_id', userProfile.company_id)
       .order('ccp_number', { ascending: true });
 

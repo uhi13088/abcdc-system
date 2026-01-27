@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, AlertTriangle, Edit, Trash2, X, ClipboardCheck, TrendingUp } from 'lucide-react';
+import { Plus, AlertTriangle, Edit, Trash2, X, ClipboardCheck, TrendingUp, Layers } from 'lucide-react';
 import Link from 'next/link';
 
 interface CCPDefinition {
@@ -154,6 +154,13 @@ export default function CCPPage() {
           <p className="mt-1 text-sm text-gray-500">중요관리점(Critical Control Point)을 정의하고 관리합니다</p>
         </div>
         <div className="flex gap-2">
+          <Link
+            href="/ccp/master"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+          >
+            <Layers className="w-4 h-4" />
+            그룹 관리
+          </Link>
           <Link
             href="/ccp/records"
             className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
