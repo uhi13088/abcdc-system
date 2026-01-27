@@ -81,15 +81,23 @@ export default function RecipesPage() {
 
       if (productsRes.ok) {
         const data = await productsRes.json();
-        setProducts(data);
+        // products API returns array directly
+        setProducts(Array.isArray(data) ? data : []);
       }
       if (semiProductsRes.ok) {
         const data = await semiProductsRes.json();
-        setSemiProducts(data);
+        // semi-products API returns { success, data: [...] }
+        const semiProductsArray = data?.data || data || [];
+        // Transform to Product format for dropdown
+        setSemiProducts(Array.isArray(semiProductsArray) ? semiProductsArray.map((sp: { id: string; productCode?: string; productName?: string; product_code?: string; product_name?: string }) => ({
+          id: sp.id,
+          code: sp.productCode || sp.product_code || '',
+          name: sp.productName || sp.product_name || '',
+        })) : []);
       }
       if (materialsRes.ok) {
         const data = await materialsRes.json();
-        setMaterials(data);
+        setMaterials(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       console.error('Failed to fetch base data:', error);
