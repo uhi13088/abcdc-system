@@ -5,16 +5,21 @@ import { Plus, Check, X, AlertTriangle, Calendar, Filter, ExternalLink } from 'l
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
+interface CriticalLimit {
+  code: string;
+  parameter: string;
+  min?: number | null;
+  max?: number | null;
+  unit: string;
+}
+
 interface CCPDefinition {
   id: string;
   ccp_number: string;
   process: string;
-  critical_limit: {
-    parameter: string;
-    min?: number;
-    max?: number;
-    unit: string;
-  };
+  critical_limit: CriticalLimit;
+  critical_limits?: CriticalLimit[];
+  status?: string;
 }
 
 interface Product {
@@ -22,6 +27,16 @@ interface Product {
   code: string;
   name: string;
   category: string;
+}
+
+interface MeasurementValue {
+  code: string;
+  parameter: string;
+  value: number;
+  unit: string;
+  min?: number | null;
+  max?: number | null;
+  is_within_limit: boolean;
 }
 
 interface CCPRecord {
@@ -41,6 +56,7 @@ interface CCPRecord {
     product_name?: string;
     product_category?: string;
   };
+  measurements?: MeasurementValue[];
   is_within_limit: boolean;
   deviation_action?: string;
   verified_by?: string;
@@ -93,13 +109,15 @@ function CCPRecordsContent() {
     lot_number: '',
     batch_number: '',
     product_id: '',
-    measurement: { value: 0, unit: '' },
-    is_within_limit: true,
+    measurements: [] as { code: string; parameter: string; value: number; unit: string; min?: number | null; max?: number | null }[],
     deviation_action: '',
   });
 
   // 선택된 제품 정보
   const selectedProduct = products.find(p => p.id === formData.product_id);
+
+  // 선택된 CCP 정보 (제품 정보 표시용)
+  const _selectedCcpDef = ccpList.find(c => c.id === formData.ccp_id);
 
   useEffect(() => {
     fetchCCPs();
@@ -167,34 +185,48 @@ function CCPRecordsContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const selectedCcpDef = ccpList.find(c => c.id === formData.ccp_id);
-      const limit = selectedCcpDef?.critical_limit;
       const productInfo = products.find(p => p.id === formData.product_id);
 
-      // Auto-determine if within limit
-      let isWithinLimit = true;
-      if (limit) {
-        if (limit.min !== undefined && formData.measurement.value < limit.min) {
-          isWithinLimit = false;
+      // 각 측정값에 대해 한계 기준 체크
+      const measurementsWithLimit = formData.measurements.map(m => {
+        let isWithin = true;
+        if (m.min !== undefined && m.min !== null && m.value < m.min) {
+          isWithin = false;
         }
-        if (limit.max !== undefined && formData.measurement.value > limit.max) {
-          isWithinLimit = false;
+        if (m.max !== undefined && m.max !== null && m.value > m.max) {
+          isWithin = false;
         }
-      }
+        return {
+          ...m,
+          is_within_limit: isWithin,
+        };
+      });
+
+      // 전체 적합 여부 (모든 측정값이 한계 내여야 적합)
+      const allWithinLimit = measurementsWithLimit.every(m => m.is_within_limit);
+
+      // 첫 번째 측정값을 기존 measurement 필드에도 저장 (하위 호환성)
+      const firstMeasurement = measurementsWithLimit[0] || { value: 0, unit: '' };
 
       const response = await fetch('/api/haccp/ccp/records', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          is_within_limit: isWithinLimit,
+          ccp_id: formData.ccp_id,
+          record_date: formData.record_date,
+          record_time: formData.record_time,
+          lot_number: formData.lot_number,
+          product_id: formData.product_id || null,
+          is_within_limit: allWithinLimit,
+          deviation_action: formData.deviation_action,
           measurement: {
-            ...formData.measurement,
-            unit: limit?.unit || formData.measurement.unit,
+            value: firstMeasurement.value,
+            unit: firstMeasurement.unit,
             batch_number: formData.batch_number,
             product_name: productInfo?.name,
             product_category: productInfo?.category,
           },
+          measurements: measurementsWithLimit,
         }),
       });
 
@@ -208,8 +240,7 @@ function CCPRecordsContent() {
           lot_number: '',
           batch_number: '',
           product_id: '',
-          measurement: { value: 0, unit: '' },
-          is_within_limit: true,
+          measurements: [],
           deviation_action: '',
         });
       }
@@ -218,12 +249,13 @@ function CCPRecordsContent() {
     }
   };
 
-  const selectedCcpDef = ccpList.find(c => c.id === selectedCcp);
+  // 필터용 selectedCcpDef (ccpList에서 선택된 CCP)
+  const filterCcpDef = ccpList.find(c => c.id === selectedCcp);
 
   // 자동 입력 기능
   const handleAutoFill = () => {
-    const selectedCcpData = ccpList.find(c => c.id === formData.ccp_id);
-    if (!selectedCcpData) {
+    const ccpData = ccpList.find(c => c.id === formData.ccp_id);
+    if (!ccpData) {
       // CCP가 선택되지 않은 경우 첫 번째 CCP 선택
       if (ccpList.length > 0) {
         setFormData(prev => ({ ...prev, ccp_id: ccpList[0].id }));
@@ -231,19 +263,34 @@ function CCPRecordsContent() {
       return;
     }
 
-    const limit = selectedCcpData.critical_limit;
-    // 한계 기준 내의 적정 값 생성
-    let value = 0;
-    if (limit.min !== undefined && limit.max !== undefined) {
-      // 범위 내 랜덤 값 (중간 60% 범위)
-      const range = limit.max - limit.min;
-      value = limit.min + range * 0.2 + Math.random() * range * 0.6;
-    } else if (limit.min !== undefined) {
-      value = limit.min + 5 + Math.random() * 10;
-    } else if (limit.max !== undefined) {
-      value = limit.max - 5 - Math.random() * 10;
-    }
-    value = Math.round(value * 10) / 10;
+    // critical_limits 배열 사용 (없으면 critical_limit 단일 값 사용)
+    const limits = ccpData.critical_limits || (ccpData.critical_limit ? [ccpData.critical_limit] : []);
+
+    // 각 측정 항목에 대해 적정 값 생성
+    const autoMeasurements = limits.map(limit => {
+      let value = 0;
+      const minVal = limit.min ?? undefined;
+      const maxVal = limit.max ?? undefined;
+
+      if (minVal !== undefined && maxVal !== undefined) {
+        const range = maxVal - minVal;
+        value = minVal + range * 0.2 + Math.random() * range * 0.6;
+      } else if (minVal !== undefined) {
+        value = minVal + 5 + Math.random() * 10;
+      } else if (maxVal !== undefined) {
+        value = maxVal - 5 - Math.random() * 10;
+      }
+      value = Math.round(value * 10) / 10;
+
+      return {
+        code: limit.code || '',
+        parameter: limit.parameter,
+        value,
+        unit: limit.unit,
+        min: limit.min,
+        max: limit.max,
+      };
+    });
 
     // 제품 자동 선택 (첫 번째 제품)
     const autoProduct = products.length > 0 ? products[0] : null;
@@ -256,9 +303,27 @@ function CCPRecordsContent() {
       lot_number: generateLotNumber(),
       batch_number: autoProduct ? generateBatchNumber(autoProduct.code) : generateBatchNumber(),
       product_id: autoProduct?.id || '',
-      measurement: { value, unit: limit.unit },
-      is_within_limit: true,
+      measurements: autoMeasurements,
       deviation_action: '',
+    }));
+  };
+
+  // CCP 선택 시 측정 항목 초기화
+  const handleCcpChange = (ccpId: string) => {
+    const ccpData = ccpList.find(c => c.id === ccpId);
+    const limits = ccpData?.critical_limits || (ccpData?.critical_limit ? [ccpData.critical_limit] : []);
+
+    setFormData(prev => ({
+      ...prev,
+      ccp_id: ccpId,
+      measurements: limits.map(limit => ({
+        code: limit.code || '',
+        parameter: limit.parameter,
+        value: 0,
+        unit: limit.unit,
+        min: limit.min,
+        max: limit.max,
+      })),
     }));
   };
 
@@ -326,21 +391,25 @@ function CCPRecordsContent() {
       </div>
 
       {/* Selected CCP Info */}
-      {selectedCcpDef && (
+      {filterCcpDef && (
         <div className="bg-gradient-to-r from-red-500 to-orange-500 rounded-xl p-4 mb-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold">{selectedCcpDef.ccp_number}</h3>
-              <p className="text-white/90">{selectedCcpDef.process}</p>
+              <h3 className="text-lg font-bold">{filterCcpDef.ccp_number}</h3>
+              <p className="text-white/90">{filterCcpDef.process}</p>
             </div>
-            <div className="bg-white/20 rounded-lg px-4 py-2">
-              <p className="text-xs text-white/80">한계기준</p>
-              <p className="font-bold">
-                {selectedCcpDef.critical_limit.parameter}: {selectedCcpDef.critical_limit.min !== undefined && `${selectedCcpDef.critical_limit.min}`}
-                {selectedCcpDef.critical_limit.min !== undefined && selectedCcpDef.critical_limit.max !== undefined && ' ~ '}
-                {selectedCcpDef.critical_limit.max !== undefined && `${selectedCcpDef.critical_limit.max}`}
-                {selectedCcpDef.critical_limit.unit}
-              </p>
+            <div className="flex gap-2 flex-wrap">
+              {(filterCcpDef.critical_limits || [filterCcpDef.critical_limit]).map((limit, idx) => (
+                <div key={idx} className="bg-white/20 rounded-lg px-3 py-2">
+                  <p className="text-xs text-white/80">{limit.parameter}</p>
+                  <p className="font-bold text-sm">
+                    {limit.min !== undefined && limit.min !== null && `${limit.min}`}
+                    {limit.min !== undefined && limit.min !== null && limit.max !== undefined && limit.max !== null && ' ~ '}
+                    {limit.max !== undefined && limit.max !== null && `${limit.max}`}
+                    {limit.unit}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -409,9 +478,22 @@ function CCPRecordsContent() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`text-sm font-bold ${record.is_within_limit ? 'text-green-600' : 'text-red-600'}`}>
-                      {record.measurement.value}{record.measurement.unit}
-                    </span>
+                    {record.measurements && record.measurements.length > 0 ? (
+                      <div className="space-y-1">
+                        {record.measurements.map((m, idx) => (
+                          <div key={idx} className="flex items-center gap-1">
+                            <span className="text-xs text-gray-500">{m.parameter}:</span>
+                            <span className={`text-sm font-bold ${m.is_within_limit ? 'text-green-600' : 'text-red-600'}`}>
+                              {m.value}{m.unit}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className={`text-sm font-bold ${record.is_within_limit ? 'text-green-600' : 'text-red-600'}`}>
+                        {record.measurement?.value}{record.measurement?.unit}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {record.is_within_limit ? (
@@ -484,12 +566,12 @@ function CCPRecordsContent() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">CCP 선택</label>
                 <select
                   value={formData.ccp_id}
-                  onChange={(e) => setFormData({ ...formData, ccp_id: e.target.value })}
+                  onChange={(e) => handleCcpChange(e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg"
                   required
                 >
                   <option value="">CCP를 선택하세요</option>
-                  {ccpList.map((ccp) => (
+                  {ccpList.filter(ccp => ccp.status !== 'MERGED').map((ccp) => (
                     <option key={ccp.id} value={ccp.id}>
                       {ccp.ccp_number} - {ccp.process}
                     </option>
@@ -582,33 +664,69 @@ function CCPRecordsContent() {
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">측정값</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.measurement.value}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      measurement: { ...formData.measurement, value: parseFloat(e.target.value) || 0 }
+              {/* 측정값 입력 섹션 - 여러 측정 항목 */}
+              {formData.measurements.length > 0 && (
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700">측정값 입력</label>
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-3">
+                    {formData.measurements.map((measurement, idx) => {
+                      // 한계기준 체크
+                      const isWithinLimit = (() => {
+                        if (measurement.value === 0) return true;
+                        if (measurement.min !== undefined && measurement.min !== null && measurement.value < measurement.min) return false;
+                        if (measurement.max !== undefined && measurement.max !== null && measurement.value > measurement.max) return false;
+                        return true;
+                      })();
+
+                      return (
+                        <div key={idx} className="bg-white rounded-lg p-3 border">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-800">{measurement.parameter}</span>
+                            <span className="text-xs text-gray-500">
+                              {measurement.min !== undefined && measurement.min !== null && `${measurement.min}`}
+                              {measurement.min !== undefined && measurement.min !== null && measurement.max !== undefined && measurement.max !== null && ' ~ '}
+                              {measurement.max !== undefined && measurement.max !== null && `${measurement.max}`}
+                              {measurement.unit}
+                            </span>
+                          </div>
+                          <div className="flex gap-2 items-center">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={measurement.value || ''}
+                              onChange={(e) => {
+                                const newMeasurements = [...formData.measurements];
+                                newMeasurements[idx] = {
+                                  ...newMeasurements[idx],
+                                  value: parseFloat(e.target.value) || 0,
+                                };
+                                setFormData({ ...formData, measurements: newMeasurements });
+                              }}
+                              className={`flex-1 px-3 py-2 border rounded-lg ${!isWithinLimit && measurement.value !== 0 ? 'border-red-500 bg-red-50' : ''}`}
+                              placeholder={`${measurement.parameter} 입력`}
+                              required
+                            />
+                            <span className="px-3 py-2 bg-gray-100 border rounded-lg text-gray-600 text-sm">
+                              {measurement.unit}
+                            </span>
+                            {measurement.value !== 0 && (
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${isWithinLimit ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                {isWithinLimit ? '적합' : '이탈'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
                     })}
-                    className="flex-1 px-3 py-2 border rounded-lg"
-                    required
-                  />
-                  <span className="px-3 py-2 bg-gray-100 border rounded-lg text-gray-600">
-                    {ccpList.find(c => c.id === formData.ccp_id)?.critical_limit.unit || '단위'}
-                  </span>
+                  </div>
                 </div>
-                {formData.ccp_id && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    한계기준: {ccpList.find(c => c.id === formData.ccp_id)?.critical_limit.min}
-                    {' ~ '}
-                    {ccpList.find(c => c.id === formData.ccp_id)?.critical_limit.max}
-                    {ccpList.find(c => c.id === formData.ccp_id)?.critical_limit.unit}
-                  </p>
-                )}
-              </div>
+              )}
+
+              {formData.ccp_id && formData.measurements.length === 0 && (
+                <div className="text-center py-4 text-gray-500 text-sm">
+                  CCP를 선택하면 측정 항목이 표시됩니다
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">이탈 시 조치사항</label>
