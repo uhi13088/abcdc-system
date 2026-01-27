@@ -56,6 +56,7 @@ export default function MessagesPage() {
   useEffect(() => {
     fetchMessages();
     fetchCompanyMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, storeFilter]);
 
   useEffect(() => {

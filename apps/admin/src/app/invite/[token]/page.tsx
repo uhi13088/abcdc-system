@@ -98,7 +98,7 @@ export default function InviteAcceptPage() {
         } else {
           setError(result.error || '초대 정보를 불러올 수 없습니다.');
         }
-      } catch (err) {
+      } catch (_err) {
         setError('초대 정보를 불러올 수 없습니다.');
       } finally {
         setLoading(false);
@@ -226,7 +226,7 @@ export default function InviteAcceptPage() {
       } else {
         setError(result.error || '가입에 실패했습니다.');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('가입에 실패했습니다.');
     } finally {
       setSubmitting(false);

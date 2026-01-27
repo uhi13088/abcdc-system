@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@abc/shared';
 
 // GET /api/company - 현재 사용자의 회사 정보 조회
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = await createClient();
 
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ data: company });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

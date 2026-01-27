@@ -57,7 +57,7 @@ export interface ApprovalLineConfig {
 }
 
 // 기본 승인 라인 설정
-const DEFAULT_APPROVAL_LINE_CONFIG: Record<ApprovalType, ApprovalLineConfig> = {
+const _DEFAULT_APPROVAL_LINE_CONFIG: Record<ApprovalType, ApprovalLineConfig> = {
   LEAVE: { type: 'LEAVE', minApprovers: 1, maxApprovers: 2 },
   OVERTIME: { type: 'OVERTIME', minApprovers: 1, maxApprovers: 2 },
   SCHEDULE_CHANGE: { type: 'SCHEDULE_CHANGE', minApprovers: 1, maxApprovers: 1 },

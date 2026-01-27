@@ -32,6 +32,7 @@ export default function SalesPage() {
 
   useEffect(() => {
     fetchSales();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth]);
 
   const fetchSales = async () => {

@@ -20,8 +20,6 @@ import {
   BarChart3,
   ChevronDown,
   ChevronRight,
-  Package,
-  Store,
   Factory,
   Coffee,
   ExternalLink,

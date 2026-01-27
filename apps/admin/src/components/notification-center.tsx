@@ -37,7 +37,7 @@ const priorityColors: Record<string, string> = {
   CRITICAL: 'border-l-red-500',
 };
 
-export function NotificationCenter({ userId }: NotificationCenterProps) {
+export function NotificationCenter({ userId: _userId }: NotificationCenterProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);

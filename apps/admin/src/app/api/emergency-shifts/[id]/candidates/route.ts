@@ -23,7 +23,7 @@ interface StaffCandidate {
 }
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -136,7 +136,7 @@ export async function GET(
         .eq('staff_id', staff.id);
 
       const avgRating = ratings && ratings.length > 0
-        ? ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / ratings.length
+        ? ratings.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / ratings.length
         : null;
 
       // 마지막 긴급 근무 날짜

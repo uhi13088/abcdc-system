@@ -36,6 +36,7 @@ export function useRealtime<T extends { id: string }>({
     let channel: RealtimeChannel;
 
     const setupSubscription = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const channelConfig: any = {
         event,
         schema,
@@ -59,6 +60,7 @@ export function useRealtime<T extends { id: string }>({
             } else if (eventType === 'UPDATE' && onUpdate) {
               onUpdate(payload.new as T);
             } else if (eventType === 'DELETE' && onDelete) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               onDelete({ id: (payload.old as any).id });
             }
           }
@@ -87,6 +89,7 @@ export function useRealtimeData<T extends { id: string }>(
   table: string,
   options?: {
     select?: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     filter?: Record<string, any>;
     orderBy?: { column: string; ascending?: boolean };
     limit?: number;

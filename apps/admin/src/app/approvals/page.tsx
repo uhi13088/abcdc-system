@@ -108,6 +108,7 @@ export default function ApprovalsPage() {
 
   useEffect(() => {
     fetchApprovals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, typeFilter, statusFilter]);
 
   const handleProcess = async (decision: 'APPROVED' | 'REJECTED') => {
@@ -131,7 +132,7 @@ export default function ApprovalsPage() {
         const data = await response.json();
         alert(data.error || '처리에 실패했습니다.');
       }
-    } catch (error) {
+    } catch (_error) {
       alert('처리에 실패했습니다.');
     } finally {
       setProcessing(false);

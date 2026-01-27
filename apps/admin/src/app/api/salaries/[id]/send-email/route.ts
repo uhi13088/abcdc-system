@@ -183,7 +183,7 @@ export async function POST(
 
 // 일괄 발송
 export async function PUT(request: NextRequest) {
-  const supabase = getSupabaseClient();
+  const _supabase = getSupabaseClient();
   try {
     const body = await request.json();
     const { salaryIds } = body;

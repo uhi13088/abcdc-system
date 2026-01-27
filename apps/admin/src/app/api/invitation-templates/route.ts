@@ -35,7 +35,7 @@ const CreateTemplateSchema = z.object({
 });
 
 // GET /api/invitation-templates - 템플릿 목록 조회
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = await createClient();
     const adminClient = createAdminClient();

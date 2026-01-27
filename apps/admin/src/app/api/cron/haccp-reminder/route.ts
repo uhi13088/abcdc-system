@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { format, subDays, startOfWeek, startOfMonth } from 'date-fns';
+import { format, startOfWeek, startOfMonth } from 'date-fns';
 import { pushNotificationService } from '@abc/shared/server';
 import { logger } from '@abc/shared';
 
@@ -17,15 +17,6 @@ function getSupabaseClient() {
 }
 
 export const dynamic = 'force-dynamic';
-
-interface CheckReminder {
-  type: 'DAILY' | 'WEEKLY' | 'MONTHLY';
-  checkName: string;
-  targetRoles: string[];
-  escalationEnabled: boolean;
-  escalationDelayMinutes: number;
-  escalationRole?: string;
-}
 
 const DAILY_CHECK_TIMES = [8, 14, 22]; // 08:00, 14:00, 22:00
 const SHIFT_NAMES: Record<number, string> = {
@@ -41,7 +32,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const supabase = getSupabaseClient();
   try {
     const now = new Date();
     const currentHour = now.getHours();

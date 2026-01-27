@@ -263,6 +263,7 @@ export async function POST(request: NextRequest) {
             notes: `입고검사 합격 자동 입고 (검사ID: ${data.id})`,
           });
 
+        // eslint-disable-next-line no-console
         console.log(`[Inspection] Auto-created stock for material ${body.material_id}, qty: ${body.quantity}`);
       } catch (stockError) {
         // 재고 생성 실패해도 검사 기록은 저장됨

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Calendar, Factory, Clock, Users, Package,
   ThermometerSun, Droplets, CheckCircle2, XCircle,
-  AlertCircle, Eye, ClipboardCheck, FileCheck, Search,
+  Eye, ClipboardCheck, FileCheck, Search,
   ChevronDown, ChevronUp, Settings
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';

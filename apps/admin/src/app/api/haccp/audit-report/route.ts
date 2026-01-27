@@ -7,6 +7,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { subMonths, format } from 'date-fns';
 
+type SupabaseClient = Awaited<ReturnType<typeof createServerClient>>;
+
+interface MaterialRecord {
+  id: string;
+  current_stock: number;
+  min_stock_level: number;
+  expiry_date: string | null;
+}
+
 interface AuditSection {
   name: string;
   score: number;
@@ -95,7 +104,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function evaluateHygieneSection(supabase: any, companyId: string, periodStart: string): Promise<AuditSection> {
+async function evaluateHygieneSection(supabase: SupabaseClient, companyId: string, periodStart: string): Promise<AuditSection> {
   const { count: totalChecks } = await supabase.from('haccp_hygiene_records').select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('check_date', periodStart);
   const { count: passedChecks } = await supabase.from('haccp_hygiene_records').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('result', 'PASS').gte('check_date', periodStart);
   const rate = totalChecks ? Math.round((passedChecks || 0) / totalChecks * 100) : 0;
@@ -107,7 +116,7 @@ async function evaluateHygieneSection(supabase: any, companyId: string, periodSt
   return { name: '선행요건 관리 (위생)', score, maxScore: 20, status: score >= 16 ? 'PASS' : score >= 10 ? 'WARNING' : 'FAIL', items, recommendations };
 }
 
-async function evaluateCCPSection(supabase: any, companyId: string, periodStart: string): Promise<AuditSection> {
+async function evaluateCCPSection(supabase: SupabaseClient, companyId: string, periodStart: string): Promise<AuditSection> {
   const { count: totalRecords } = await supabase.from('haccp_ccp_records').select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('recorded_at', periodStart);
   const { count: deviations } = await supabase.from('haccp_ccp_records').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('has_deviation', true).gte('recorded_at', periodStart);
   const deviationRate = totalRecords ? Math.round(((deviations || 0) / totalRecords) * 100) : 0;
@@ -118,11 +127,11 @@ async function evaluateCCPSection(supabase: any, companyId: string, periodStart:
   return { name: 'CCP 모니터링', score, maxScore: 25, status: score >= 20 ? 'PASS' : score >= 12 ? 'WARNING' : 'FAIL', items, recommendations };
 }
 
-async function evaluateMaterialSection(supabase: any, companyId: string, periodStart: string): Promise<AuditSection> {
+async function evaluateMaterialSection(supabase: SupabaseClient, companyId: string, _periodStart: string): Promise<AuditSection> {
   const { data: materials } = await supabase.from('haccp_materials').select('id, current_stock, min_stock_level, expiry_date').eq('company_id', companyId).eq('is_active', true);
   const totalMaterials = materials?.length || 0;
-  const lowStock = materials?.filter((m: any) => m.current_stock <= m.min_stock_level).length || 0;
-  const expired = materials?.filter((m: any) => m.expiry_date && new Date(m.expiry_date) < new Date()).length || 0;
+  const lowStock = materials?.filter((m: MaterialRecord) => m.current_stock <= m.min_stock_level).length || 0;
+  const expired = materials?.filter((m: MaterialRecord) => m.expiry_date && new Date(m.expiry_date) < new Date()).length || 0;
   const score = totalMaterials > 0 ? Math.min(15, Math.round(((totalMaterials - lowStock - expired) / totalMaterials) * 15)) : 15;
   const items: AuditItem[] = [{ requirement: '원자재 재고 관리', status: lowStock === 0 ? 'COMPLIANT' : lowStock <= 3 ? 'PARTIAL' : 'NON_COMPLIANT', evidence: `재고 부족 ${lowStock}건`, notes: null }, { requirement: '유통기한 관리', status: expired === 0 ? 'COMPLIANT' : 'NON_COMPLIANT', evidence: `유통기한 초과 ${expired}건`, notes: null }];
   const recommendations: string[] = [];
@@ -131,7 +140,7 @@ async function evaluateMaterialSection(supabase: any, companyId: string, periodS
   return { name: '원료/자재 관리', score, maxScore: 15, status: score >= 12 ? 'PASS' : score >= 8 ? 'WARNING' : 'FAIL', items, recommendations };
 }
 
-async function evaluateReceivingSection(supabase: any, companyId: string, periodStart: string): Promise<AuditSection> {
+async function evaluateReceivingSection(supabase: SupabaseClient, companyId: string, periodStart: string): Promise<AuditSection> {
   const { count: totalInspections } = await supabase.from('haccp_receiving_inspections').select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('inspection_date', periodStart);
   const { count: passedInspections } = await supabase.from('haccp_receiving_inspections').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('result', 'PASS').gte('inspection_date', periodStart);
   const rate = totalInspections ? Math.round((passedInspections || 0) / totalInspections * 100) : 0;
@@ -139,13 +148,13 @@ async function evaluateReceivingSection(supabase: any, companyId: string, period
   return { name: '입고 검수', score, maxScore: 10, status: score >= 8 ? 'PASS' : score >= 5 ? 'WARNING' : 'FAIL', items: [{ requirement: '입고 검수 실시', status: (totalInspections || 0) >= 10 ? 'COMPLIANT' : 'PARTIAL', evidence: `${totalInspections}건 기록`, notes: null }], recommendations: [] };
 }
 
-async function evaluateProductionSection(supabase: any, companyId: string, periodStart: string): Promise<AuditSection> {
+async function evaluateProductionSection(supabase: SupabaseClient, companyId: string, periodStart: string): Promise<AuditSection> {
   const { count: totalProduction } = await supabase.from('haccp_production_records').select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('production_date', periodStart);
   const score = (totalProduction || 0) >= 30 ? 15 : Math.min(15, Math.round(((totalProduction || 0) / 30) * 15));
   return { name: '생산 기록', score, maxScore: 15, status: score >= 12 ? 'PASS' : score >= 8 ? 'WARNING' : 'FAIL', items: [{ requirement: '생산 기록 유지', status: (totalProduction || 0) >= 30 ? 'COMPLIANT' : 'PARTIAL', evidence: `${totalProduction}건 기록`, notes: null }], recommendations: [] };
 }
 
-async function evaluateCorrectiveSection(supabase: any, companyId: string, periodStart: string): Promise<AuditSection> {
+async function evaluateCorrectiveSection(supabase: SupabaseClient, companyId: string, periodStart: string): Promise<AuditSection> {
   const { count: totalActions } = await supabase.from('haccp_corrective_actions').select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('created_at', periodStart);
   const { count: completedActions } = await supabase.from('haccp_corrective_actions').select('id', { count: 'exact', head: true }).eq('company_id', companyId).eq('status', 'COMPLETED').gte('created_at', periodStart);
   const rate = totalActions ? Math.round((completedActions || 0) / totalActions * 100) : 100;
@@ -156,7 +165,7 @@ async function evaluateCorrectiveSection(supabase: any, companyId: string, perio
   return { name: '개선 조치 관리', score, maxScore: 10, status: score >= 8 ? 'PASS' : score >= 5 ? 'WARNING' : 'FAIL', items: [{ requirement: '개선 조치 완료율', status: rate >= 90 ? 'COMPLIANT' : rate >= 70 ? 'PARTIAL' : 'NON_COMPLIANT', evidence: `완료율 ${rate}%`, notes: null }], recommendations };
 }
 
-async function evaluateTrainingSection(supabase: any, companyId: string, periodStart: string): Promise<AuditSection> {
+async function evaluateTrainingSection(supabase: SupabaseClient, companyId: string, periodStart: string): Promise<AuditSection> {
   const { count: totalTraining } = await supabase.from('training_completions').select('id', { count: 'exact', head: true }).eq('company_id', companyId).gte('completed_at', periodStart);
   const score = (totalTraining || 0) >= 10 ? 5 : Math.min(5, Math.round(((totalTraining || 0) / 10) * 5));
   return { name: '교육/훈련', score, maxScore: 5, status: score >= 4 ? 'PASS' : score >= 2 ? 'WARNING' : 'FAIL', items: [{ requirement: '직원 교육 실시', status: (totalTraining || 0) >= 10 ? 'COMPLIANT' : 'PARTIAL', evidence: `${totalTraining}건 완료`, notes: null }], recommendations: (totalTraining || 0) < 10 ? ['직원 교육을 더 실시해주세요.'] : [] };

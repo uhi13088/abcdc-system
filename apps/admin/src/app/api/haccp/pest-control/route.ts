@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 
+interface PestControlRecord {
+  checked_by_user?: { name: string };
+  verified_by_user?: { name: string };
+  [key: string]: unknown;
+}
+
 // GET /api/haccp/pest-control
 export async function GET(request: NextRequest) {
   try {
@@ -39,7 +45,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const result = (data || []).map((c: any) => ({
+    const result = (data || []).map((c: PestControlRecord) => ({
       ...c,
       checked_by_name: c.checked_by_user?.name,
       verified_by_name: c.verified_by_user?.name,

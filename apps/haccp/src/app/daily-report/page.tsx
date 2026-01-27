@@ -1,14 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import {
-  Calendar,
   CheckCircle,
   XCircle,
   AlertTriangle,
   ChevronDown,
   ChevronRight,
-  FileText,
   Thermometer,
   ClipboardCheck,
   Factory,
@@ -130,6 +129,7 @@ export default function DailyReportPage() {
 
   useEffect(() => {
     fetchReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
   const fetchReport = async () => {
@@ -348,9 +348,11 @@ export default function DailyReportPage() {
             </div>
           </div>
           {verification.verification_signature && (
-            <img
+            <Image
               src={verification.verification_signature}
               alt="서명"
+              width={80}
+              height={48}
               className="h-12 border rounded"
             />
           )}

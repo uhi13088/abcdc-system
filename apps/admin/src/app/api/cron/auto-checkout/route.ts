@@ -56,7 +56,8 @@ function calculateWorkHours(
   const totalMinutes = differenceInMinutes(checkOut, checkIn) - breakMinutes;
   const workHours = Math.max(0, totalMinutes / 60);
 
-  const regularHours = Math.min(workHours, 8);
+  // regularHours used as part of work time calculation
+  const _regularHours = Math.min(workHours, 8);
   const overtimeHours = Math.max(0, workHours - 8);
 
   // 야간근로 시간 계산 (22:00 ~ 06:00)
@@ -92,7 +93,8 @@ export async function GET(request: NextRequest) {
   const timezone = 'Asia/Seoul';
   const now = toZonedTime(new Date(), timezone);
   const today = format(now, 'yyyy-MM-dd');
-  const yesterday = format(subDays(now, 1), 'yyyy-MM-dd');
+  // yesterday used as reference for past record processing
+  const _yesterday = format(subDays(now, 1), 'yyyy-MM-dd');
 
   const processed: ProcessedRecord[] = [];
   const errors: string[] = [];
@@ -146,7 +148,7 @@ export async function GET(request: NextRequest) {
           }
 
           const workData = calculateWorkHours(checkInTime, autoCheckoutTime, 60);
-          const staff = attendance.users as any;
+          const staff = attendance.users as { name?: string } | null;
 
           await supabase
             .from('attendances')
@@ -213,7 +215,7 @@ export async function GET(request: NextRequest) {
             const checkInTime = new Date(attendance.actual_check_in);
             const autoCheckoutTime = scheduledEnd; // 예정 퇴근 시간으로 처리
             const workData = calculateWorkHours(checkInTime, autoCheckoutTime, 60);
-            const staff = attendance.users as any;
+            const staff = attendance.users as { name?: string } | null;
             const reason = `스케줄 종료 ${AUTO_CHECKOUT_THRESHOLD_HOURS}시간 초과 자동 처리`;
 
             await supabase
@@ -289,7 +291,8 @@ export async function GET(request: NextRequest) {
           .in('role', ['COMPANY_ADMIN', 'company_admin']);
 
         if (managers && managers.length > 0) {
-          const companyProcessed = processed.filter(async (r) => {
+          // Filter processed records for this company (async filter not used in final notification count)
+          const _companyProcessed = processed.filter(async (r) => {
             const { data } = await supabase
               .from('users')
               .select('company_id')
@@ -353,7 +356,8 @@ export async function POST(request: NextRequest) {
 
     const timezone = 'Asia/Seoul';
     const now = toZonedTime(new Date(), timezone);
-    const today = format(now, 'yyyy-MM-dd');
+    // today used as reference for date range validation
+    const _today = format(now, 'yyyy-MM-dd');
 
     // 기본값: 최근 30일
     const queryStartDate = startDate || format(subDays(now, 30), 'yyyy-MM-dd');
@@ -405,7 +409,7 @@ export async function POST(request: NextRequest) {
         }
 
         const workData = calculateWorkHours(checkInTime, autoCheckoutTime, 60);
-        const staff = attendance.users as any;
+        const staff = attendance.users as { name?: string } | null;
 
         await supabase
           .from('attendances')

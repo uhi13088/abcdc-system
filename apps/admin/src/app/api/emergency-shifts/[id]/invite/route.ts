@@ -102,7 +102,7 @@ export async function POST(
         .in('id', staffIds)
         .eq('status', 'ACTIVE');
 
-      candidates = (staffList || []).map((s: any) => ({
+      candidates = (staffList || []).map((s: { id: string; name: string; position: string | null }) => ({
         id: s.id,
         name: s.name,
         position: s.position,
@@ -227,7 +227,7 @@ export async function POST(
  */
 async function getStaffCandidates(
   supabase: ReturnType<typeof getSupabaseClient>,
-  shift: any,
+  shift: { stores?: { company_id?: string }; store_id: string; position: string; work_date: string },
   maxInvites: number
 ): Promise<StaffCandidate[]> {
   const companyId = shift.stores?.company_id;
@@ -290,7 +290,7 @@ async function getStaffCandidates(
       .eq('staff_id', staff.id);
 
     const avgRating = ratings && ratings.length > 0
-      ? ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / ratings.length
+      ? ratings.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / ratings.length
       : null;
 
     // 경험 점수 계산 (가중치 적용)

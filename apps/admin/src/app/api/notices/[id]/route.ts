@@ -33,7 +33,7 @@ export async function GET(
 
     return NextResponse.json({
       ...data,
-      author_name: (data as any).users?.name,
+      author_name: (data as { users?: { name?: string } }).users?.name,
     });
   } catch (error) {
     console.error('Error:', error);

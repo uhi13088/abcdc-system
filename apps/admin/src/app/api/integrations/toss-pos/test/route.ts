@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * 토스 POS 연결 테스트 / 동기화
  * POST /api/integrations/toss-pos/test
  */
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     const supabase = await createClient();
 

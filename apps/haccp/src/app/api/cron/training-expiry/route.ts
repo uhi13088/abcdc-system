@@ -23,7 +23,9 @@ interface AlertResult {
 }
 
 const logger = {
+  // eslint-disable-next-line no-console
   log: (message: string) => console.log(`[${new Date().toISOString()}] ${message}`),
+  // eslint-disable-next-line no-console
   error: (message: string, error?: unknown) => console.error(`[${new Date().toISOString()}] ${message}`, error),
 };
 

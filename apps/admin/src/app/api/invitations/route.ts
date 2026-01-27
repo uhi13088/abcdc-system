@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
         // await sendKakaoAlimtalk(validation.data.phone, inviteUrl, store.name, validation.data.name);
         sendResults.kakao = { success: true, sentAt: new Date().toISOString() };
         logger.log(`[Kakao] Would send to ${validation.data.phone}: ${inviteUrl}`);
-      } catch (err) {
+      } catch (_err) {
         sendResults.kakao = { success: false, error: 'Failed to send' };
       }
     }
@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
         // await sendSms(validation.data.phone, `[${store.name}] 직원 등록 링크: ${inviteUrl}`);
         sendResults.sms = { success: true, sentAt: new Date().toISOString() };
         logger.log(`[SMS] Would send to ${validation.data.phone}: ${inviteUrl}`);
-      } catch (err) {
+      } catch (_err) {
         sendResults.sms = { success: false, error: 'Failed to send' };
       }
     }

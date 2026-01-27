@@ -275,10 +275,19 @@ export async function POST(request: NextRequest) {
       .in('staff_id', staffIds)
       .in('status', ['SIGNED', 'DRAFT']);
 
+    interface SalaryConfig {
+      baseSalaryType?: string;
+      baseSalaryAmount?: number;
+    }
+    interface ContractInfo {
+      staff_id: string;
+      salary_config: SalaryConfig | null;
+      standard_hours_per_day: number | null;
+    }
     const contractMap = (contracts || []).reduce((acc, c) => {
-      acc[c.staff_id] = c;
+      acc[c.staff_id] = c as ContractInfo;
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, ContractInfo>);
 
     for (const [staffId, records] of Object.entries(staffAttendances) as [string, typeof attendances][]) {
       // Get hourly rate from contract
@@ -419,7 +428,7 @@ export async function POST(request: NextRequest) {
       message: `${results.length}명의 급여가 계산되었습니다.`,
       data: results,
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

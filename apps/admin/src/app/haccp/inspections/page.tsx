@@ -59,6 +59,7 @@ export default function InspectionsPage() {
     fetchInspections();
     fetchMaterials();
     fetchSuppliers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
   const fetchInspections = async () => {

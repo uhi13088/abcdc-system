@@ -33,6 +33,7 @@ export default function MaintenancePage() {
   useEffect(() => {
     const interval = setInterval(checkMaintenanceStatus, 30000); // Check every 30 seconds
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

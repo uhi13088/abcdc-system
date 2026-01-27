@@ -74,7 +74,7 @@ export async function POST(
       message: '계약서가 발송되었습니다.',
       data,
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

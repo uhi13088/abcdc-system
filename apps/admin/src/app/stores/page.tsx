@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import { Header } from '@/components/layout/header';
 import {
   Button,
@@ -913,7 +914,7 @@ function StoresPageContent() {
             <DialogTitle>출퇴근 QR 코드</DialogTitle>
           </DialogHeader>
           <div className="flex justify-center py-6">
-            {selectedQr && <img src={selectedQr} alt="QR Code" className="w-64 h-64" />}
+            {selectedQr && <Image src={selectedQr} alt="QR Code" width={256} height={256} className="w-64 h-64" />}
           </div>
           <p className="text-center text-sm text-gray-500">
             직원들이 이 QR 코드를 스캔하여 출퇴근할 수 있습니다.

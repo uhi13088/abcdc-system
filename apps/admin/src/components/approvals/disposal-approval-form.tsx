@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Camera, X } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 
@@ -257,10 +258,11 @@ export function DisposalApprovalForm({
         <div className="grid grid-cols-5 gap-3">
           {photoUrls.map((url, index) => (
             <div key={index} className="relative aspect-square">
-              <img
+              <Image
                 src={url}
                 alt={`폐기 대상 ${index + 1}`}
-                className="w-full h-full object-cover rounded-lg"
+                fill
+                className="object-cover rounded-lg"
               />
               <button
                 type="button"

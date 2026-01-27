@@ -116,6 +116,7 @@ export default function SalariesPage() {
 
   useEffect(() => {
     fetchSalaries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, selectedYear, selectedMonth, statusFilter, storeFilter]);
 
   const handleCalculate = async () => {
@@ -142,7 +143,7 @@ export default function SalariesPage() {
       } else {
         setMessage(data.error || '급여 계산에 실패했습니다.');
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('급여 계산에 실패했습니다.');
     } finally {
       setCalculating(false);
@@ -161,7 +162,7 @@ export default function SalariesPage() {
         const data = await response.json();
         alert(data.error || '확정에 실패했습니다.');
       }
-    } catch (error) {
+    } catch (_error) {
       alert('확정에 실패했습니다.');
     }
   };

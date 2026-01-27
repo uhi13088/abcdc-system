@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // GET /api/roasting/access
 // Check if the current user has access to the roasting system
 // This endpoint can be called by external roasting app
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = await createClient();
 

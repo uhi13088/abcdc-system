@@ -13,7 +13,8 @@ import {
   PageLoading,
   Alert,
 } from '@/components/ui';
-import { ArrowLeft, Send, FileText, Download, Pen } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowLeft, Send, Download, Pen } from 'lucide-react';
 
 interface ContractDetail {
   id: string;
@@ -102,6 +103,7 @@ export default function ContractDetailPage() {
 
   useEffect(() => {
     fetchContract();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contractId]);
 
   const fetchContract = async () => {
@@ -113,7 +115,7 @@ export default function ContractDetailPage() {
       } else {
         setError('계약서를 불러올 수 없습니다.');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('계약서를 불러올 수 없습니다.');
     } finally {
       setLoading(false);
@@ -135,7 +137,7 @@ export default function ContractDetailPage() {
         const data = await response.json();
         alert(data.error || '발송에 실패했습니다.');
       }
-    } catch (err) {
+    } catch (_err) {
       alert('발송에 실패했습니다.');
     }
   };
@@ -351,7 +353,7 @@ export default function ContractDetailPage() {
         const data = await response.json();
         alert(data.error || '서명에 실패했습니다.');
       }
-    } catch (err) {
+    } catch (_err) {
       alert('서명에 실패했습니다.');
     }
   };
@@ -576,10 +578,12 @@ export default function ContractDetailPage() {
                   <p className="text-sm text-gray-500 mb-4">사업주 (갑)</p>
                   {contract.employer_signature ? (
                     <div>
-                      <img
+                      <Image
                         src={contract.employer_signature}
                         alt="사업주 서명"
                         className="h-20 mx-auto"
+                        width={200}
+                        height={80}
                       />
                       <p className="text-xs text-gray-400 mt-2">
                         {new Date(contract.employer_signed_at!).toLocaleString('ko-KR')}
@@ -596,10 +600,12 @@ export default function ContractDetailPage() {
                   <p className="text-sm text-gray-500 mb-4">근로자 (을)</p>
                   {contract.employee_signature ? (
                     <div>
-                      <img
+                      <Image
                         src={contract.employee_signature}
                         alt="근로자 서명"
                         className="h-20 mx-auto"
+                        width={200}
+                        height={80}
                       />
                       <p className="text-xs text-gray-400 mt-2">
                         {new Date(contract.employee_signed_at!).toLocaleString('ko-KR')}

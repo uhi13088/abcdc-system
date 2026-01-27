@@ -314,7 +314,16 @@ export async function PUT(request: NextRequest) {
 }
 
 // 스케줄 교환 실행
-async function executeScheduleTrade(tradeRequest: any): Promise<void> {
+interface TradeRequest {
+  requester_id: string;
+  target_id: string;
+  requester_schedule: { id: string; staff_id: string };
+  target_schedule: { id: string; staff_id: string };
+  requester?: { name?: string };
+  target?: { name?: string };
+}
+
+async function executeScheduleTrade(tradeRequest: TradeRequest): Promise<void> {
   const supabase = getSupabaseClient();
   const requesterSchedule = tradeRequest.requester_schedule;
   const targetSchedule = tradeRequest.target_schedule;

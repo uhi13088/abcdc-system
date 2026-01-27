@@ -91,7 +91,7 @@ export async function POST(
         // TODO: 카카오 알림톡 API 호출
         sendResults.kakao = { success: true, sentAt: new Date().toISOString() };
         logger.log(`[Kakao Resend] Would send to ${invitation.phone}: ${inviteUrl}`);
-      } catch (err) {
+      } catch (_err) {
         sendResults.kakao = { success: false, error: 'Failed to send' };
       }
     }
@@ -102,7 +102,7 @@ export async function POST(
         // TODO: SMS API 호출
         sendResults.sms = { success: true, sentAt: new Date().toISOString() };
         logger.log(`[SMS Resend] Would send to ${invitation.phone}: ${inviteUrl}`);
-      } catch (err) {
+      } catch (_err) {
         sendResults.sms = { success: false, error: 'Failed to send' };
       }
     }

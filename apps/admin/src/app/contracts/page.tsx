@@ -19,7 +19,6 @@ import {
   Pagination,
 } from '@/components/ui';
 import { Plus, FileText, Search, Eye, Send, Trash2 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 
 interface Contract {
   id: string;
@@ -86,6 +85,7 @@ export default function ContractsPage() {
 
   useEffect(() => {
     fetchContracts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, statusFilter]);
 
   const handleSendContract = async (id: string) => {
@@ -103,7 +103,7 @@ export default function ContractsPage() {
         const data = await response.json();
         alert(data.error || '발송에 실패했습니다.');
       }
-    } catch (error) {
+    } catch (_error) {
       alert('발송에 실패했습니다.');
     }
   };
@@ -122,7 +122,7 @@ export default function ContractsPage() {
         const data = await response.json();
         alert(data.error || '삭제에 실패했습니다.');
       }
-    } catch (error) {
+    } catch (_error) {
       alert('삭제에 실패했습니다.');
     }
   };

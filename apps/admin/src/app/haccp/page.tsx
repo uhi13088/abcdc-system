@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   Package,
   Truck,
-  Users,
   Thermometer,
   ClipboardCheck,
   Factory,
@@ -127,8 +126,8 @@ export default function HACCPDashboard() {
     todayProduction: 0,
     ccpDeviations: 0,
   });
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [_recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [_loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {

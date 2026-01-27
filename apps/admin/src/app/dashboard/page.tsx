@@ -82,6 +82,7 @@ async function getStats() {
       .maybeSingle();
 
     if (subscription?.subscription_plans) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const plan = subscription.subscription_plans as any;
       currentPlan = {
         name: plan.display_name || plan.name || 'Free',
@@ -368,6 +369,7 @@ export default async function DashboardPage() {
             </h2>
             <div className="space-y-4">
               {stats?.recentAttendances && stats.recentAttendances.length > 0 ? (
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 stats.recentAttendances.map((attendance: any) => (
                   <div key={attendance.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                     <div className="flex items-center">
@@ -414,6 +416,7 @@ export default async function DashboardPage() {
             </h2>
             <div className="space-y-4">
               {stats?.pendingRequests && stats.pendingRequests.length > 0 ? (
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 stats.pendingRequests.map((request: any) => (
                   <div key={request.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                     <div>

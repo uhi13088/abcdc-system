@@ -59,6 +59,7 @@ export default function EvaluationsPage() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodFilter]);
 
   const fetchData = async () => {

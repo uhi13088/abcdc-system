@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 
+interface InspectionRecord {
+  materials?: { name: string; code: string };
+  suppliers?: { name: string };
+  inspected_by_user?: { name: string };
+  [key: string]: unknown;
+}
+
 // GET /api/haccp/inspections
 export async function GET(request: NextRequest) {
   try {
@@ -40,7 +47,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const result = (data || []).map((i: any) => ({
+    const result = (data || []).map((i: InspectionRecord) => ({
       ...i,
       material_name: i.materials?.name,
       material_code: i.materials?.code,

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Plus, Bell, Pin, Eye, X, Edit, Trash2, Store, Building2 } from 'lucide-react';
+import { Plus, Bell, Pin, Eye, X, Trash2, Store, Building2 } from 'lucide-react';
 
 interface Store {
   id: string;
@@ -62,6 +62,7 @@ export default function NoticesPage() {
   useEffect(() => {
     fetchStores();
     fetchNotices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchNotices = async () => {
@@ -88,6 +89,7 @@ export default function NoticesPage() {
 
   useEffect(() => {
     fetchNotices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storeFilter]);
 
   const handleSubmit = async (e: React.FormEvent) => {

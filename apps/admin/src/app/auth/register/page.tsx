@@ -248,7 +248,7 @@ export default function RegisterPage() {
         router.push('/auth/login');
       }, 2000);
 
-    } catch (err) {
+    } catch (_err) {
       setError('회원가입 중 오류가 발생했습니다.');
       setLoading(false);
     }

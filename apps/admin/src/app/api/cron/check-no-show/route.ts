@@ -23,7 +23,8 @@ function getAdminClient() {
 
 // 관리자들에게 알림 발송
 async function notifyManagers(
-  adminClient: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  adminClient: ReturnType<typeof createClient<any>>,
   companyId: string,
   storeId: string | null,
   staffId: string,
@@ -146,7 +147,7 @@ export async function GET(request: NextRequest) {
       // 아직 출근 시간 + threshold가 안 지났으면 스킵
       if (now < thresholdTime) continue;
 
-      const staff = schedule.users as any;
+      const staff = schedule.users as unknown as { id: string; name: string; company_id: string; store_id: string | null };
 
       // 오늘 출근 기록이 있는지 확인
       const { data: attendance } = await adminClient

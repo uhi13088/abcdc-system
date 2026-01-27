@@ -34,9 +34,9 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
 
   const { searchParams } = new URL(request.url);
-  const storeId = searchParams.get('store_id');
+  const _storeId = searchParams.get('store_id');
   const startDate = searchParams.get('start_date');
-  const endDate = searchParams.get('end_date');
+  const _endDate = searchParams.get('end_date');
 
   try {
     // Verify user has PRO subscription

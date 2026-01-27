@@ -442,6 +442,7 @@ function SettingsContent() {
       }
 
       setMessage({ type: 'success', text: result.message || '회사 정보가 저장되었습니다.' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || '저장에 실패했습니다.' });
     } finally {
@@ -474,6 +475,7 @@ function SettingsContent() {
       }
 
       setMessage({ type: 'success', text: result.message || '알림 설정이 저장되었습니다.' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || '저장에 실패했습니다.' });
     } finally {
@@ -509,7 +511,7 @@ function SettingsContent() {
       } else {
         setMessage({ type: 'error', text: result.message || '연결 실패' });
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage({ type: 'error', text: '연결 테스트 중 오류가 발생했습니다.' });
     } finally {
       setTestingConnection(null);
@@ -548,6 +550,7 @@ function SettingsContent() {
       }
 
       setMessage({ type: 'success', text: '세무기장 설정이 저장되었습니다.' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || '저장에 실패했습니다.' });
     } finally {
@@ -621,6 +624,7 @@ function SettingsContent() {
 
           setMessage({ type: 'success', text: '플랜이 업그레이드되었습니다.' });
           fetchSettings(); // Refresh subscription info
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
           setMessage({ type: 'error', text: error.message || '결제에 실패했습니다.' });
         } finally {
@@ -708,6 +712,7 @@ function SettingsContent() {
         successUrl: `${window.location.origin}/api/billing/callback/success`,
         failUrl: `${window.location.origin}/api/billing/callback/fail`,
       });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       if (error.code !== 'USER_CANCEL') {
         console.error('Payment error:', error);
@@ -766,6 +771,7 @@ function SettingsContent() {
       }
 
       setMessage({ type: 'success', text: result.message || '연동 설정이 저장되었습니다.' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || '저장에 실패했습니다.' });
     } finally {

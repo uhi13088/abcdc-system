@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import Image from 'next/image';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header } from '@/components/layout/header';
 import {
@@ -304,9 +305,11 @@ export default function BrandsPage() {
                     <TableCell>
                       <div className="flex items-center">
                         {brand.logo_url ? (
-                          <img
+                          <Image
                             src={brand.logo_url}
                             alt={brand.name}
+                            width={32}
+                            height={32}
                             className="w-8 h-8 rounded-full mr-3 object-cover"
                           />
                         ) : (

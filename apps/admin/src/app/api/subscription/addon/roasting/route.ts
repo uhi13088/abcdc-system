@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
 
 // GET /api/subscription/addon/roasting
 // Get current roasting addon status
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = await createClient();
 

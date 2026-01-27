@@ -286,6 +286,7 @@ export async function PUT(request: NextRequest) {
               });
             }
 
+            // eslint-disable-next-line no-console
             console.log(`[Production] Auto-created corrective action for quality failure: ${id}`);
           }
         } catch (caError) {
@@ -301,6 +302,7 @@ export async function PUT(request: NextRequest) {
         updateData.approved_by = userProfile.id;
         updateData.approved_by_name = userProfile.name;
         updateData.approved_at = new Date().toISOString();
+        // eslint-disable-next-line no-console
         console.log(`[Production] Auto-approved production ${id} after quality PASS`);
       }
     }
@@ -497,6 +499,7 @@ export async function PUT(request: NextRequest) {
                 has_shortage: usageResults.some(r => r.shortage > 0),
               };
 
+              // eslint-disable-next-line no-console
               console.log(`[Production] Auto-deducted materials for production ${id}`);
             }
           }

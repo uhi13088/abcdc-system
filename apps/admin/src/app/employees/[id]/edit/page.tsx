@@ -84,6 +84,7 @@ export default function EditEmployeePage() {
   useEffect(() => {
     fetchEmployee();
     fetchStores();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeId]);
 
   const fetchEmployee = async () => {
@@ -107,7 +108,7 @@ export default function EditEmployeePage() {
       } else {
         setError('직원 정보를 불러올 수 없습니다.');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('직원 정보를 불러올 수 없습니다.');
     } finally {
       setLoading(false);
@@ -143,7 +144,7 @@ export default function EditEmployeePage() {
         const data = await response.json();
         setError(data.error || '저장에 실패했습니다.');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('저장에 실패했습니다.');
     } finally {
       setSaving(false);
