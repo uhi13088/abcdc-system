@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Wifi, WifiOff, Settings, AlertTriangle, X, Edit2, Trash2, RefreshCw, Activity } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
+import SmartLifeConnect from '@/components/smart-life-connect';
 
 interface CCPDefinition {
   id: string;
@@ -279,6 +280,11 @@ export default function SensorsPage() {
             센서 등록
           </button>
         </div>
+      </div>
+
+      {/* Smart Life IoT Connection */}
+      <div className="mb-6">
+        <SmartLifeConnect onDeviceRegistered={() => fetchSensors()} />
       </div>
 
       {/* Summary Stats */}

@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useContext, useEffect } from 'react';
 import {
   LayoutDashboard,
   ShieldCheck,
@@ -24,10 +24,12 @@ import {
   Gauge,
   RotateCcw,
   Warehouse,
+  X,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { SidebarContext } from './app-layout';
 
 interface NavItem {
   name: string;
@@ -99,6 +101,14 @@ function SidebarComponent() {
   const [expandedItems, setExpandedItems] = useState<string[]>(['CCP 관리', '원재료 관리', '제품 관리', '재고 관리']);
   const [isHovered, setIsHovered] = useState(false);
 
+  // Mobile sidebar state from context
+  const { isMobileOpen, setIsMobileOpen } = useContext(SidebarContext);
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [pathname, setIsMobileOpen]);
+
   const handleSignOut = useCallback(async () => {
     const supabase = await createClient();
     await supabase.auth.signOut();
@@ -114,73 +124,92 @@ function SidebarComponent() {
     );
   }, []);
 
+  // Determine if sidebar should be expanded (desktop hover or mobile open)
+  const isExpanded = isHovered || isMobileOpen;
+
   return (
     <div
       className={cn(
         'flex flex-col bg-white text-gray-700 transition-all duration-300 ease-in-out h-screen fixed left-0 top-0 z-50 border-r border-gray-200 shadow-sm',
-        isHovered ? 'w-64' : 'w-16'
+        // Desktop: w-16 collapsed, w-64 expanded on hover
+        // Mobile: hidden by default, w-64 when open
+        isMobileOpen ? 'w-64 translate-x-0' : 'w-16 -translate-x-full lg:translate-x-0',
+        isHovered && !isMobileOpen && 'lg:w-64'
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Logo */}
-      <Link href="/dashboard" className="flex items-center h-16 px-4 border-b border-gray-200 hover:bg-gray-50 transition-colors">
-        <div className="flex items-center justify-center w-8 h-8 min-w-[32px] min-h-[32px] bg-emerald-500 rounded-lg flex-shrink-0">
-          <ShieldCheck className="w-5 h-5 text-white" />
-        </div>
-        <span
-          className={cn(
-            'ml-3 text-lg font-semibold text-gray-900 whitespace-nowrap transition-opacity duration-200',
-            isHovered ? 'opacity-100' : 'opacity-0'
-          )}
-        >
-          ABC HACCP
-        </span>
-      </Link>
+      <div className="flex items-center h-16 px-4 border-b border-gray-200">
+        <Link href="/dashboard" className="flex items-center flex-1 hover:opacity-80 transition-opacity">
+          <div className="flex items-center justify-center w-8 h-8 min-w-[32px] min-h-[32px] bg-emerald-500 rounded-lg flex-shrink-0">
+            <ShieldCheck className="w-5 h-5 text-white" />
+          </div>
+          <span
+            className={cn(
+              'ml-3 text-lg font-semibold text-gray-900 whitespace-nowrap transition-opacity duration-200',
+              isExpanded ? 'opacity-100' : 'opacity-0'
+            )}
+          >
+            ABC HACCP
+          </span>
+        </Link>
+        {/* Mobile close button */}
+        {isMobileOpen && (
+          <button
+            onClick={() => setIsMobileOpen(false)}
+            className="lg:hidden p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+            aria-label="메뉴 닫기"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+      </div>
 
       {/* Navigation */}
       <nav className="flex-1 py-4 space-y-1 overflow-y-auto overflow-x-hidden scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {navigation.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-          const isExpanded = expandedItems.includes(item.name) && isHovered;
+          const isItemExpanded = expandedItems.includes(item.name) && isExpanded;
           const hasChildren = item.children && item.children.length > 0;
 
           if (hasChildren) {
             return (
               <div key={item.name}>
                 <button
-                  onClick={() => isHovered && toggleExpand(item.name)}
+                  onClick={() => isExpanded && toggleExpand(item.name)}
                   className={cn(
                     'flex items-center w-full px-4 py-2.5 text-sm font-medium transition-colors relative group',
                     isActive
                       ? 'bg-emerald-50 text-emerald-700'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   )}
-                  title={!isHovered ? item.name : undefined}
+                  title={!isExpanded ? item.name : undefined}
                 >
                   <item.icon className={cn('w-5 h-5 flex-shrink-0', isActive ? 'text-emerald-600' : 'text-gray-400')} />
                   <span
                     className={cn(
                       'ml-3 flex-1 text-left whitespace-nowrap transition-opacity duration-200',
-                      isHovered ? 'opacity-100' : 'opacity-0'
+                      isExpanded ? 'opacity-100' : 'opacity-0'
                     )}
                   >
                     {item.name}
                   </span>
-                  {isHovered && (
-                    isExpanded ? (
+                  {isExpanded && (
+                    isItemExpanded ? (
                       <ChevronDown className="w-4 h-4 flex-shrink-0 text-gray-400" />
                     ) : (
                       <ChevronRight className="w-4 h-4 flex-shrink-0 text-gray-400" />
                     )
                   )}
-                  {!isHovered && (
-                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                  {/* Tooltip for collapsed state (desktop only) */}
+                  {!isExpanded && (
+                    <div className="hidden lg:block absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
                       {item.name}
                     </div>
                   )}
                 </button>
-                {isExpanded && (
+                {isItemExpanded && (
                   <div className="mt-1 space-y-1 bg-gray-50">
                     {item.children!.map((child) => {
                       const isChildActive = pathname === child.href;
@@ -217,22 +246,24 @@ function SidebarComponent() {
                   ? 'bg-emerald-50 text-emerald-700'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
               )}
-              title={!isHovered ? item.name : undefined}
+              title={!isExpanded ? item.name : undefined}
             >
               <item.icon className={cn('w-5 h-5 flex-shrink-0', isActive ? 'text-emerald-600' : 'text-gray-400')} />
               <span
                 className={cn(
                   'ml-3 whitespace-nowrap transition-opacity duration-200',
-                  isHovered ? 'opacity-100' : 'opacity-0'
+                  isExpanded ? 'opacity-100' : 'opacity-0'
                 )}
               >
                 {item.name}
               </span>
+              {/* Active indicator */}
               {isActive && (
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-emerald-500 rounded-r" />
               )}
-              {!isHovered && (
-                <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+              {/* Tooltip for collapsed state (desktop only) */}
+              {!isExpanded && (
+                <div className="hidden lg:block absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
                   {item.name}
                 </div>
               )}
@@ -246,19 +277,20 @@ function SidebarComponent() {
         <button
           onClick={handleSignOut}
           className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors rounded relative group"
-          title={!isHovered ? '로그아웃' : undefined}
+          title={!isExpanded ? '로그아웃' : undefined}
         >
           <LogOut className="w-5 h-5 flex-shrink-0 text-gray-400" />
           <span
             className={cn(
               'ml-3 whitespace-nowrap transition-opacity duration-200',
-              isHovered ? 'opacity-100' : 'opacity-0'
+              isExpanded ? 'opacity-100' : 'opacity-0'
             )}
           >
             로그아웃
           </span>
-          {!isHovered && (
-            <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+          {/* Tooltip for collapsed state (desktop only) */}
+          {!isExpanded && (
+            <div className="hidden lg:block absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
               로그아웃
             </div>
           )}
