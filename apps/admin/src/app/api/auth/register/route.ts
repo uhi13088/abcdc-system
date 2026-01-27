@@ -110,6 +110,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const supabaseForVerification = createAdminClient();
+
+    // 이메일 인증 확인
+    const { data: emailVerification } = await supabaseForVerification
+      .from('email_verifications')
+      .select('verified')
+      .eq('email', email)
+      .eq('verified', true)
+      .single();
+
+    if (!emailVerification) {
+      return NextResponse.json(
+        { error: '이메일 인증을 먼저 완료해주세요.' },
+        { status: 400 }
+      );
+    }
+
     // 비밀번호 유효성 검사
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.valid) {
@@ -298,6 +315,12 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // 이메일 인증 기록 삭제
+    await supabase
+      .from('email_verifications')
+      .delete()
+      .eq('email', email);
 
     return NextResponse.json({
       success: true,

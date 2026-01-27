@@ -57,6 +57,14 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [scriptLoaded, setScriptLoaded] = useState(false);
 
+  // 이메일 인증 상태
+  const [emailVerificationCode, setEmailVerificationCode] = useState('');
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [emailVerificationSent, setEmailVerificationSent] = useState(false);
+  const [emailVerificationLoading, setEmailVerificationLoading] = useState(false);
+  const [emailVerificationError, setEmailVerificationError] = useState<string | null>(null);
+  const [emailVerificationCountdown, setEmailVerificationCountdown] = useState(0);
+
   // Daum Postcode 스크립트 로드
   useEffect(() => {
     const script = document.createElement('script');
@@ -69,6 +77,116 @@ export default function RegisterPage() {
       document.head.removeChild(script);
     };
   }, []);
+
+  // 이메일 인증 카운트다운
+  useEffect(() => {
+    if (emailVerificationCountdown > 0) {
+      const timer = setTimeout(() => {
+        setEmailVerificationCountdown(prev => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [emailVerificationCountdown]);
+
+  // 이메일 변경 시 인증 상태 초기화
+  useEffect(() => {
+    if (isEmailVerified) {
+      setIsEmailVerified(false);
+      setEmailVerificationSent(false);
+      setEmailVerificationCode('');
+      setEmailVerificationError(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.email]);
+
+  // 이메일 인증 코드 발송
+  const handleSendVerificationCode = async () => {
+    if (!formData.email) {
+      setEmailVerificationError('이메일을 입력해주세요.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setEmailVerificationError('유효한 이메일 형식이 아닙니다.');
+      return;
+    }
+
+    setEmailVerificationLoading(true);
+    setEmailVerificationError(null);
+
+    try {
+      const response = await fetch('/api/auth/email-verification/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setEmailVerificationError(data.error || '인증 코드 발송에 실패했습니다.');
+        return;
+      }
+
+      setEmailVerificationSent(true);
+      setEmailVerificationCountdown(300); // 5분 카운트다운
+
+      // 개발 환경에서 인증 코드 자동 입력 (선택적)
+      if (data.devCode) {
+        console.log('개발 모드 인증 코드:', data.devCode);
+      }
+
+    } catch {
+      setEmailVerificationError('인증 코드 발송 중 오류가 발생했습니다.');
+    } finally {
+      setEmailVerificationLoading(false);
+    }
+  };
+
+  // 이메일 인증 코드 확인
+  const handleVerifyCode = async () => {
+    if (!emailVerificationCode || emailVerificationCode.length !== 6) {
+      setEmailVerificationError('6자리 인증 코드를 입력해주세요.');
+      return;
+    }
+
+    setEmailVerificationLoading(true);
+    setEmailVerificationError(null);
+
+    try {
+      const response = await fetch('/api/auth/email-verification/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          code: emailVerificationCode,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setEmailVerificationError(data.error || '인증에 실패했습니다.');
+        return;
+      }
+
+      setIsEmailVerified(true);
+      setEmailVerificationCountdown(0);
+
+    } catch {
+      setEmailVerificationError('인증 확인 중 오류가 발생했습니다.');
+    } finally {
+      setEmailVerificationLoading(false);
+    }
+  };
+
+  // 카운트다운 포맷 (mm:ss)
+  const formatCountdown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   // 주소 검색 (개인)
   const handleAddressSearch = () => {
@@ -178,6 +296,13 @@ export default function RegisterPage() {
     // 필수 필드 검증
     if (!formData.email || !formData.password || !formData.name || !formData.phone || !formData.address) {
       setError('이메일, 비밀번호, 이름, 전화번호, 주소는 필수입니다.');
+      setLoading(false);
+      return;
+    }
+
+    // 이메일 인증 확인
+    if (!isEmailVerified) {
+      setError('이메일 인증을 완료해주세요.');
       setLoading(false);
       return;
     }
@@ -298,17 +423,79 @@ export default function RegisterPage() {
             {/* 이메일 */}
             <div>
               <Label htmlFor="email" required className="block text-gray-700">이메일</Label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={formData.email}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                placeholder="admin@example.com"
-              />
+              <div className="mt-1 flex space-x-2">
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={formData.email}
+                  onChange={handleChange}
+                  disabled={isEmailVerified}
+                  className={`flex-1 px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${
+                    isEmailVerified ? 'bg-green-50 border-green-300' : 'border-gray-300'
+                  }`}
+                  placeholder="admin@example.com"
+                />
+                {!isEmailVerified && (
+                  <button
+                    type="button"
+                    onClick={handleSendVerificationCode}
+                    disabled={emailVerificationLoading || emailVerificationCountdown > 0}
+                    className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/5 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    {emailVerificationLoading
+                      ? '발송 중...'
+                      : emailVerificationCountdown > 0
+                        ? `재발송 (${formatCountdown(emailVerificationCountdown)})`
+                        : emailVerificationSent
+                          ? '재발송'
+                          : '인증번호 발송'
+                    }
+                  </button>
+                )}
+                {isEmailVerified && (
+                  <span className="px-4 py-2 bg-green-100 text-green-700 rounded-md text-sm font-medium flex items-center">
+                    ✓ 인증완료
+                  </span>
+                )}
+              </div>
+
+              {/* 인증 코드 입력 */}
+              {emailVerificationSent && !isEmailVerified && (
+                <div className="mt-2">
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={emailVerificationCode}
+                      onChange={(e) => setEmailVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                      placeholder="인증번호 6자리 입력"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVerifyCode}
+                      disabled={emailVerificationLoading || emailVerificationCode.length !== 6}
+                      className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {emailVerificationLoading ? '확인 중...' : '확인'}
+                    </button>
+                  </div>
+                  {emailVerificationCountdown > 0 && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      인증번호 유효시간: {formatCountdown(emailVerificationCountdown)}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* 이메일 인증 에러 */}
+              {emailVerificationError && (
+                <p className="mt-1 text-xs text-red-500">{emailVerificationError}</p>
+              )}
             </div>
 
             {/* 이름 */}
@@ -616,11 +803,16 @@ export default function RegisterPage() {
           <div>
             <button
               type="submit"
-              disabled={loading || !passwordStrength.isValid}
+              disabled={loading || !passwordStrength.isValid || !isEmailVerified}
               className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? '가입 중...' : '회원가입'}
             </button>
+            {!isEmailVerified && (
+              <p className="mt-2 text-xs text-center text-gray-500">
+                이메일 인증을 완료해야 회원가입이 가능합니다.
+              </p>
+            )}
           </div>
         </form>
 
