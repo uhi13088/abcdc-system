@@ -23,7 +23,7 @@ import {
 import {
   Save, Building2, Bell, Shield, CreditCard, User, Link2,
   RefreshCw, Check, X, Database, Zap, Info,
-  Factory, Coffee, Calculator, Loader2
+  Factory, Coffee, Calculator, Loader2, Thermometer
 } from 'lucide-react';
 import Script from 'next/script';
 import { createClient } from '@/lib/supabase/client';
@@ -89,6 +89,18 @@ function SettingsContent() {
     },
   });
 
+  // Tuya/Smart Life API settings (super_admin only)
+  const [tuyaSettings, setTuyaSettings] = useState({
+    client_id: '',
+    client_secret: '',
+    region: 'us' as 'cn' | 'us' | 'eu' | 'in',
+    enabled: false,
+    configured: false,
+  });
+  const [tuyaLoading, setTuyaLoading] = useState(false);
+  const [tuyaTesting, setTuyaTesting] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
   // Payment method
   const [paymentMethod, setPaymentMethod] = useState<{
     id: string;
@@ -146,11 +158,78 @@ function SettingsContent() {
     } | null;
   } | null>(null);
 
+  const fetchTuyaSettings = async () => {
+    try {
+      const response = await fetch('/api/settings/tuya');
+      if (response.ok) {
+        const data = await response.json();
+        setTuyaSettings(data);
+      }
+    } catch (error) {
+      console.error('Error fetching Tuya settings:', error);
+    }
+  };
+
+  const handleSaveTuyaSettings = async () => {
+    setTuyaLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const response = await fetch('/api/settings/tuya', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: tuyaSettings.client_id,
+          client_secret: tuyaSettings.client_secret,
+          region: tuyaSettings.region,
+          enabled: tuyaSettings.enabled,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || '저장에 실패했습니다.');
+      }
+
+      setMessage({ type: 'success', text: 'Tuya API 설정이 저장되었습니다.' });
+      fetchTuyaSettings();
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || '저장에 실패했습니다.' });
+    } finally {
+      setTuyaLoading(false);
+    }
+  };
+
+  const handleTestTuyaConnection = async () => {
+    setTuyaTesting(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const response = await fetch('/api/settings/tuya/test', {
+        method: 'POST',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setMessage({ type: 'success', text: result.message });
+      } else {
+        setMessage({ type: 'error', text: result.message });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: '연결 테스트 중 오류가 발생했습니다.' });
+    } finally {
+      setTuyaTesting(false);
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
     fetchTaxAccountant();
     fetchLaborLaw();
     fetchPaymentMethod();
+    fetchTuyaSettings();
 
     // Handle billing callback
     const billing = searchParams.get('billing');
@@ -240,6 +319,7 @@ function SettingsContent() {
 
       // super_admin gets full access
       if (userData?.role === 'super_admin') {
+        setIsSuperAdmin(true);
         setSubscription({
           planName: 'super_admin',
           planTier: 'PRO',
@@ -937,6 +1017,140 @@ function SettingsContent() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Tuya/Smart Life Integration - super_admin only */}
+              {isSuperAdmin && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <Thermometer className="h-5 w-5 text-orange-500" />
+                          Tuya / Smart Life IoT 연동
+                        </CardTitle>
+                        <CardDescription>
+                          Smart Life 앱의 온도/습도 센서를 HACCP 시스템에 연동합니다.
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {tuyaSettings.configured ? (
+                          <span className="flex items-center gap-1 text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
+                            <Check className="h-4 w-4" /> 설정됨
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                            <X className="h-4 w-4" /> 미설정
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+                      <p className="text-sm text-orange-800">
+                        <strong>Super Admin 전용 설정</strong><br />
+                        Tuya IoT Cloud에서 발급받은 API 키를 입력하세요.
+                        이 설정은 플랫폼 전체에 적용되며, 일반 사용자는 Smart Life 계정으로 로그인하여 기기를 연결할 수 있습니다.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Client ID (Access ID)</Label>
+                        <Input
+                          value={tuyaSettings.client_id}
+                          onChange={(e) =>
+                            setTuyaSettings({ ...tuyaSettings, client_id: e.target.value })
+                          }
+                          placeholder="p9kxe..."
+                          className="mt-1 font-mono text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Label>Client Secret (Access Secret)</Label>
+                        <Input
+                          type="password"
+                          value={tuyaSettings.client_secret}
+                          onChange={(e) =>
+                            setTuyaSettings({ ...tuyaSettings, client_secret: e.target.value })
+                          }
+                          placeholder="••••••••"
+                          className="mt-1 font-mono text-sm"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Region</Label>
+                        <select
+                          value={tuyaSettings.region}
+                          onChange={(e) =>
+                            setTuyaSettings({
+                              ...tuyaSettings,
+                              region: e.target.value as 'cn' | 'us' | 'eu' | 'in',
+                            })
+                          }
+                          className="w-full mt-1 px-3 py-2 border rounded-lg text-sm"
+                        >
+                          <option value="us">미국 (US)</option>
+                          <option value="eu">유럽 (EU)</option>
+                          <option value="cn">중국 (CN)</option>
+                          <option value="in">인도 (IN)</option>
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Tuya IoT Cloud 계정의 Data Center 지역
+                        </p>
+                      </div>
+                      <div className="flex items-end gap-4">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={tuyaSettings.enabled}
+                            onChange={(e) =>
+                              setTuyaSettings({ ...tuyaSettings, enabled: e.target.checked })
+                            }
+                            className="h-4 w-4 rounded"
+                          />
+                          <span className="text-sm">사용자 연동 활성화</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-4 border-t">
+                      <Button
+                        onClick={handleSaveTuyaSettings}
+                        disabled={tuyaLoading}
+                      >
+                        {tuyaLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                        저장
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleTestTuyaConnection}
+                        disabled={tuyaTesting || !tuyaSettings.configured}
+                      >
+                        {tuyaTesting ? (
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                        )}
+                        연결 테스트
+                      </Button>
+                    </div>
+
+                    <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
+                      <p className="font-medium mb-2">Tuya API 키 발급 방법:</p>
+                      <ol className="list-decimal list-inside space-y-1">
+                        <li>Tuya IoT Development Platform (iot.tuya.com) 가입</li>
+                        <li>Cloud Project 생성</li>
+                        <li>Smart Home 권한 구독 (무료)</li>
+                        <li>Authorization &gt; Overview에서 Access ID/Secret 복사</li>
+                      </ol>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Kakao Work Integration - Hidden for now
               <Card>
