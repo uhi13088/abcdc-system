@@ -116,6 +116,30 @@ export default function InventoryPage() {
     setShowModal(true);
   };
 
+  const handleAutoFill = () => {
+    const today = new Date();
+    const futureDate = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const lotDate = today.toISOString().split('T')[0].replace(/-/g, '');
+    const lotNumber = `LOT-${lotDate}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')}`;
+
+    const sampleQuantities = [25, 50, 100, 150, 200];
+    const sampleLocations = ['냉장고 A-1', '냉장고 A-2', '냉동고 B-1', '냉동고 B-2', '상온 창고 C-1'];
+    const sampleNotes = modalType === 'IN'
+      ? ['정상 입고 확인', '공급업체 직송', '정기 발주분 입고', '추가 발주 입고']
+      : ['생산 투입', '일반 출고', '샘플 출고', '생산라인 투입'];
+
+    setFormData({
+      material_id: materials.length > 0 ? materials[Math.floor(Math.random() * materials.length)].id : '',
+      lot_number: lotNumber,
+      quantity: sampleQuantities[Math.floor(Math.random() * sampleQuantities.length)],
+      unit: 'kg',
+      expiry_date: futureDate.toISOString().split('T')[0],
+      location: sampleLocations[Math.floor(Math.random() * sampleLocations.length)],
+      production_lot: modalType === 'OUT' ? `PROD-${lotDate}-001` : '',
+      notes: sampleNotes[Math.floor(Math.random() * sampleNotes.length)],
+    });
+  };
+
   const filteredStocks = stocks.filter(s =>
     s.material_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.lot_number.toLowerCase().includes(searchQuery.toLowerCase())
@@ -366,6 +390,13 @@ export default function InventoryPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <button
+                type="button"
+                onClick={handleAutoFill}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
+              >
+                ✨ 자동 입력 (샘플 데이터)
+              </button>
               <div>
                 <Label required>원부재료</Label>
                 <select

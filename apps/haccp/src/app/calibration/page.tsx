@@ -113,6 +113,18 @@ export default function CalibrationPage() {
     }
   };
 
+  const generateEquipmentCode = () => {
+    const prefix = 'EQ';
+    const existingCodes = records
+      .filter(r => r.equipment_code?.startsWith(prefix))
+      .map(r => {
+        const num = parseInt((r.equipment_code || '').replace(prefix + '-', ''));
+        return isNaN(num) ? 0 : num;
+      });
+    const nextNum = existingCodes.length > 0 ? Math.max(...existingCodes) + 1 : 1;
+    return `${prefix}-${String(nextNum).padStart(3, '0')}`;
+  };
+
   const resetForm = () => {
     setFormData({
       equipment_name: '',
@@ -238,6 +250,7 @@ export default function CalibrationPage() {
         <button
           onClick={() => {
             resetForm();
+            setFormData(prev => ({ ...prev, equipment_code: generateEquipmentCode() }));
             setShowModal(true);
           }}
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"

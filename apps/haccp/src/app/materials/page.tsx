@@ -134,7 +134,28 @@ export default function MaterialsPage() {
 
   const openNewModal = () => {
     resetForm();
+    // 코드 자동 생성
+    generateCode('원료');
     setShowModal(true);
+  };
+
+  // 코드 자동 생성 함수
+  const generateCode = (type: '원료' | '부재료' | '포장재') => {
+    const prefixMap = { '원료': 'RM', '부재료': 'SM', '포장재': 'PM' };
+    const prefix = prefixMap[type];
+
+    // 같은 타입의 기존 코드에서 최대 번호 찾기
+    const existingCodes = materials
+      .filter(m => m.code?.startsWith(prefix))
+      .map(m => {
+        const num = parseInt(m.code.replace(prefix + '-', ''));
+        return isNaN(num) ? 0 : num;
+      });
+
+    const nextNum = existingCodes.length > 0 ? Math.max(...existingCodes) + 1 : 1;
+    const newCode = `${prefix}-${String(nextNum).padStart(3, '0')}`;
+
+    setFormData(prev => ({ ...prev, code: newCode, type }));
   };
 
   const filteredMaterials = materials.filter(m =>
@@ -291,8 +312,14 @@ export default function MaterialsPage() {
                   <Label>구분</Label>
                   <select
                     value={formData.type}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+                    onChange={(e) => {
+                      const newType = e.target.value as '원료' | '부재료' | '포장재';
+                      if (!editingMaterial) {
+                        generateCode(newType);
+                      } else {
+                        setFormData(prev => ({ ...prev, type: newType }));
+                      }
+                    }}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
                     <option value="원료">원료</option>

@@ -144,6 +144,62 @@ export default function CorrectiveActionsPage() {
     return new Date(a.due_date) < new Date();
   });
 
+  // 자동 입력 핸들러 (상세 모달에서 사용)
+  const handleAutoFill = () => {
+    if (!selectedAction) return;
+
+    const immediateActions = [
+      '해당 제품 즉시 격리 조치 및 재가공 실시',
+      '문제 공정 일시 중단 및 원인 파악 진행',
+      '관련 장비 긴급 점검 및 세척 실시',
+      '해당 LOT 전량 보류 조치',
+      '작업자 재교육 후 작업 재개',
+    ];
+    const rootCauses = [
+      '장비 노후화로 인한 온도 센서 오작동',
+      '작업자 부주의로 인한 모니터링 누락',
+      '원료 입고 시 품질 검사 미흡',
+      '정비 주기 미준수로 인한 장비 이상',
+      '작업 절차 미숙지로 인한 공정 오류',
+    ];
+    const correctiveActions = [
+      '온도 센서 교체 및 정기 점검 주기 단축 (월 1회 → 주 1회)',
+      '체크리스트 개선 및 작업자 교육 강화',
+      '입고 검사 기준 강화 및 검사 항목 추가',
+      '예방 정비 프로그램 도입 및 일정 관리 시스템 구축',
+      '작업 표준서 개정 및 전 작업자 대상 재교육 실시',
+    ];
+    const preventiveActions = [
+      '정기 교육 프로그램 운영 (분기 1회)',
+      '실시간 모니터링 시스템 도입 검토',
+      '2인 확인 체계 도입',
+      '공급업체 품질 관리 강화',
+      'IoT 센서 기반 자동 알림 시스템 구축',
+    ];
+    const verificationMethods = [
+      '1개월간 일일 점검 기록 확인',
+      '해당 공정 샘플 검사 (주 2회, 4주간)',
+      '내부 감사 실시',
+      '고객 클레임 발생 여부 모니터링',
+      '재발 여부 추적 (3개월간)',
+    ];
+
+    const randomIdx = Math.floor(Math.random() * 5);
+    const today = new Date();
+    const dueDate = new Date(today);
+    dueDate.setDate(dueDate.getDate() + 14); // 2주 후
+
+    setSelectedAction({
+      ...selectedAction,
+      immediate_action: immediateActions[randomIdx],
+      root_cause: rootCauses[randomIdx],
+      corrective_action: correctiveActions[randomIdx],
+      preventive_action: preventiveActions[randomIdx],
+      verification_method: verificationMethods[randomIdx],
+      due_date: dueDate.toISOString().split('T')[0],
+    });
+  };
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -349,6 +405,14 @@ export default function CorrectiveActionsPage() {
             </div>
 
             <div className="p-6 space-y-6">
+              <button
+                type="button"
+                onClick={handleAutoFill}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
+              >
+                ✨ 자동 입력 (샘플 데이터)
+              </button>
+
               {/* 기본 정보 */}
               <div className="grid grid-cols-2 gap-4">
                 <div>

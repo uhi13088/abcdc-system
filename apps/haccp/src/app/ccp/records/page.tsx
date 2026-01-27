@@ -163,6 +163,46 @@ function CCPRecordsContent() {
 
   const selectedCcpDef = ccpList.find(c => c.id === selectedCcp);
 
+  // 자동 입력 기능
+  const handleAutoFill = () => {
+    const selectedCcpData = ccpList.find(c => c.id === formData.ccp_id);
+    if (!selectedCcpData) {
+      // CCP가 선택되지 않은 경우 첫 번째 CCP 선택
+      if (ccpList.length > 0) {
+        setFormData(prev => ({ ...prev, ccp_id: ccpList[0].id }));
+      }
+      return;
+    }
+
+    const limit = selectedCcpData.critical_limit;
+    // 한계 기준 내의 적정 값 생성
+    let value = 0;
+    if (limit.min !== undefined && limit.max !== undefined) {
+      // 범위 내 랜덤 값 (중간 60% 범위)
+      const range = limit.max - limit.min;
+      value = limit.min + range * 0.2 + Math.random() * range * 0.6;
+    } else if (limit.min !== undefined) {
+      value = limit.min + 5 + Math.random() * 10;
+    } else if (limit.max !== undefined) {
+      value = limit.max - 5 - Math.random() * 10;
+    }
+    value = Math.round(value * 10) / 10;
+
+    // LOT 번호 생성
+    const today = new Date();
+    const lotNumber = `LOT-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')}`;
+
+    setFormData(prev => ({
+      ...prev,
+      record_date: today.toISOString().split('T')[0],
+      record_time: today.toTimeString().slice(0, 5),
+      lot_number: lotNumber,
+      measurement: { value, unit: limit.unit },
+      is_within_limit: true,
+      deviation_action: '',
+    }));
+  };
+
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -347,6 +387,15 @@ function CCPRecordsContent() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* 자동 입력 버튼 */}
+              <button
+                type="button"
+                onClick={handleAutoFill}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
+              >
+                ✨ 자동 입력 (적합 데이터 생성)
+              </button>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">CCP 선택</label>
                 <select

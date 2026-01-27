@@ -104,8 +104,21 @@ export default function SuppliersPage() {
     setEditingSupplier(null);
   };
 
+  const generateSupplierCode = () => {
+    const prefix = 'SUP';
+    const existingCodes = suppliers
+      .filter(s => s.code?.startsWith(prefix))
+      .map(s => {
+        const num = parseInt(s.code.replace(prefix + '-', ''));
+        return isNaN(num) ? 0 : num;
+      });
+    const nextNum = existingCodes.length > 0 ? Math.max(...existingCodes) + 1 : 1;
+    return `${prefix}-${String(nextNum).padStart(3, '0')}`;
+  };
+
   const openNewModal = () => {
     resetForm();
+    setFormData(prev => ({ ...prev, code: generateSupplierCode() }));
     setShowModal(true);
   };
 

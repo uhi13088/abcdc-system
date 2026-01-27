@@ -121,7 +121,23 @@ export default function ProductsPage() {
 
   const openNewModal = () => {
     resetForm();
+    // 제품코드 자동 생성
+    generateProductCode();
     setShowModal(true);
+  };
+
+  // 제품코드 자동 생성 함수
+  const generateProductCode = () => {
+    const prefix = 'FP'; // Finished Product
+    const existingCodes = products
+      .filter(p => p.code?.startsWith(prefix))
+      .map(p => {
+        const num = parseInt(p.code.replace(prefix + '-', ''));
+        return isNaN(num) ? 0 : num;
+      });
+    const nextNum = existingCodes.length > 0 ? Math.max(...existingCodes) + 1 : 1;
+    const newCode = `${prefix}-${String(nextNum).padStart(3, '0')}`;
+    setFormData(prev => ({ ...prev, code: newCode }));
   };
 
   const handleDelete = async (id: string) => {

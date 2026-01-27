@@ -175,6 +175,52 @@ export default function StorageInspectionsPage() {
 
   const uniqueAreas = [...new Set(inspections.map(i => i.storage_area))];
 
+  // 자동 입력 핸들러
+  const handleAutoFill = () => {
+    const storageTypes = ['REFRIGERATOR', 'FREEZER', 'DRY_STORAGE', 'CHEMICAL_STORAGE', 'PACKAGING_STORAGE'] as const;
+    const storageAreas = ['원료창고 A', '냉장실 1', '냉동실 1', '상온창고 B', '포장재 창고'];
+    const shifts = ['morning', 'afternoon', 'night'] as const;
+
+    const randomIndex = Math.floor(Math.random() * storageTypes.length);
+    const selectedType = storageTypes[randomIndex];
+    const selectedArea = storageAreas[randomIndex];
+    const selectedShift = shifts[Math.floor(Math.random() * shifts.length)];
+
+    // 온도 기준 설정
+    const tempPresets: Record<string, { min: string; max: string; value: string }> = {
+      'REFRIGERATOR': { min: '0', max: '10', value: (Math.random() * 5 + 2).toFixed(1) },
+      'FREEZER': { min: '-25', max: '-18', value: (-(Math.random() * 5 + 19)).toFixed(1) },
+      'DRY_STORAGE': { min: '10', max: '25', value: (Math.random() * 10 + 15).toFixed(1) },
+      'CHEMICAL_STORAGE': { min: '15', max: '25', value: (Math.random() * 5 + 18).toFixed(1) },
+      'PACKAGING_STORAGE': { min: '10', max: '30', value: (Math.random() * 10 + 15).toFixed(1) },
+    };
+
+    const temp = tempPresets[selectedType];
+    const humidity = Math.floor(Math.random() * 20 + 40); // 40-60%
+
+    setFormData({
+      inspection_date: new Date().toISOString().split('T')[0],
+      inspection_time: new Date().toTimeString().split(' ')[0].slice(0, 5),
+      shift: selectedShift,
+      storage_area: selectedArea,
+      storage_type: selectedType,
+      temperature: temp.value,
+      temperature_min: temp.min,
+      temperature_max: temp.max,
+      humidity: humidity.toString(),
+      humidity_min: '30',
+      humidity_max: '70',
+      cleanliness_check: true,
+      organization_check: true,
+      pest_check: false, // 해충 미발견
+      damage_check: false, // 파손 미발견
+      labeling_check: true,
+      fifo_check: true,
+      findings: '점검 결과 양호. 온습도 정상 범위 내 유지.',
+      corrective_action: '',
+    });
+  };
+
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -368,6 +414,14 @@ export default function StorageInspectionsPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <button
+                type="button"
+                onClick={handleAutoFill}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
+              >
+                ✨ 자동 입력 (샘플 데이터)
+              </button>
+
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label required>점검일</Label>

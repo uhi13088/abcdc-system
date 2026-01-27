@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, AlertTriangle, Edit, Trash2, X, ClipboardCheck, TrendingUp } from 'lucide-react';
+import { Plus, AlertTriangle, Edit, Trash2, X, ClipboardCheck, TrendingUp, Layers } from 'lucide-react';
 import Link from 'next/link';
 
 interface CCPDefinition {
@@ -119,6 +119,33 @@ export default function CCPPage() {
     }
   };
 
+  const generateCCPNumber = () => {
+    const prefix = 'CCP';
+    const existingNumbers = ccps
+      .filter(c => c.ccp_number?.startsWith(prefix))
+      .map(c => {
+        const num = parseInt(c.ccp_number.replace(prefix + '-', ''));
+        return isNaN(num) ? 0 : num;
+      });
+    const nextNum = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+    return `${prefix}-${nextNum}`;
+  };
+
+  const openNewModal = () => {
+    setEditingId(null);
+    setFormData({
+      ccp_number: generateCCPNumber(),
+      process: '',
+      hazard: '',
+      control_measure: '',
+      critical_limit: { parameter: '', min: 0, max: 0, unit: '' },
+      monitoring_method: '',
+      monitoring_frequency: '',
+      corrective_action: '',
+    });
+    setShowModal(true);
+  };
+
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -127,6 +154,13 @@ export default function CCPPage() {
           <p className="mt-1 text-sm text-gray-500">중요관리점(Critical Control Point)을 정의하고 관리합니다</p>
         </div>
         <div className="flex gap-2">
+          <Link
+            href="/ccp/master"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+          >
+            <Layers className="w-4 h-4" />
+            그룹 관리
+          </Link>
           <Link
             href="/ccp/records"
             className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
@@ -142,7 +176,7 @@ export default function CCPPage() {
             월간 검증
           </Link>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={openNewModal}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Plus className="w-4 h-4" />
