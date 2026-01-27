@@ -134,30 +134,28 @@ export default function MaterialsPage() {
 
   const openNewModal = () => {
     resetForm();
+    // 코드 자동 생성
+    generateCode('원료');
     setShowModal(true);
   };
 
-  const handleAutoFill = () => {
-    const sampleMaterials = [
-      { code: 'RM-2024-001', name: '국내산 돼지고기 (삼겹살)', type: '원료' as const, specification: '1등급 / 냉장', storage_temp: '0~5°C', shelf_life: 14, unit: 'kg', allergens: [] },
-      { code: 'RM-2024-002', name: '국내산 소고기 (등심)', type: '원료' as const, specification: '1++등급 / 냉장', storage_temp: '0~5°C', shelf_life: 10, unit: 'kg', allergens: [] },
-      { code: 'SM-2024-001', name: '양조간장', type: '부재료' as const, specification: '500ml / 병', storage_temp: '실온', shelf_life: 365, unit: 'ea', allergens: ['wheat', 'soybean'] },
-      { code: 'SM-2024-002', name: '참기름', type: '부재료' as const, specification: '320ml / 병', storage_temp: '실온', shelf_life: 180, unit: 'ea', allergens: ['sesame'] },
-      { code: 'PM-2024-001', name: 'PE 포장필름', type: '포장재' as const, specification: '500mm x 1000m', storage_temp: '실온', shelf_life: 730, unit: 'ea', allergens: [] },
-    ];
-    const sample = sampleMaterials[Math.floor(Math.random() * sampleMaterials.length)];
-    setFormData({
-      ...formData,
-      code: sample.code,
-      name: sample.name,
-      type: sample.type,
-      specification: sample.specification,
-      storage_temp: sample.storage_temp,
-      shelf_life: sample.shelf_life,
-      unit: sample.unit,
-      allergens: sample.allergens,
-      supplier_id: suppliers.length > 0 ? suppliers[0].id : '',
-    });
+  // 코드 자동 생성 함수
+  const generateCode = (type: '원료' | '부재료' | '포장재') => {
+    const prefixMap = { '원료': 'RM', '부재료': 'SM', '포장재': 'PM' };
+    const prefix = prefixMap[type];
+
+    // 같은 타입의 기존 코드에서 최대 번호 찾기
+    const existingCodes = materials
+      .filter(m => m.code?.startsWith(prefix))
+      .map(m => {
+        const num = parseInt(m.code.replace(prefix + '-', ''));
+        return isNaN(num) ? 0 : num;
+      });
+
+    const nextNum = existingCodes.length > 0 ? Math.max(...existingCodes) + 1 : 1;
+    const newCode = `${prefix}-${String(nextNum).padStart(3, '0')}`;
+
+    setFormData(prev => ({ ...prev, code: newCode, type }));
   };
 
   const filteredMaterials = materials.filter(m =>
@@ -287,13 +285,6 @@ export default function MaterialsPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <button
-                type="button"
-                onClick={handleAutoFill}
-                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
-              >
-                ✨ 자동 입력 (샘플 데이터)
-              </button>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label required>코드</Label>
@@ -321,8 +312,14 @@ export default function MaterialsPage() {
                   <Label>구분</Label>
                   <select
                     value={formData.type}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+                    onChange={(e) => {
+                      const newType = e.target.value as '원료' | '부재료' | '포장재';
+                      if (!editingMaterial) {
+                        generateCode(newType);
+                      } else {
+                        setFormData(prev => ({ ...prev, type: newType }));
+                      }
+                    }}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
                     <option value="원료">원료</option>

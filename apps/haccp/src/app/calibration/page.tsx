@@ -113,6 +113,18 @@ export default function CalibrationPage() {
     }
   };
 
+  const generateEquipmentCode = () => {
+    const prefix = 'EQ';
+    const existingCodes = records
+      .filter(r => r.equipment_code?.startsWith(prefix))
+      .map(r => {
+        const num = parseInt((r.equipment_code || '').replace(prefix + '-', ''));
+        return isNaN(num) ? 0 : num;
+      });
+    const nextNum = existingCodes.length > 0 ? Math.max(...existingCodes) + 1 : 1;
+    return `${prefix}-${String(nextNum).padStart(3, '0')}`;
+  };
+
   const resetForm = () => {
     setFormData({
       equipment_name: '',
@@ -228,66 +240,6 @@ export default function CalibrationPage() {
   const expiringSoonCount = records.filter(r => isExpiringSoon(r.next_calibration_date)).length;
   const expiredCount = records.filter(r => isExpired(r.next_calibration_date)).length;
 
-  // 자동 입력 핸들러
-  const handleAutoFill = () => {
-    const equipmentTypes = ['THERMOMETER', 'SCALE', 'PH_METER', 'HYGROMETER', 'PRESSURE_GAUGE', 'TIMER'] as const;
-    const equipmentNames = {
-      'THERMOMETER': '디지털 온도계',
-      'SCALE': '전자저울',
-      'PH_METER': 'pH 측정기',
-      'HYGROMETER': '디지털 습도계',
-      'PRESSURE_GAUGE': '압력계',
-      'TIMER': '디지털 타이머',
-    };
-    const manufacturers = ['삼성측정기', 'CAS', '오하우스', 'AND', '한일계기'];
-    const locations = ['생산1라인', '생산2라인', '원료창고', '완제품창고', '품질관리실'];
-    const calibrationTypes = ['INTERNAL', 'EXTERNAL', 'SELF_CHECK'] as const;
-
-    const randomType = equipmentTypes[Math.floor(Math.random() * equipmentTypes.length)];
-    const randomManufacturer = manufacturers[Math.floor(Math.random() * manufacturers.length)];
-    const randomLocation = locations[Math.floor(Math.random() * locations.length)];
-    const randomCalibrationType = calibrationTypes[Math.floor(Math.random() * calibrationTypes.length)];
-
-    // 장비 코드 생성
-    const today = new Date();
-    const equipmentCode = `EQ-${randomType.substring(0, 3)}-${String(Math.floor(Math.random() * 100)).padStart(3, '0')}`;
-
-    // 단위 및 기준값/측정값 설정
-    const unitConfig: Record<string, { unit: string; standard: number; tolerance: number }> = {
-      'THERMOMETER': { unit: '°C', standard: 0, tolerance: 0.5 },
-      'SCALE': { unit: 'kg', standard: 1, tolerance: 0.001 },
-      'PH_METER': { unit: 'pH', standard: 7, tolerance: 0.1 },
-      'HYGROMETER': { unit: '%', standard: 50, tolerance: 3 },
-      'PRESSURE_GAUGE': { unit: 'bar', standard: 1, tolerance: 0.05 },
-      'TIMER': { unit: '초', standard: 60, tolerance: 0.5 },
-    };
-
-    const config = unitConfig[randomType];
-    const measuredDeviation = (Math.random() - 0.5) * config.tolerance * 0.8; // 허용오차 내
-
-    setFormData({
-      equipment_name: equipmentNames[randomType],
-      equipment_code: equipmentCode,
-      equipment_type: randomType,
-      manufacturer: randomManufacturer,
-      model: `${randomManufacturer.substring(0, 2).toUpperCase()}-${Math.floor(Math.random() * 900) + 100}`,
-      serial_number: `SN${today.getFullYear()}${String(Math.floor(Math.random() * 10000)).padStart(5, '0')}`,
-      location: randomLocation,
-      calibration_date: today.toISOString().split('T')[0],
-      calibration_cycle_months: 12,
-      calibration_type: randomCalibrationType,
-      calibration_agency: randomCalibrationType === 'EXTERNAL' ? '한국계량측정협회' : '',
-      certificate_number: randomCalibrationType === 'EXTERNAL' ? `CAL-${today.getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(5, '0')}` : '',
-      standard_value: config.standard.toString(),
-      measured_value: (config.standard + measuredDeviation).toFixed(3),
-      tolerance: config.tolerance.toString(),
-      unit: config.unit,
-      result: 'PASS',
-      deviation_action: '',
-      notes: '정기 검교정 완료. 측정값 정상 범위 내 확인.',
-    });
-  };
-
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -298,6 +250,7 @@ export default function CalibrationPage() {
         <button
           onClick={() => {
             resetForm();
+            setFormData(prev => ({ ...prev, equipment_code: generateEquipmentCode() }));
             setShowModal(true);
           }}
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -460,14 +413,6 @@ export default function CalibrationPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <button
-                type="button"
-                onClick={handleAutoFill}
-                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
-              >
-                ✨ 자동 입력 (샘플 데이터)
-              </button>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label required>장비명</Label>

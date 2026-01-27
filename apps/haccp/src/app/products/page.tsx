@@ -121,28 +121,23 @@ export default function ProductsPage() {
 
   const openNewModal = () => {
     resetForm();
+    // 제품코드 자동 생성
+    generateProductCode();
     setShowModal(true);
   };
 
-  const handleAutoFill = () => {
-    const sampleProducts = [
-      { code: 'PRD-2024-001', name: '숯불갈비 양념 세트', category: '육가공품', specification: '500g x 2팩', shelf_life: 30, storage_condition: '냉장 (0~10°C)', manufacturing_report_number: '2024123456' },
-      { code: 'PRD-2024-002', name: '매콤 닭갈비', category: '육가공품', specification: '400g x 1팩', shelf_life: 14, storage_condition: '냉장 (0~10°C)', manufacturing_report_number: '2024123457' },
-      { code: 'PRD-2024-003', name: '소불고기 간편식', category: '즉석조리식품', specification: '300g x 2팩', shelf_life: 60, storage_condition: '냉동 (-18°C 이하)', manufacturing_report_number: '2024123458' },
-      { code: 'PRD-2024-004', name: '돼지불백 양념육', category: '육가공품', specification: '500g', shelf_life: 21, storage_condition: '냉장 (0~10°C)', manufacturing_report_number: '2024123459' },
-      { code: 'PRD-2024-005', name: '매운 갈비찜 밀키트', category: '즉석조리식품', specification: '600g', shelf_life: 90, storage_condition: '냉동 (-18°C 이하)', manufacturing_report_number: '2024123460' },
-    ];
-    const sample = sampleProducts[Math.floor(Math.random() * sampleProducts.length)];
-    setFormData({
-      code: sample.code,
-      name: sample.name,
-      category: sample.category,
-      specification: sample.specification,
-      shelf_life: sample.shelf_life,
-      storage_condition: sample.storage_condition,
-      manufacturing_report_number: sample.manufacturing_report_number,
-      packing_spec_id: packingSpecs.length > 0 ? packingSpecs[0].id : '',
-    });
+  // 제품코드 자동 생성 함수
+  const generateProductCode = () => {
+    const prefix = 'FP'; // Finished Product
+    const existingCodes = products
+      .filter(p => p.code?.startsWith(prefix))
+      .map(p => {
+        const num = parseInt(p.code.replace(prefix + '-', ''));
+        return isNaN(num) ? 0 : num;
+      });
+    const nextNum = existingCodes.length > 0 ? Math.max(...existingCodes) + 1 : 1;
+    const newCode = `${prefix}-${String(nextNum).padStart(3, '0')}`;
+    setFormData(prev => ({ ...prev, code: newCode }));
   };
 
   const handleDelete = async (id: string) => {
@@ -259,13 +254,6 @@ export default function ProductsPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <button
-                type="button"
-                onClick={handleAutoFill}
-                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
-              >
-                ✨ 자동 입력 (샘플 데이터)
-              </button>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label required>제품코드</Label>

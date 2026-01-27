@@ -148,8 +148,21 @@ export default function PackingSpecsPage() {
     setEditingSpec(null);
   };
 
+  const generateSpecCode = () => {
+    const prefix = 'PKG';
+    const existingCodes = specs
+      .filter(s => s.spec_code?.startsWith(prefix))
+      .map(s => {
+        const num = parseInt(s.spec_code.replace(prefix + '-', ''));
+        return isNaN(num) ? 0 : num;
+      });
+    const nextNum = existingCodes.length > 0 ? Math.max(...existingCodes) + 1 : 1;
+    return `${prefix}-${String(nextNum).padStart(3, '0')}`;
+  };
+
   const openNewModal = () => {
     resetForm();
+    setFormData(prev => ({ ...prev, spec_code: generateSpecCode() }));
     setShowModal(true);
   };
 

@@ -104,28 +104,22 @@ export default function SuppliersPage() {
     setEditingSupplier(null);
   };
 
-  const openNewModal = () => {
-    resetForm();
-    setShowModal(true);
+  const generateSupplierCode = () => {
+    const prefix = 'SUP';
+    const existingCodes = suppliers
+      .filter(s => s.code?.startsWith(prefix))
+      .map(s => {
+        const num = parseInt(s.code.replace(prefix + '-', ''));
+        return isNaN(num) ? 0 : num;
+      });
+    const nextNum = existingCodes.length > 0 ? Math.max(...existingCodes) + 1 : 1;
+    return `${prefix}-${String(nextNum).padStart(3, '0')}`;
   };
 
-  const handleAutoFill = () => {
-    const sampleSuppliers = [
-      { code: 'SUP-2024-001', name: '대한식자재', contact: '김영수', phone: '02-1234-5678', email: 'contact@daehansikjajae.co.kr', address: '서울특별시 강남구 테헤란로 123', certifications: ['HACCP', 'ISO22000'] },
-      { code: 'SUP-2024-002', name: '신선농산', contact: '박민호', phone: '031-987-6543', email: 'info@sinsun.co.kr', address: '경기도 용인시 처인구 농업로 456', certifications: ['GAP', 'HACCP'] },
-      { code: 'SUP-2024-003', name: '청정축산', contact: '이수진', phone: '033-456-7890', email: 'order@cjchuksan.com', address: '강원도 횡성군 축산로 789', certifications: ['HACCP', 'ISO9001', 'GMP'] },
-      { code: 'SUP-2024-004', name: '한국포장재', contact: '최동훈', phone: '02-333-4444', email: 'sales@hankookpack.co.kr', address: '인천광역시 서구 공단로 321', certifications: ['ISO9001', 'FSSC22000'] },
-    ];
-    const sample = sampleSuppliers[Math.floor(Math.random() * sampleSuppliers.length)];
-    setFormData({
-      code: sample.code,
-      name: sample.name,
-      contact: sample.contact,
-      phone: sample.phone,
-      email: sample.email,
-      address: sample.address,
-      certifications: sample.certifications,
-    });
+  const openNewModal = () => {
+    resetForm();
+    setFormData(prev => ({ ...prev, code: generateSupplierCode() }));
+    setShowModal(true);
   };
 
   const filteredSuppliers = suppliers.filter(s =>
@@ -252,13 +246,6 @@ export default function SuppliersPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <button
-                type="button"
-                onClick={handleAutoFill}
-                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
-              >
-                ✨ 자동 입력 (샘플 데이터)
-              </button>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">업체코드</label>

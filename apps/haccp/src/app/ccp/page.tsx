@@ -119,61 +119,31 @@ export default function CCPPage() {
     }
   };
 
-  // 자동 입력 기능
-  const handleAutoFill = () => {
-    const ccpTemplates = [
-      {
-        ccp_number: 'CCP-1',
-        process: '원료 입고 검수',
-        hazard: '생물학적 위해요소 - 병원성 미생물 오염',
-        control_measure: '입고 시 온도 확인 및 관능검사 실시',
-        critical_limit: { parameter: '온도', min: -18, max: 5, unit: '°C' },
-        monitoring_method: '중심온도계 측정',
-        monitoring_frequency: '매 입고 시',
-        corrective_action: '한계기준 이탈 시 반품 또는 폐기',
-      },
-      {
-        ccp_number: 'CCP-2',
-        process: '가열 살균',
-        hazard: '생물학적 위해요소 - 병원성 미생물 잔존',
-        control_measure: '중심온도 85°C 이상 1분간 가열',
-        critical_limit: { parameter: '중심온도', min: 85, max: 100, unit: '°C' },
-        monitoring_method: '중심온도계로 측정',
-        monitoring_frequency: '매 배치',
-        corrective_action: '재가열 또는 폐기 처리',
-      },
-      {
-        ccp_number: 'CCP-3',
-        process: '냉각',
-        hazard: '생물학적 위해요소 - 미생물 증식',
-        control_measure: '60분 이내 10°C 이하로 냉각',
-        critical_limit: { parameter: '냉각시간/온도', min: 0, max: 10, unit: '°C/60분' },
-        monitoring_method: '온도계 및 타이머',
-        monitoring_frequency: '매 냉각 공정',
-        corrective_action: '폐기 처리',
-      },
-    ];
-
-    // 아직 등록되지 않은 CCP 템플릿 찾기
-    const existingNumbers = ccps.map(c => c.ccp_number);
-    const nextTemplate = ccpTemplates.find(t => !existingNumbers.includes(t.ccp_number));
-
-    if (nextTemplate) {
-      setFormData(nextTemplate);
-    } else {
-      // 모두 등록된 경우 새 번호로 생성
-      const nextNum = ccps.length + 1;
-      setFormData({
-        ccp_number: `CCP-${nextNum}`,
-        process: '신규 공정',
-        hazard: '생물학적/화학적/물리적 위해요소',
-        control_measure: '관리 기준에 따른 모니터링',
-        critical_limit: { parameter: '온도', min: 0, max: 10, unit: '°C' },
-        monitoring_method: '측정 장비 사용',
-        monitoring_frequency: '정기 점검',
-        corrective_action: '기준 이탈 시 조치',
+  const generateCCPNumber = () => {
+    const prefix = 'CCP';
+    const existingNumbers = ccps
+      .filter(c => c.ccp_number?.startsWith(prefix))
+      .map(c => {
+        const num = parseInt(c.ccp_number.replace(prefix + '-', ''));
+        return isNaN(num) ? 0 : num;
       });
-    }
+    const nextNum = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+    return `${prefix}-${nextNum}`;
+  };
+
+  const openNewModal = () => {
+    setEditingId(null);
+    setFormData({
+      ccp_number: generateCCPNumber(),
+      process: '',
+      hazard: '',
+      control_measure: '',
+      critical_limit: { parameter: '', min: 0, max: 0, unit: '' },
+      monitoring_method: '',
+      monitoring_frequency: '',
+      corrective_action: '',
+    });
+    setShowModal(true);
   };
 
   return (
@@ -199,7 +169,7 @@ export default function CCPPage() {
             월간 검증
           </Link>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={openNewModal}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Plus className="w-4 h-4" />
@@ -301,15 +271,6 @@ export default function CCPPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* 자동 입력 버튼 */}
-              <button
-                type="button"
-                onClick={handleAutoFill}
-                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
-              >
-                ✨ 자동 입력 (샘플 CCP 데이터)
-              </button>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">CCP 번호</label>
