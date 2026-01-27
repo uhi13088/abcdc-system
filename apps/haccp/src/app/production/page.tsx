@@ -66,6 +66,44 @@ interface Product {
   code?: string;
 }
 
+interface RecipeIngredient {
+  id: string;
+  component_name: string;
+  material_code: string;
+  material_name: string;
+  amount: number;
+  unit: string;
+  amount_per_unit: number;
+}
+
+interface Recipe {
+  product_id: string;
+  product_name: string;
+  batch_size: number;
+  production_qty: number;
+  ingredients: RecipeIngredient[];
+}
+
+interface MaterialStock {
+  id: string;
+  material_id: string;
+  material_name: string;
+  material_code: string;
+  lot_number: string;
+  quantity: number;
+  unit: string;
+  expiry_date: string;
+}
+
+interface MaterialUsage {
+  material_name: string;
+  material_code: string;
+  amount_per_unit: number;
+  required_quantity: number;
+  unit: string;
+  selected_lot: string;
+}
+
 interface ProductionStandard {
   id: string;
   product_id: string;
@@ -92,6 +130,9 @@ export default function ProductionPage() {
   const [records, setRecords] = useState<ProductionRecord[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [standards, setStandards] = useState<ProductionStandard[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [materialStocks, setMaterialStocks] = useState<MaterialStock[]>([]);
+  const [materialUsage, setMaterialUsage] = useState<MaterialUsage[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -178,6 +219,30 @@ export default function ProductionPage() {
     }
   };
 
+  const fetchRecipes = async () => {
+    try {
+      const response = await fetch('/api/haccp/recipes');
+      if (response.ok) {
+        const data = await response.json();
+        setRecipes(data.grouped || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch recipes:', error);
+    }
+  };
+
+  const fetchMaterialStocks = async () => {
+    try {
+      const response = await fetch('/api/haccp/inventory/stocks');
+      if (response.ok) {
+        const data = await response.json();
+        setMaterialStocks(data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch material stocks:', error);
+    }
+  };
+
   useEffect(() => {
     fetchRecords();
   }, [fetchRecords]);
@@ -185,7 +250,63 @@ export default function ProductionPage() {
   useEffect(() => {
     fetchProducts();
     fetchStandards();
+    fetchRecipes();
+    fetchMaterialStocks();
   }, []);
+
+  // 제품 선택 시 원재료 사용량 계산
+  const calculateMaterialUsage = (productId: string, quantity: number) => {
+    const recipe = recipes.find(r => r.product_id === productId);
+    if (!recipe || !recipe.ingredients) {
+      setMaterialUsage([]);
+      return;
+    }
+
+    const usage = recipe.ingredients.map(ing => {
+      // 해당 원재료의 사용 가능한 재고 LOT 찾기
+      const availableStocks = materialStocks.filter(s =>
+        s.material_name === ing.material_name || s.material_code === ing.material_code
+      );
+      const defaultLot = availableStocks.length > 0 ? availableStocks[0].lot_number : '';
+
+      return {
+        material_name: ing.material_name,
+        material_code: ing.material_code,
+        amount_per_unit: ing.amount_per_unit || 0,
+        required_quantity: Math.round((ing.amount_per_unit || 0) * quantity * 100) / 100,
+        unit: ing.unit,
+        selected_lot: defaultLot,
+      };
+    });
+
+    setMaterialUsage(usage);
+  };
+
+  // 제품 변경 시
+  const handleProductChange = (productId: string) => {
+    setFormData(prev => ({ ...prev, product_id: productId }));
+    calculateMaterialUsage(productId, formData.actual_quantity);
+  };
+
+  // 생산수량 변경 시
+  const handleQuantityChange = (quantity: number) => {
+    setFormData(prev => ({ ...prev, actual_quantity: quantity }));
+    calculateMaterialUsage(formData.product_id, quantity);
+  };
+
+  // LOT 선택 변경
+  const handleLotChange = (index: number, lot: string) => {
+    const newUsage = [...materialUsage];
+    newUsage[index] = { ...newUsage[index], selected_lot: lot };
+    setMaterialUsage(newUsage);
+  };
+
+  // 해당 원재료의 사용 가능한 재고 목록
+  const getAvailableStocks = (materialName: string, materialCode: string) => {
+    return materialStocks.filter(s =>
+      s.material_name === materialName || s.material_code === materialCode
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,6 +315,14 @@ export default function ProductionPage() {
         production_date: selectedDate,
         ...formData,
         worker_names: formData.worker_names.filter(n => n.trim() !== ''),
+        material_usage: materialUsage.map(u => ({
+          material_name: u.material_name,
+          material_code: u.material_code,
+          required_quantity: u.required_quantity,
+          actual_quantity: u.required_quantity, // 기본적으로 필요량 = 실제 사용량
+          unit: u.unit,
+          lot_numbers: u.selected_lot ? [u.selected_lot] : [],
+        })),
       };
 
       const response = await fetch('/api/haccp/production', {
@@ -231,6 +360,7 @@ export default function ProductionPage() {
       defect_action: '',
       notes: '',
     });
+    setMaterialUsage([]);
   };
 
   // 자동 입력 기능
@@ -270,7 +400,7 @@ export default function ProductionPage() {
       planned_quantity: planned,
       actual_quantity: actual,
       defect_quantity: defect,
-      unit: 'kg',
+      unit: 'ea',
       production_temp: Math.round(temp * 10) / 10,
       production_humidity: Math.round(humidity * 10) / 10,
       worker_names: selectedWorkers,
@@ -279,6 +409,11 @@ export default function ProductionPage() {
       defect_action: defect > 0 ? '선별 후 재가공' : '',
       notes: '',
     });
+
+    // 원재료 사용량 자동 계산
+    if (selectedProduct) {
+      calculateMaterialUsage(selectedProduct.id, actual);
+    }
   };
 
   // 품질검사 자동 입력
@@ -984,7 +1119,7 @@ export default function ProductionPage() {
                   <Label required>제품</Label>
                   <select
                     value={formData.product_id}
-                    onChange={(e) => setFormData({ ...formData, product_id: e.target.value })}
+                    onChange={(e) => handleProductChange(e.target.value)}
                     className="w-full px-3 py-2 border rounded-lg"
                     required
                   >
@@ -1080,7 +1215,7 @@ export default function ProductionPage() {
                     <input
                       type="number"
                       value={formData.actual_quantity}
-                      onChange={(e) => setFormData({ ...formData, actual_quantity: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => handleQuantityChange(parseFloat(e.target.value) || 0)}
                       className="w-full px-3 py-2 border rounded-lg"
                     />
                   </div>
@@ -1134,6 +1269,65 @@ export default function ProductionPage() {
                   </div>
                 )}
               </div>
+
+              {/* 원재료 사용량 (레시피 기반 자동계산) */}
+              {materialUsage.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="font-medium text-gray-900 border-b pb-2 flex items-center gap-2">
+                    <Package className="w-4 h-4 text-orange-500" />
+                    원재료 사용량 (레시피 기반 자동계산)
+                  </h3>
+                  <div className="bg-orange-50 rounded-lg p-4">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-xs text-gray-600 border-b border-orange-200">
+                          <th className="pb-2">원재료명</th>
+                          <th className="pb-2 text-right">1개당</th>
+                          <th className="pb-2 text-right">필요량</th>
+                          <th className="pb-2">LOT 선택</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-orange-100">
+                        {materialUsage.map((usage, idx) => {
+                          const availableStocks = getAvailableStocks(usage.material_name, usage.material_code);
+                          return (
+                            <tr key={idx}>
+                              <td className="py-2">
+                                <p className="font-medium text-gray-800">{usage.material_name}</p>
+                                <p className="text-xs text-gray-500">{usage.material_code}</p>
+                              </td>
+                              <td className="py-2 text-right text-gray-600">
+                                {usage.amount_per_unit}{usage.unit}
+                              </td>
+                              <td className="py-2 text-right font-bold text-orange-700">
+                                {usage.required_quantity}{usage.unit}
+                              </td>
+                              <td className="py-2">
+                                {availableStocks.length > 0 ? (
+                                  <select
+                                    value={usage.selected_lot}
+                                    onChange={(e) => handleLotChange(idx, e.target.value)}
+                                    className="w-full px-2 py-1 text-xs border rounded bg-white"
+                                  >
+                                    <option value="">LOT 선택</option>
+                                    {availableStocks.map(stock => (
+                                      <option key={stock.id} value={stock.lot_number}>
+                                        {stock.lot_number} ({stock.quantity}{stock.unit})
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <span className="text-xs text-red-500">재고 없음</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* 작업자 정보 */}
               <div className="space-y-4">

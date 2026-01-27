@@ -4,8 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Calendar, Truck, Package, ThermometerSun, MapPin,
   Clock, CheckCircle2, XCircle, Eye, ClipboardCheck, Search,
-  ChevronDown, ChevronUp, AlertTriangle, User, FileCheck
+  ChevronDown, ChevronUp, AlertTriangle, User, FileCheck, FileText
 } from 'lucide-react';
+import Link from 'next/link';
 import { Label } from '@/components/ui/label';
 
 interface ShipmentItem {
@@ -646,6 +647,14 @@ export default function ShipmentsPage() {
                   >
                     <Eye className="w-4 h-4 text-gray-600" />
                   </button>
+                  <Link
+                    href={`/shipments/invoice/${shipment.id}`}
+                    target="_blank"
+                    className="p-2 hover:bg-blue-100 rounded-lg"
+                    title="거래명세서"
+                  >
+                    <FileText className="w-4 h-4 text-blue-600" />
+                  </Link>
 
                   {/* 상태별 액션 버튼 */}
                   {shipment.status === 'PENDING' && !shipment.pre_shipment_check && (

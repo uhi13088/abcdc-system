@@ -90,7 +90,7 @@ const navigation: NavItem[] = [
     ],
   },
   { name: '출하 관리', href: '/shipments', icon: Truck },
-  { name: '일일 종합 보고서', href: '/daily-report', icon: FileText },
+  { name: '일일 종합 보고서', href: '/reports/daily', icon: FileText },
   { name: '감사 보고서', href: '/audit-report', icon: FileText },
   { name: '교육 관리', href: '/training', icon: Users },
   { name: '검교정 관리', href: '/calibration', icon: Gauge },
