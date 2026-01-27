@@ -44,17 +44,7 @@ interface NavItem {
 const navigation: NavItem[] = [
   { name: '대시보드', href: '/dashboard', icon: LayoutDashboard },
   { name: '일일 체크리스트', href: '/todo', icon: ListChecks },
-  {
-    name: 'CCP 관리',
-    href: '/ccp',
-    icon: Thermometer,
-    children: [
-      { name: 'CCP 현황', href: '/ccp' },
-      { name: 'CCP 기록', href: '/ccp/records' },
-      { name: 'CCP 검증', href: '/ccp/verification' },
-      { name: '개선조치', href: '/corrective-actions' },
-    ],
-  },
+  { name: 'CCP 관리', href: '/ccp', icon: Thermometer },
   { name: '위생 점검', href: '/hygiene', icon: Sparkles },
   { name: '장비 온도 기록', href: '/equipment-temperature', icon: Thermometer },
   { name: '입고 검사', href: '/inspections', icon: ClipboardCheck },
@@ -112,7 +102,7 @@ const navigation: NavItem[] = [
 function SidebarComponent() {
   const pathname = usePathname();
   const router = useRouter();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['CCP 관리', '원재료 관리', '제품 관리', '재고 관리', 'IoT 관리']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['원재료 관리', '제품 관리', '재고 관리', 'IoT 관리']);
   const [isHovered, setIsHovered] = useState(false);
 
   // Mobile sidebar state from context

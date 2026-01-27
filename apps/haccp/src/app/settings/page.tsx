@@ -995,24 +995,22 @@ export default function SettingsPage() {
               HACCP 시스템에서 사용되는 역할 계층입니다. 상위 역할은 하위 역할의 모든 권한을 포함합니다.
             </p>
             <div className="space-y-2">
-              {(['super_admin', 'company_admin', 'manager', 'store_manager', 'team_leader', 'staff'] as UserRole[]).map((role, idx) => (
+              {(['company_admin', 'manager', 'store_manager', 'team_leader', 'staff'] as UserRole[]).map((role, idx) => (
                 <div
                   key={role}
                   className={`flex items-center gap-3 p-3 rounded-lg border ${
-                    idx === 0 ? 'bg-purple-50 border-purple-200' :
-                    idx === 1 ? 'bg-blue-50 border-blue-200' :
-                    idx === 2 ? 'bg-green-50 border-green-200' :
-                    idx === 3 ? 'bg-yellow-50 border-yellow-200' :
-                    idx === 4 ? 'bg-orange-50 border-orange-200' :
+                    idx === 0 ? 'bg-blue-50 border-blue-200' :
+                    idx === 1 ? 'bg-green-50 border-green-200' :
+                    idx === 2 ? 'bg-yellow-50 border-yellow-200' :
+                    idx === 3 ? 'bg-orange-50 border-orange-200' :
                     'bg-gray-50 border-gray-200'
                   }`}
                 >
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
-                    idx === 0 ? 'bg-purple-500' :
-                    idx === 1 ? 'bg-blue-500' :
-                    idx === 2 ? 'bg-green-500' :
-                    idx === 3 ? 'bg-yellow-500' :
-                    idx === 4 ? 'bg-orange-500' :
+                    idx === 0 ? 'bg-blue-500' :
+                    idx === 1 ? 'bg-green-500' :
+                    idx === 2 ? 'bg-yellow-500' :
+                    idx === 3 ? 'bg-orange-500' :
                     'bg-gray-500'
                   }`}>
                     {idx + 1}
@@ -1021,7 +1019,7 @@ export default function SettingsPage() {
                     <p className="font-medium text-gray-900">{ROLE_LABELS[role]}</p>
                     <p className="text-sm text-gray-500">{ROLE_DESCRIPTIONS[role]}</p>
                   </div>
-                  {idx < 5 && (
+                  {idx < 4 && (
                     <div className="text-gray-300">↓</div>
                   )}
                 </div>
