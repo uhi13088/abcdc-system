@@ -9,7 +9,6 @@ import {
   Bug,
   Target,
   MapPin,
-  RefreshCw,
   AlertCircle,
   ChevronLeft,
 } from 'lucide-react';
@@ -83,7 +82,7 @@ export default function PestControlSettingsPage() {
         setTrapLocations(data.trapLocations || []);
         setZones(data.zones || []);
       }
-    } catch (err) {
+    } catch (_err) {
       setError('설정을 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
@@ -112,7 +111,7 @@ export default function PestControlSettingsPage() {
         setSuccessMessage('해충 종류가 저장되었습니다.');
         setTimeout(() => setSuccessMessage(null), 3000);
       }
-    } catch (err) {
+    } catch (_err) {
       setError('저장에 실패했습니다.');
     } finally {
       setSaving(false);
@@ -130,7 +129,7 @@ export default function PestControlSettingsPage() {
         setSuccessMessage('해충 종류가 삭제되었습니다.');
         setTimeout(() => setSuccessMessage(null), 3000);
       }
-    } catch (err) {
+    } catch (_err) {
       setError('삭제에 실패했습니다.');
     }
   };
@@ -148,7 +147,7 @@ export default function PestControlSettingsPage() {
         setSuccessMessage('관리 기준이 저장되었습니다.');
         setTimeout(() => setSuccessMessage(null), 3000);
       }
-    } catch (err) {
+    } catch (_err) {
       setError('저장에 실패했습니다.');
     } finally {
       setSaving(false);
@@ -179,7 +178,7 @@ export default function PestControlSettingsPage() {
         setSuccessMessage('포획기 위치가 저장되었습니다.');
         setTimeout(() => setSuccessMessage(null), 3000);
       }
-    } catch (err) {
+    } catch (_err) {
       setError('저장에 실패했습니다.');
     } finally {
       setSaving(false);
@@ -197,7 +196,7 @@ export default function PestControlSettingsPage() {
         setSuccessMessage('포획기 위치가 삭제되었습니다.');
         setTimeout(() => setSuccessMessage(null), 3000);
       }
-    } catch (err) {
+    } catch (_err) {
       setError('삭제에 실패했습니다.');
     }
   };

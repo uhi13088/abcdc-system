@@ -47,11 +47,11 @@ function decryptSSN(encrypted: string): string {
 }
 
 // 공제유형 라벨 변환
-function getDeductionTypeLabel(deductionConfig: any): string {
+function getDeductionTypeLabel(deductionConfig: Record<string, boolean | string | undefined> | null): string {
   if (!deductionConfig) return '-';
 
-  const type = deductionConfig.deduction_type || deductionConfig.deductionType;
-  if (type) {
+  const type = deductionConfig['deduction_type'] || deductionConfig['deductionType'];
+  if (type && typeof type === 'string') {
     const labels: Record<string, string> = {
       full: '전체적용',
       employment_only: '고용보험만',
@@ -61,10 +61,10 @@ function getDeductionTypeLabel(deductionConfig: any): string {
     return labels[type] || type;
   }
 
-  const hasPension = deductionConfig.national_pension ?? deductionConfig.nationalPension;
-  const hasHealth = deductionConfig.health_insurance ?? deductionConfig.healthInsurance;
-  const hasEmployment = deductionConfig.employment_insurance ?? deductionConfig.employmentInsurance;
-  const hasIncomeTax = deductionConfig.income_tax ?? deductionConfig.incomeTax;
+  const hasPension = deductionConfig['national_pension'] ?? deductionConfig['nationalPension'];
+  const hasHealth = deductionConfig['health_insurance'] ?? deductionConfig['healthInsurance'];
+  const hasEmployment = deductionConfig['employment_insurance'] ?? deductionConfig['employmentInsurance'];
+  const hasIncomeTax = deductionConfig['income_tax'] ?? deductionConfig['incomeTax'];
 
   if (hasPension && hasHealth && hasEmployment) return '전체적용';
   if (!hasPension && !hasHealth && hasEmployment) return '고용보험만';
@@ -180,12 +180,12 @@ export async function GET(request: NextRequest) {
         };
 
         // 주민번호 가져오기
-        const getResidentNumber = (staff: any): string => {
+        const getResidentNumber = (staff: { ssn_encrypted?: string; birth_date?: string | null } | null): string => {
           if (staff?.ssn_encrypted) {
             const decrypted = decryptSSN(staff.ssn_encrypted);
             if (decrypted) return decrypted;
           }
-          return formatBirthDate(staff?.birth_date);
+          return formatBirthDate(staff?.birth_date ?? null);
         };
 
         // 데이터 변환

@@ -8,9 +8,6 @@ import {
   Badge,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
   Input,
   Label,
   Select,
@@ -312,7 +309,7 @@ export default function NewContractPage() {
       }
 
       // perDayMode와 workSchedulePerDay는 API에서 사용하지 않으므로 제거
-      const { perDayMode, workSchedulePerDay, ...dataToSend } = submitData;
+      const { perDayMode: _perDayMode, workSchedulePerDay: _workSchedulePerDay, ...dataToSend } = submitData;
 
       const response = await fetch('/api/contracts', {
         method: 'POST',
@@ -327,14 +324,10 @@ export default function NewContractPage() {
         if (contract._scheduleResult) {
           const sr = contract._scheduleResult;
           if (!sr.success) {
-            console.warn('Schedule generation issue:', sr);
             // 스케줄 생성 실패해도 계약서는 생성됨 - 경고만 표시
             if (sr.error) {
-              alert(`계약서는 생성되었지만 스케줄 생성에 문제가 있습니다:\n${sr.error}\n\n시도: ${sr.attempted}개, 생성: ${sr.created}개\n\n디버그 정보는 콘솔을 확인하세요.`);
-              console.log('Schedule debug info:', sr.debug);
+              alert(`계약서는 생성되었지만 스케줄 생성에 문제가 있습니다:\n${sr.error}\n\n시도: ${sr.attempted}개, 생성: ${sr.created}개`);
             }
-          } else {
-            console.log(`Successfully created ${sr.created} schedules`);
           }
         }
 
@@ -343,7 +336,7 @@ export default function NewContractPage() {
         const data = await response.json();
         setError(data.error || '계약서 생성에 실패했습니다.');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('계약서 생성에 실패했습니다.');
     } finally {
       setLoading(false);
@@ -554,7 +547,7 @@ export default function NewContractPage() {
               <Select
                 value={formData.contractType}
                 onChange={(e) => setFormData({ ...formData, contractType: e.target.value as ContractType })}
-                options={Object.entries(ContractType).map(([key, value]) => ({
+                options={Object.entries(ContractType).map(([_key, value]) => ({
                   value,
                   label: value,
                 }))}
@@ -871,7 +864,7 @@ export default function NewContractPage() {
                       },
                     });
                   }}
-                  options={Object.entries(SalaryType).map(([key, value]) => ({
+                  options={Object.entries(SalaryType).map(([_key, value]) => ({
                     value,
                     label: value,
                   }))}

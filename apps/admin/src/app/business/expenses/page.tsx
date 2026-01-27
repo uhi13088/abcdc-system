@@ -39,6 +39,7 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     fetchExpenses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth, filterCategory]);
 
   const fetchExpenses = async () => {

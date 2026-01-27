@@ -148,7 +148,7 @@ export async function POST(
     });
 
     // 계약서 업데이트
-    let updateData: Record<string, any>;
+    let updateData: Record<string, unknown>;
     let newStatus = contract.status;
 
     if (signerType === 'EMPLOYEE') {

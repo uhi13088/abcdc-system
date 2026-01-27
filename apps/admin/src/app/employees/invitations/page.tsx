@@ -101,6 +101,7 @@ export default function InvitationsPage() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, storeFilter]);
 
   const openDetailDialog = async (invitation: Invitation) => {
@@ -134,7 +135,7 @@ export default function InvitationsPage() {
         const result = await response.json();
         alert(result.error || '재발송에 실패했습니다.');
       }
-    } catch (err) {
+    } catch (_err) {
       alert('재발송에 실패했습니다.');
     } finally {
       setResending(false);
@@ -157,7 +158,7 @@ export default function InvitationsPage() {
         const result = await response.json();
         alert(result.error || '취소에 실패했습니다.');
       }
-    } catch (err) {
+    } catch (_err) {
       alert('취소에 실패했습니다.');
     }
   };

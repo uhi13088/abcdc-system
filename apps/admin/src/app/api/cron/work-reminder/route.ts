@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { pushNotificationService } from '@abc/shared/server';
-import { format, addMinutes, subMinutes } from 'date-fns';
+import { format, addMinutes } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
 function getSupabaseClient() {
@@ -80,8 +80,8 @@ export async function GET(request: NextRequest) {
     let skipCount = 0;
 
     for (const schedule of schedules) {
-      const user = schedule.users as any;
-      const store = schedule.stores as any;
+      const user = schedule.users as { name?: string; notification_settings?: Record<string, unknown> } | null;
+      const store = schedule.stores as { name?: string } | null;
 
       // 알림 설정 확인
       const settings = user?.notification_settings || {};

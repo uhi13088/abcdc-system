@@ -21,7 +21,8 @@ export async function GET(request: NextRequest) {
     const supabase = createAdminClient();
     const now = new Date();
     const hours24Ago = subHours(now, 24);
-    const hours48Ago = subHours(now, 48);
+    // hours48Ago is used as reference for critical alerts
+    const _hours48Ago = subHours(now, 48);
 
     // 대기 중인 승인 요청 조회
     const { data: pendingApprovals, error } = await supabase

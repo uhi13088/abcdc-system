@@ -130,6 +130,7 @@ export default function AttendancePage() {
 
   useEffect(() => {
     fetchAttendances();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate, storeFilter]);
 
   const fetchAttendances = async () => {
@@ -471,7 +472,7 @@ export default function AttendancePage() {
                 {day}
               </div>
             ))}
-            {days.map((day, idx) => {
+            {days.map((day, _idx) => {
               const dayAttendances = getAttendanceForDay(day);
               const isToday = isSameDay(day, new Date());
 

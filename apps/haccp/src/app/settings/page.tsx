@@ -258,7 +258,7 @@ export default function SettingsPage() {
         setSuccessMessage('구역이 저장되었습니다.');
         setTimeout(() => setSuccessMessage(null), 3000);
       }
-    } catch (err) {
+    } catch (_err) {
       setError('구역 저장에 실패했습니다.');
     } finally {
       setSaving(false);
@@ -278,7 +278,7 @@ export default function SettingsPage() {
         setSuccessMessage('구역이 삭제되었습니다.');
         setTimeout(() => setSuccessMessage(null), 3000);
       }
-    } catch (err) {
+    } catch (_err) {
       setError('구역 삭제에 실패했습니다.');
     }
   };
@@ -299,7 +299,7 @@ export default function SettingsPage() {
         setSuccessMessage('시즌 설정이 저장되었습니다.');
         setTimeout(() => setSuccessMessage(null), 3000);
       }
-    } catch (err) {
+    } catch (_err) {
       setError('시즌 설정 저장에 실패했습니다.');
     } finally {
       setSaving(false);

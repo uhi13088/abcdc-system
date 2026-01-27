@@ -85,6 +85,7 @@ export default function EmployeeDetailPage() {
   useEffect(() => {
     fetchEmployee();
     fetchContracts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeId]);
 
   const fetchEmployee = async () => {
@@ -96,7 +97,7 @@ export default function EmployeeDetailPage() {
       } else {
         setError('직원 정보를 불러올 수 없습니다.');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('직원 정보를 불러올 수 없습니다.');
     } finally {
       setLoading(false);

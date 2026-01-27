@@ -4,7 +4,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { format, addDays, parseISO, isWeekend, startOfWeek, endOfWeek } from 'date-fns';
+import { format, addDays, parseISO } from 'date-fns';
 
 let _supabaseClient: SupabaseClient | null = null;
 

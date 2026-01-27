@@ -6,6 +6,7 @@
  */
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 
 interface SignaturePadProps {
@@ -226,11 +227,12 @@ export function SignaturePreview({
   }
 
   return (
-    <img
+    <Image
       src={signature}
       alt="서명"
+      width={width}
+      height={height}
       className={`border rounded-lg object-contain ${className}`}
-      style={{ width, height }}
     />
   );
 }

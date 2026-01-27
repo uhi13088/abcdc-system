@@ -263,6 +263,7 @@ export default function MaterialsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">구분</label>
                   <select
                     value={formData.type}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >

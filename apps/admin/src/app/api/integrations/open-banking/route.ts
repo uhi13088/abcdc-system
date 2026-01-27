@@ -62,8 +62,8 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const accountId = searchParams.get('account_id');
-  const startDate = searchParams.get('start_date');
-  const endDate = searchParams.get('end_date');
+  const _startDate = searchParams.get('start_date');
+  const _endDate = searchParams.get('end_date');
 
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { bank_code, account_number, authorization_code } = body;
+    const { bank_code, account_number, authorization_code: _authorization_code } = body;
 
     // TODO: Implement actual Open Banking account connection
     // Steps:

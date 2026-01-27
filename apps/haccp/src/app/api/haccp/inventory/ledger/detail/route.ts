@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
         .eq('material_id', materialId)
         .lt('transaction_date', startDate);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       beforeTx?.forEach((tx: any) => {
         switch (tx.transaction_type) {
           case 'IN':
@@ -98,9 +99,11 @@ export async function GET(request: NextRequest) {
       out_quantity: number;
       adjust_quantity: number;
       production_lots: string[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       details: any[];
     }>();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     transactions?.forEach((tx: any) => {
       const date = tx.transaction_date;
       if (!dailyMap.has(date)) {

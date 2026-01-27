@@ -6,7 +6,6 @@ import {
   Calendar,
   CheckCircle,
   XCircle,
-  Clock,
   User,
   Thermometer,
   ChevronDown,

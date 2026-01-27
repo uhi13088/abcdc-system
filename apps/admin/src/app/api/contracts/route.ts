@@ -355,7 +355,7 @@ export async function POST(request: NextRequest) {
 
     // 응답에 스케줄 생성 결과 포함
     return NextResponse.json({ ...data, _scheduleResult: scheduleResult }, { status: 201 });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

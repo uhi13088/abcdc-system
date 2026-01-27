@@ -4,9 +4,6 @@ import { useEffect, useState } from 'react';
 import { Header } from '@/components/layout/header';
 import {
   Button,
-  Card,
-  CardContent,
-  Badge,
   PageLoading,
   Select,
   Dialog,
@@ -59,7 +56,7 @@ export default function SchedulesPage() {
   const [loading, setLoading] = useState(true);
   const [storeFilter, setStoreFilter] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
+  const [_viewMode, _setViewMode] = useState<'week' | 'month'>('week');
 
   // New schedule dialog
   const [showNewDialog, setShowNewDialog] = useState(false);
@@ -81,7 +78,8 @@ export default function SchedulesPage() {
 
   useEffect(() => {
     fetchSchedules();
-  }, [currentDate, storeFilter, viewMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDate, storeFilter, _viewMode]);
 
   const fetchSchedules = async () => {
     setLoading(true);
@@ -197,7 +195,7 @@ export default function SchedulesPage() {
         const data = await response.json();
         setError(data.error || '스케줄 생성에 실패했습니다.');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('스케줄 생성에 실패했습니다.');
     } finally {
       setSubmitting(false);
@@ -215,7 +213,7 @@ export default function SchedulesPage() {
       if (response.ok) {
         fetchSchedules();
       }
-    } catch (error) {
+    } catch (_error) {
       alert('삭제에 실패했습니다.');
     }
   };

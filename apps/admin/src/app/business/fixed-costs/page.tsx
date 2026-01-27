@@ -289,7 +289,7 @@ export default function FixedCostsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">납부 주기</label>
                   <select
                     value={formData.frequency}
-                    onChange={(e) => setFormData({ ...formData, frequency: e.target.value as any })}
+                    onChange={(e) => setFormData({ ...formData, frequency: e.target.value as 'MONTHLY' | 'QUARTERLY' | 'YEARLY' })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
                     <option value="MONTHLY">매월</option>

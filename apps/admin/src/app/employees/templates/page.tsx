@@ -250,7 +250,7 @@ export default function InvitationTemplatesPage() {
         const result = await response.json();
         setError(result.error || '저장에 실패했습니다.');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('저장에 실패했습니다.');
     } finally {
       setSubmitting(false);
@@ -271,7 +271,7 @@ export default function InvitationTemplatesPage() {
         const result = await response.json();
         alert(result.error || '삭제에 실패했습니다.');
       }
-    } catch (err) {
+    } catch (_err) {
       alert('삭제에 실패했습니다.');
     }
   };

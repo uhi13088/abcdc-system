@@ -34,7 +34,6 @@ const ALL_CHECK_ITEMS = {
   certificate_check: { label: '인증서', short: '인', category: 'document', description: '인증서 확인' },
 };
 
-type CheckItemKey = keyof typeof ALL_CHECK_ITEMS;
 
 interface InspectionStandard {
   id: string;

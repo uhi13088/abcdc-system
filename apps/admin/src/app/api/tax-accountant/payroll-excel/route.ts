@@ -39,7 +39,20 @@ function decryptSSN(encrypted: string): string {
 }
 
 // 공제유형 라벨 변환
-function getDeductionTypeLabel(deductionConfig: any): string {
+interface DeductionConfig {
+  deduction_type?: string;
+  deductionType?: string;
+  national_pension?: boolean;
+  nationalPension?: boolean;
+  health_insurance?: boolean;
+  healthInsurance?: boolean;
+  employment_insurance?: boolean;
+  employmentInsurance?: boolean;
+  income_tax?: boolean;
+  incomeTax?: boolean;
+}
+
+function getDeductionTypeLabel(deductionConfig: DeductionConfig | null | undefined): string {
   if (!deductionConfig) return '-';
 
   const type = deductionConfig.deduction_type || deductionConfig.deductionType;
@@ -186,7 +199,7 @@ export async function POST(request: NextRequest) {
     validSalaries.sort((a, b) => a.staff.name.localeCompare(b.staff.name, 'ko'));
 
     // 생년월일 포맷팅 함수 (주민번호 없을 때 fallback)
-    const formatBirthDate = (birthDate: string | null): string => {
+    const formatBirthDate = (birthDate: string | null | undefined): string => {
       if (!birthDate) return '-';
       const date = new Date(birthDate);
       const y = date.getFullYear().toString().slice(-2);
@@ -196,7 +209,11 @@ export async function POST(request: NextRequest) {
     };
 
     // 주민번호 가져오기 (복호화 -> fallback: 생년월일)
-    const getResidentNumber = (staff: any): string => {
+    interface StaffInfo {
+      ssn_encrypted?: string | null;
+      birth_date?: string | null;
+    }
+    const getResidentNumber = (staff: StaffInfo): string => {
       if (staff.ssn_encrypted) {
         const decrypted = decryptSSN(staff.ssn_encrypted);
         if (decrypted) return decrypted;
@@ -223,7 +240,7 @@ export async function POST(request: NextRequest) {
       transportAllowance: salary.transport_allowance,
       positionAllowance: salary.position_allowance,
       otherAllowances: Object.values(salary.other_allowances || {}).reduce(
-        (sum: number, val: any) => sum + (typeof val === 'number' ? val : 0),
+        (sum: number, val: unknown) => sum + (typeof val === 'number' ? val : 0),
         0
       ),
       totalGrossPay: salary.total_gross_pay,
@@ -234,7 +251,7 @@ export async function POST(request: NextRequest) {
       incomeTax: salary.income_tax,
       localIncomeTax: salary.local_income_tax,
       otherDeductions: Object.values(salary.other_deductions || {}).reduce(
-        (sum: number, val: any) => sum + (typeof val === 'number' ? val : 0),
+        (sum: number, val: unknown) => sum + (typeof val === 'number' ? val : 0),
         0
       ),
       totalDeductions: salary.total_deductions,
@@ -254,7 +271,7 @@ export async function POST(request: NextRequest) {
     const fileName = `급여대장_${year}년${month}월_${company.name}.xlsx`;
     const filePath = `tax-accountant/${targetCompanyId}/${year}/${month}/${fileName}`;
 
-    const { data: uploadData, error: uploadError } = await adminClient.storage
+    const { data: _uploadData, error: uploadError } = await adminClient.storage
       .from('payroll-reports')
       .upload(filePath, excelBuffer, {
         contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

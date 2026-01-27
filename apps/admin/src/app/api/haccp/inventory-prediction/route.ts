@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
-import { subDays, addDays, differenceInDays, format } from 'date-fns';
+import { subDays, addDays, format } from 'date-fns';
 
 interface MaterialPrediction {
   id: string;
@@ -25,7 +25,7 @@ interface MaterialPrediction {
   supplier_name: string | null;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = await createServerClient();
 

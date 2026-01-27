@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const shifts = data?.map((shift: any) => ({
+    const shifts = data?.map((shift: Record<string, unknown> & { stores?: { name?: string }; applicants?: unknown[] }) => ({
       ...shift,
       store_name: shift.stores?.name,
       applicants: shift.applicants || [],
@@ -161,7 +161,6 @@ export async function POST(request: NextRequest) {
           .eq('id', data.id);
       }
 
-      console.log(`긴급근무 ${data.id} 생성 후 ${invitedIds.length}명에게 알림 전송`);
     } catch (notifyError) {
       console.error('알림 전송 중 오류 (긴급근무 생성은 성공):', notifyError);
     }
@@ -179,7 +178,7 @@ export async function POST(request: NextRequest) {
  */
 async function sendEmergencyNotifications(
   supabase: ReturnType<typeof getServiceSupabaseClient>,
-  shift: any,
+  shift: { id: string; store_id: string; work_date: string; start_time: string; end_time: string; bonus?: number },
   storeData: { id: string; company_id: string; brand_id: string },
   showBonusInNotification: boolean
 ): Promise<string[]> {
@@ -195,7 +194,6 @@ async function sendEmergencyNotifications(
     .in('role', ['staff', 'part_time']);
 
   if (error || !staffList || staffList.length === 0) {
-    console.log('알림 대상 직원 없음');
     return [];
   }
 
@@ -206,7 +204,7 @@ async function sendEmergencyNotifications(
     .eq('work_date', workDate)
     .in('staff_id', staffList.map(s => s.id));
 
-  const scheduledStaffIds = new Set((scheduledStaff || []).map((s: any) => s.staff_id));
+  const scheduledStaffIds = new Set((scheduledStaff || []).map((s: { staff_id: string }) => s.staff_id));
 
   // 스케줄이 없는 직원만 필터
   const availableStaff = staffList
@@ -214,7 +212,6 @@ async function sendEmergencyNotifications(
     .slice(0, maxInvites);
 
   if (availableStaff.length === 0) {
-    console.log('가용 직원 없음 (모든 직원이 해당 날짜에 근무 예정)');
     return [];
   }
 

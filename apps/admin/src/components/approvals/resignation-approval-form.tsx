@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Check, AlertTriangle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 
@@ -55,7 +55,7 @@ const DEFAULT_RETURN_ITEMS: ReturnItem[] = [
 ];
 
 export function ResignationApprovalForm({
-  staffId,
+  staffId: _staffId,
   onSubmit,
   onCancel,
   loading = false,

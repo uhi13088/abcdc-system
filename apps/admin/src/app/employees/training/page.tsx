@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, BookOpen, Award, Calendar, Clock, User, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { Plus, Search, BookOpen, Award, Clock, User, X, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface Training {
   id: string;

@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 
+interface StockRecord {
+  materials?: { name: string; code: string; unit: string };
+  unit?: string;
+  [key: string]: unknown;
+}
+
 // GET /api/haccp/inventory/stocks
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const supabase = await createServerClient();
 
@@ -37,7 +43,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const result = (data || []).map((s: any) => ({
+    const result = (data || []).map((s: StockRecord) => ({
       ...s,
       material_name: s.materials?.name,
       material_code: s.materials?.code,

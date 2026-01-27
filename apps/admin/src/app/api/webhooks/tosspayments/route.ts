@@ -34,7 +34,7 @@ interface TossWebhookPayload {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = getSupabaseClient();
+  const _supabase = getSupabaseClient();
   try {
     const payload: TossWebhookPayload = await request.json();
 
@@ -87,7 +87,7 @@ async function handlePaymentStatusChanged(data: TossWebhookPayload['data']) {
  */
 async function handleVirtualAccountDeposit(data: TossWebhookPayload['data']) {
   const supabase = getSupabaseClient();
-  const { paymentKey, orderId, totalAmount, secret } = data;
+  const { paymentKey, orderId, totalAmount, secret: _secret } = data;
 
   // 결제 상태 업데이트
   await supabase

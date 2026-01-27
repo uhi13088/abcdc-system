@@ -137,7 +137,7 @@ export default function HACCPDashboard() {
 
       // 3초 후 결과 메시지 숨기기
       setTimeout(() => setQuickCheckResult(null), 5000);
-    } catch (err) {
+    } catch (_err) {
       setQuickCheckResult({
         success: false,
         message: '네트워크 오류가 발생했습니다.',

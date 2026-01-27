@@ -107,7 +107,7 @@ export async function GET(
     }
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
@@ -148,7 +148,7 @@ export async function PUT(
     const body = await request.json();
 
     // 본인인 경우 수정 가능 필드 제한
-    const selfEditableFields = ['name', 'phone', 'address', 'birth_date', 'bank_name', 'bank_account', 'account_holder'];
+    const _selfEditableFields = ['name', 'phone', 'address', 'birth_date', 'bank_name', 'bank_account', 'account_holder'];
 
     // Convert camelCase to snake_case for database
     const updateData: Record<string, unknown> = {};
@@ -198,7 +198,7 @@ export async function PUT(
     }
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
@@ -257,7 +257,7 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true, data });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

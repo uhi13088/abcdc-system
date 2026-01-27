@@ -85,6 +85,7 @@ export interface ApprovalRequest {
   requester_name: string;
   requester_role: string;
   type: 'LEAVE' | 'OVERTIME' | 'SCHEDULE_CHANGE' | 'PURCHASE' | 'DISPOSAL' | 'RESIGNATION' | 'ABSENCE_EXCUSE' | 'EXPENSE' | 'DOCUMENT' | 'OTHER';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details: Record<string, any>;
   approval_line: Array<{
     order: number;
@@ -125,6 +126,7 @@ export interface Contract {
 
 // Hooks with correct table and column names
 export function useUsers(options?: { storeId?: string; status?: string; role?: string }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const filter: Record<string, any> = {};
   if (options?.storeId) filter.store_id = options.storeId;
   if (options?.status) filter.status = options.status;
@@ -144,6 +146,7 @@ export function useUser(id: string | null) {
 }
 
 export function useStores(options?: { companyId?: string }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const filter: Record<string, any> = {};
   if (options?.companyId) filter.company_id = options.companyId;
 
@@ -158,6 +161,7 @@ export function useStore(id: string | null) {
 }
 
 export function useAttendances(options?: { workDate?: string; staffId?: string }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const filter: Record<string, any> = {};
   if (options?.workDate) filter.work_date = options.workDate;
   if (options?.staffId) filter.staff_id = options.staffId;
@@ -170,6 +174,7 @@ export function useAttendances(options?: { workDate?: string; staffId?: string }
 }
 
 export function useSchedules(options?: { workDate?: string; staffId?: string; storeId?: string }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const filter: Record<string, any> = {};
   if (options?.workDate) filter.work_date = options.workDate;
   if (options?.staffId) filter.staff_id = options.staffId;
@@ -183,6 +188,7 @@ export function useSchedules(options?: { workDate?: string; staffId?: string; st
 }
 
 export function useSalaries(options?: { year?: number; month?: number; staffId?: string }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const filter: Record<string, any> = {};
   if (options?.year) filter.year = options.year;
   if (options?.month) filter.month = options.month;
@@ -196,6 +202,7 @@ export function useSalaries(options?: { year?: number; month?: number; staffId?:
 }
 
 export function useApprovalRequests(options?: { finalStatus?: string; type?: string }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const filter: Record<string, any> = {};
   if (options?.finalStatus) filter.final_status = options.finalStatus;
   if (options?.type) filter.type = options.type;
@@ -216,6 +223,7 @@ export function useNotices(options?: { limit?: number }) {
 }
 
 export function useContracts(options?: { staffId?: string; status?: string }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const filter: Record<string, any> = {};
   if (options?.staffId) filter.staff_id = options.staffId;
   if (options?.status) filter.status = options.status;

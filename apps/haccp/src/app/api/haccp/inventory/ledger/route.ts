@@ -113,6 +113,7 @@ export async function GET(request: NextRequest) {
     }>();
 
     // 현재 재고 계산
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     stocksData?.forEach((stock: any) => {
       const key = stock.material_id;
       const existing = summaryMap.get(key);
@@ -144,6 +145,7 @@ export async function GET(request: NextRequest) {
     });
 
     // 트랜잭션 합계
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     transactionsData?.forEach((tx: any) => {
       const key = tx.material_id;
       let existing = summaryMap.get(key);
@@ -184,6 +186,7 @@ export async function GET(request: NextRequest) {
     );
 
     // 일별/월별 수불부 생성
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ledger: any[] = [];
 
     if (viewMode === 'daily' || viewMode === 'monthly') {
@@ -200,6 +203,7 @@ export async function GET(request: NextRequest) {
         production_count: number;
       }>>();
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       transactionsData?.forEach((tx: any) => {
         let dateKey: string;
         if (viewMode === 'monthly') {
@@ -257,6 +261,7 @@ export async function GET(request: NextRequest) {
         if (!beforeTx) return 0;
 
         let balance = 0;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         beforeTx.forEach((tx: any) => {
           switch (tx.transaction_type) {
             case 'IN':

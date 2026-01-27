@@ -10,7 +10,7 @@ import {
   Label,
   Alert,
 } from '@/components/ui';
-import { Send, Copy, Check, MessageSquare, MessageCircle, Share2, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Send, Copy, Check, MessageSquare, MessageCircle, ExternalLink, AlertTriangle } from 'lucide-react';
 import { DEFAULT_MINIMUM_WAGE } from '@abc/shared';
 
 // Kakao SDK type declaration
@@ -132,7 +132,7 @@ export default function InviteEmployeePage() {
     fetchData();
   }, []);
 
-  const toggleSendMethod = (method: string) => {
+  const _toggleSendMethod = (method: string) => {
     setFormData((prev) => ({
       ...prev,
       sendMethods: prev.sendMethods.includes(method)
@@ -165,7 +165,7 @@ export default function InviteEmployeePage() {
       } else {
         setError(result.error || '초대 생성에 실패했습니다.');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('초대 생성에 실패했습니다.');
     } finally {
       setSubmitting(false);
@@ -255,7 +255,7 @@ export default function InviteEmployeePage() {
   };
 
   // 네이티브 공유 (Web Share API)
-  const shareNative = async () => {
+  const _shareNative = async () => {
     if (!success?.inviteUrl) return;
 
     const shareTitle = `[${success.storeName}] 직원 등록 초대`;
@@ -268,7 +268,7 @@ export default function InviteEmployeePage() {
           title: shareTitle,
           text: `${shareText}\n\n${success.inviteUrl}`,
         });
-      } catch (err) {
+      } catch (_err) {
         // 사용자가 취소한 경우 무시
       }
     } else {

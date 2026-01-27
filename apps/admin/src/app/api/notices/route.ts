@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const notices = data?.map((notice: any) => ({
+    const notices = data?.map((notice: { users?: { name?: string }; stores?: { name?: string }; is_important?: boolean; [key: string]: unknown }) => ({
       ...notice,
       author_name: notice.users?.name,
       store_name: notice.stores?.name,

@@ -5,7 +5,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
-    const body = await request.json();
+    const _body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {

@@ -100,7 +100,7 @@ export async function GET(
     }
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
@@ -147,7 +147,7 @@ export async function PUT(
     const body = await request.json();
 
     // 보안: company_id, staff_id 등 핵심 필드는 수정 금지
-    const { company_id, staff_id, contract_number, created_by, ...safeUpdateData } = body;
+    const { company_id: _company_id, staff_id: _staff_id, contract_number: _contract_number, created_by: _created_by, ...safeUpdateData } = body;
 
     const { data, error } = await supabase
       .from('contracts')
@@ -161,7 +161,7 @@ export async function PUT(
     }
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
@@ -215,7 +215,7 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

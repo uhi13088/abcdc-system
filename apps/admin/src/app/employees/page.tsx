@@ -135,6 +135,7 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     fetchEmployees();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, statusFilter, roleFilter, storeFilter]);
 
   const handleCreateEmployee = async () => {
@@ -164,7 +165,7 @@ export default function EmployeesPage() {
         const data = await response.json();
         setError(data.error || '직원 생성에 실패했습니다.');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('직원 생성에 실패했습니다.');
     } finally {
       setSubmitting(false);
@@ -185,7 +186,7 @@ export default function EmployeesPage() {
         const data = await response.json();
         alert(data.error || '비활성화에 실패했습니다.');
       }
-    } catch (error) {
+    } catch (_error) {
       alert('비활성화에 실패했습니다.');
     }
   };

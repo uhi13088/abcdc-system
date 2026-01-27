@@ -6,8 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { pushNotificationService, emailService } from '@abc/shared/server';
-import { format, addMinutes, subMinutes, isAfter, isBefore } from 'date-fns';
+import { pushNotificationService } from '@abc/shared/server';
+import { format, subMinutes } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
 function getSupabaseClient() {
@@ -136,8 +136,8 @@ async function detectNoShowAnomalies(
         .maybeSingle();
 
       if (!existingAnomaly) {
-        const staff = schedule.users as any;
-        const store = schedule.stores as any;
+        const staff = schedule.users as { name?: string } | null;
+        const store = schedule.stores as { name?: string } | null;
 
         anomalies.push({
           type: 'NO_SHOW',
@@ -192,8 +192,8 @@ async function detectMissingCheckoutAnomalies(
   if (error || !attendances) return;
 
   for (const attendance of attendances) {
-    const staff = attendance.users as any;
-    const store = attendance.stores as any;
+    const staff = attendance.users as { name?: string } | null;
+    const store = attendance.stores as { name?: string } | null;
 
     anomalies.push({
       type: 'MISSING_CHECKOUT',
@@ -242,9 +242,9 @@ async function detectLocationAnomalies(
   if (error || !unresolvedAnomalies) return;
 
   for (const anomaly of unresolvedAnomalies) {
-    const attendance = anomaly.attendances as any;
-    const staff = attendance?.users as any;
-    const store = attendance?.stores as any;
+    const attendance = anomaly.attendances as { staff_id: string; store_id: string; users?: { name?: string } | null; stores?: { name?: string } | null } | null;
+    const staff = attendance?.users;
+    const store = attendance?.stores;
 
     if (staff && store) {
       anomalies.push({
