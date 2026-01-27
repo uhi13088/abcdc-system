@@ -38,10 +38,9 @@ interface HaccpSettings {
 }
 
 // 역할 계층 정의
-type UserRole = 'super_admin' | 'company_admin' | 'manager' | 'store_manager' | 'team_leader' | 'staff';
+type UserRole = 'company_admin' | 'manager' | 'store_manager' | 'team_leader' | 'staff';
 
 const ROLE_LABELS: Record<UserRole, string> = {
-  super_admin: '슈퍼 관리자',
   company_admin: '회사 관리자',
   manager: '매니저',
   store_manager: '매장 관리자',
@@ -50,7 +49,6 @@ const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
-  super_admin: '플랫폼 전체 관리 권한',
   company_admin: '회사 전체 관리 권한',
   manager: '회사 내 운영 관리 권한',
   store_manager: '매장 운영 관리 권한',
