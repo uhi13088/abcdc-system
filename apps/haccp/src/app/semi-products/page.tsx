@@ -170,6 +170,43 @@ export default function SemiProductsPage() {
     }
   };
 
+  const handleAutoFill = () => {
+    const sampleSemiProducts = [
+      { code: 'SP-2024-001', name: '양념장 베이스', process: '혼합/숙성', location: '냉장고 A-1', condition: '냉장 보관 (0-10°C)', temp: 4 },
+      { code: 'SP-2024-002', name: '간장 소스 믹스', process: '배합/살균', location: '냉장고 A-2', condition: '냉장 보관 (0-10°C)', temp: 5 },
+      { code: 'SP-2024-003', name: '고추장 양념', process: '혼합/발효', location: '발효실 B-1', condition: '상온 발효 (20-25°C)', temp: 22 },
+      { code: 'SP-2024-004', name: '마리네이드 소스', process: '혼합', location: '냉장고 A-3', condition: '냉장 보관 (0-10°C)', temp: 3 },
+      { code: 'SP-2024-005', name: '바베큐 글레이즈', process: '가열/농축', location: '냉장고 B-1', condition: '냉장 보관 (0-10°C)', temp: 6 },
+    ];
+    const sample = sampleSemiProducts[Math.floor(Math.random() * sampleSemiProducts.length)];
+    const plannedQty = Math.floor(Math.random() * 50 + 30);
+    const actualQty = Math.floor(plannedQty * (0.9 + Math.random() * 0.15));
+
+    setFormData({
+      product_code: sample.code,
+      product_name: sample.name,
+      production_date: new Date().toISOString().split('T')[0],
+      production: {
+        process: sample.process,
+        planned_qty: plannedQty,
+        actual_qty: actualQty,
+        unit: 'kg',
+        start_time: '09:00',
+        end_time: '12:00',
+      },
+      quality: {
+        appearance: 'NORMAL',
+        texture: 'NORMAL',
+        color: 'NORMAL',
+      },
+      storage: {
+        location: sample.location,
+        temperature: sample.temp,
+        storage_condition: sample.condition,
+      },
+    });
+  };
+
   const filteredProducts = semiProducts.filter(
     (product) =>
       product.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -432,6 +469,13 @@ export default function SemiProductsPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              <button
+                type="button"
+                onClick={handleAutoFill}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
+              >
+                ✨ 자동 입력 (샘플 데이터)
+              </button>
               {/* Basic Info */}
               <div>
                 <h3 className="text-sm font-medium text-gray-900 mb-3">기본 정보</h3>

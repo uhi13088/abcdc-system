@@ -137,6 +137,29 @@ export default function MaterialsPage() {
     setShowModal(true);
   };
 
+  const handleAutoFill = () => {
+    const sampleMaterials = [
+      { code: 'RM-2024-001', name: '국내산 돼지고기 (삼겹살)', type: '원료' as const, specification: '1등급 / 냉장', storage_temp: '0~5°C', shelf_life: 14, unit: 'kg', allergens: [] },
+      { code: 'RM-2024-002', name: '국내산 소고기 (등심)', type: '원료' as const, specification: '1++등급 / 냉장', storage_temp: '0~5°C', shelf_life: 10, unit: 'kg', allergens: [] },
+      { code: 'SM-2024-001', name: '양조간장', type: '부재료' as const, specification: '500ml / 병', storage_temp: '실온', shelf_life: 365, unit: 'ea', allergens: ['wheat', 'soybean'] },
+      { code: 'SM-2024-002', name: '참기름', type: '부재료' as const, specification: '320ml / 병', storage_temp: '실온', shelf_life: 180, unit: 'ea', allergens: ['sesame'] },
+      { code: 'PM-2024-001', name: 'PE 포장필름', type: '포장재' as const, specification: '500mm x 1000m', storage_temp: '실온', shelf_life: 730, unit: 'ea', allergens: [] },
+    ];
+    const sample = sampleMaterials[Math.floor(Math.random() * sampleMaterials.length)];
+    setFormData({
+      ...formData,
+      code: sample.code,
+      name: sample.name,
+      type: sample.type,
+      specification: sample.specification,
+      storage_temp: sample.storage_temp,
+      shelf_life: sample.shelf_life,
+      unit: sample.unit,
+      allergens: sample.allergens,
+      supplier_id: suppliers.length > 0 ? suppliers[0].id : '',
+    });
+  };
+
   const filteredMaterials = materials.filter(m =>
     m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     m.code.toLowerCase().includes(searchQuery.toLowerCase())
@@ -264,6 +287,13 @@ export default function MaterialsPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <button
+                type="button"
+                onClick={handleAutoFill}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
+              >
+                ✨ 자동 입력 (샘플 데이터)
+              </button>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label required>코드</Label>

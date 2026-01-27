@@ -233,6 +233,69 @@ export default function ProductionPage() {
     });
   };
 
+  // 자동 입력 기능
+  const handleAutoFill = () => {
+    const today = new Date();
+    const lotNumber = `LOT-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')}`;
+
+    // 제품 선택 (첫 번째 제품 또는 랜덤)
+    const selectedProduct = products.length > 0 ? products[Math.floor(Math.random() * products.length)] : null;
+    const standard = selectedProduct ? getStandardForProduct(selectedProduct.id) : null;
+
+    // 적정 온습도 생성
+    let temp = 20 + Math.random() * 5; // 기본값 20-25도
+    let humidity = 50 + Math.random() * 10; // 기본값 50-60%
+
+    if (standard) {
+      // 기준 범위 내 값 생성
+      temp = standard.temp_min + Math.random() * (standard.temp_max - standard.temp_min);
+      humidity = standard.humidity_min + Math.random() * (standard.humidity_max - standard.humidity_min);
+    }
+
+    // 생산량 생성
+    const planned = Math.floor(100 + Math.random() * 400); // 100-500
+    const actual = Math.floor(planned * (0.95 + Math.random() * 0.05)); // 95-100%
+    const defect = Math.floor(actual * Math.random() * 0.02); // 0-2% 불량
+
+    // 작업자 이름
+    const workerNames = ['김생산', '이품질', '박관리'];
+    const selectedWorkers = workerNames.slice(0, Math.floor(Math.random() * 2) + 1);
+
+    setFormData({
+      lot_number: lotNumber,
+      product_id: selectedProduct?.id || '',
+      line_number: `L-${Math.floor(Math.random() * 3) + 1}`,
+      start_time: '08:00',
+      end_time: '17:00',
+      planned_quantity: planned,
+      actual_quantity: actual,
+      defect_quantity: defect,
+      unit: 'kg',
+      production_temp: Math.round(temp * 10) / 10,
+      production_humidity: Math.round(humidity * 10) / 10,
+      worker_names: selectedWorkers,
+      supervisor_name: '홍책임',
+      defect_reason: defect > 0 ? '경미한 외관 불량' : '',
+      defect_action: defect > 0 ? '선별 후 재가공' : '',
+      notes: '',
+    });
+  };
+
+  // 품질검사 자동 입력
+  const handleQualityAutoFill = () => {
+    setQualityFormData({
+      appearance_check: true,
+      weight_check: true,
+      packaging_check: true,
+      label_check: true,
+      metal_detection_check: true,
+      taste_check: true,
+      smell_check: true,
+      color_check: true,
+      quality_notes: '',
+    });
+  };
+
   const handleQualityCheck = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRecord) return;
@@ -881,6 +944,15 @@ export default function ProductionPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* 자동 입력 버튼 */}
+              <button
+                type="button"
+                onClick={handleAutoFill}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
+              >
+                ✨ 자동 입력 (샘플 생산 데이터)
+              </button>
+
               {/* 기본 정보 */}
               <div className="space-y-4">
                 <h3 className="font-medium text-gray-900 border-b pb-2">기본 정보</h3>
@@ -1155,6 +1227,15 @@ export default function ProductionPage() {
               </button>
             </div>
             <form onSubmit={handleQualityCheck} className="space-y-4">
+              {/* 자동 입력 버튼 */}
+              <button
+                type="button"
+                onClick={handleQualityAutoFill}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
+              >
+                ✨ 자동 입력 (전체 합격 처리)
+              </button>
+
               <div className="grid grid-cols-2 gap-3">
                 {Object.entries(QUALITY_CHECK_LABELS).map(([key, label]) => (
                   <label

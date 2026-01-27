@@ -234,6 +234,42 @@ export default function TrainingPage() {
   const totalHours = trainings.filter(t => t.status === 'COMPLETED').reduce((acc, t) => acc + t.duration_hours, 0);
   const totalAttendees = trainings.reduce((acc, t) => acc + (t.attendees || []).filter(a => a.completed).length, 0);
 
+  // 자동 입력 핸들러
+  const handleAutoFill = () => {
+    const trainingTypes = ['HACCP_BASIC', 'HACCP_ADVANCED', 'HYGIENE', 'SAFETY', 'CCP'] as const;
+    const trainingTitles: Record<string, string[]> = {
+      'HACCP_BASIC': ['HACCP 기본 교육', 'HACCP 시스템 이해 교육', 'HACCP 입문 과정'],
+      'HACCP_ADVANCED': ['HACCP 심화 교육', 'HACCP 전문가 과정', 'HACCP 팀장 교육'],
+      'HYGIENE': ['개인위생 관리 교육', '식품위생 교육', '위생관리 실무 교육'],
+      'SAFETY': ['산업안전 교육', '안전보건 교육', '작업장 안전 교육'],
+      'CCP': ['CCP 모니터링 교육', 'CCP 관리 실무', '한계기준 관리 교육'],
+    };
+    const instructors = ['김영수', '이정민', '박서연', '최현우', '정다은'];
+    const instructorCompanies = ['', '한국식품안전관리원', 'HACCP교육원', '품질관리연구소', ''];
+    const locations = ['대회의실', '교육장 A', '본사 세미나실', '품질관리팀 회의실', '온라인'];
+
+    const randomType = trainingTypes[Math.floor(Math.random() * trainingTypes.length)];
+    const titles = trainingTitles[randomType];
+    const randomTitle = titles[Math.floor(Math.random() * titles.length)];
+    const randomInstructorIdx = Math.floor(Math.random() * instructors.length);
+
+    const today = new Date();
+    const year = today.getFullYear();
+
+    setFormData({
+      training_type: randomType,
+      title: `${year}년 ${randomTitle}`,
+      instructor: instructors[randomInstructorIdx],
+      instructor_company: instructorCompanies[randomInstructorIdx],
+      duration_hours: [1, 2, 2, 3, 4][Math.floor(Math.random() * 5)],
+      training_date: today.toISOString().split('T')[0],
+      location: locations[Math.floor(Math.random() * locations.length)],
+      materials: 'HACCP 교육 교재, 실습 자료, 평가지',
+      content_summary: `${randomTitle}에 대한 이론 및 실무 교육 진행. 주요 내용: 식품안전관리 기본 원칙, 위해요소 분석 방법, 관리기준 설정 및 모니터링 절차 등.`,
+      notes: '교육 완료 후 평가 실시 예정',
+    });
+  };
+
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -416,6 +452,14 @@ export default function TrainingPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <button
+                type="button"
+                onClick={handleAutoFill}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
+              >
+                ✨ 자동 입력 (샘플 데이터)
+              </button>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>교육 유형</Label>

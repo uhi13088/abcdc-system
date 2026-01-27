@@ -228,6 +228,55 @@ export default function HygienePage() {
     setShowModal(true);
   };
 
+  // 자동 입력 기능
+  const handleAutoFill = () => {
+    const periodKey =
+      selectedPeriod === '작업전'
+        ? 'pre_work'
+        : selectedPeriod === '작업중'
+          ? 'during_work'
+          : 'post_work';
+    const checkItems = CHECK_ITEMS[periodKey];
+
+    // 모든 체크박스를 체크 상태로
+    const autoChecks = Object.fromEntries(
+      checkItems.items.map((item) => [item.key, true])
+    );
+
+    // 온도를 적정 범위 내 값으로 설정 (기준값에서 약간의 편차)
+    const autoTemps: Record<string, number> = {};
+    checkItems.temperatures.forEach((temp) => {
+      if (temp.target < 0) {
+        // 냉동: -18도 기준 → -19 ~ -17 사이 랜덤
+        autoTemps[temp.key] = temp.target + (Math.random() * 2 - 1);
+      } else {
+        // 냉장: 5도 기준 → 3 ~ 6 사이 랜덤
+        autoTemps[temp.key] = temp.target + (Math.random() * 3 - 1);
+      }
+      autoTemps[temp.key] = Math.round(autoTemps[temp.key] * 10) / 10;
+    });
+
+    if (selectedPeriod === '작업전') {
+      setFormData((prev) => ({
+        ...prev,
+        pre_work_checks: autoChecks,
+        temperature_records: { ...prev.temperature_records, ...autoTemps },
+      }));
+    } else if (selectedPeriod === '작업중') {
+      setFormData((prev) => ({
+        ...prev,
+        during_work_checks: autoChecks,
+        temperature_records: { ...prev.temperature_records, ...autoTemps },
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        post_work_checks: autoChecks,
+        temperature_records: { ...prev.temperature_records, ...autoTemps },
+      }));
+    }
+  };
+
   const periodColors: Record<CheckPeriod, string> = {
     작업전: 'bg-amber-100 text-amber-700 border-amber-200',
     작업중: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -558,6 +607,17 @@ export default function HygienePage() {
                 className="text-gray-500 hover:text-gray-700"
               >
                 닫기
+              </button>
+            </div>
+
+            {/* 자동 입력 버튼 */}
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={handleAutoFill}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
+              >
+                ✨ 자동 입력 (모든 항목 정상 처리)
               </button>
             </div>
 

@@ -218,6 +218,61 @@ export default function InspectionsPage() {
     }
   };
 
+  const handleAutoFill = () => {
+    const today = new Date();
+    const pastDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const futureDate = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
+    const lotDate = today.toISOString().split('T')[0].replace(/-/g, '');
+    const lotNumber = `LOT-${lotDate}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')}`;
+
+    const sampleQuantities = [25, 50, 100, 150];
+    const sampleLocations = ['냉장고 A-1', '냉장고 A-2', '냉동고 B-1', '상온 창고 C-1'];
+    const sampleInvoices = ['INV-2024-00' + String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0')];
+    const sampleTemps = [3.5, 4.0, 4.5, 5.0, -18.0, -17.5];
+
+    const randomMaterial = materials.length > 0 ? materials[Math.floor(Math.random() * materials.length)] : null;
+    const quantity = sampleQuantities[Math.floor(Math.random() * sampleQuantities.length)];
+
+    setFormData({
+      ...initialFormData,
+      material_id: randomMaterial?.id || '',
+      supplier_id: randomMaterial?.supplier_id || (suppliers.length > 0 ? suppliers[0].id : ''),
+      lot_number: lotNumber,
+      quantity: quantity,
+      unit: 'kg',
+      expiry_date: futureDate.toISOString().split('T')[0],
+      manufacture_date: pastDate.toISOString().split('T')[0],
+      received_quantity: quantity,
+      accepted_quantity: quantity,
+      rejected_quantity: 0,
+      invoice_number: sampleInvoices[0],
+      storage_location: sampleLocations[Math.floor(Math.random() * sampleLocations.length)],
+      appearance_check: true,
+      packaging_check: true,
+      label_check: true,
+      temp_check: { value: sampleTemps[Math.floor(Math.random() * sampleTemps.length)], passed: true },
+      expiry_check: true,
+      document_check: true,
+      foreign_matter_check: true,
+      odor_check: true,
+      weight_check: true,
+      sensory_check: true,
+      freshness_check: true,
+      color_check: true,
+      texture_check: true,
+      packaging_integrity_check: true,
+      printing_check: true,
+      specification_check: true,
+      test_report_check: true,
+      certificate_check: true,
+      remarks: '정상 입고 검사 완료',
+    });
+
+    if (randomMaterial) {
+      setSelectedMaterialType(randomMaterial.type);
+    }
+  };
+
   // 검사 결과 자동 계산
   const calculateResult = (): 'PASS' | 'FAIL' | 'CONDITIONAL' => {
     if (!selectedMaterialType) return 'PASS';
@@ -626,6 +681,13 @@ export default function InspectionsPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+              <button
+                type="button"
+                onClick={handleAutoFill}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
+              >
+                ✨ 자동 입력 (샘플 데이터)
+              </button>
               {/* 기본 정보 */}
               <div className="grid grid-cols-2 gap-4">
                 <div>

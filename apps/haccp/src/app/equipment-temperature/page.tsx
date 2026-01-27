@@ -98,6 +98,30 @@ export default function EquipmentTemperaturePage() {
     return EQUIPMENT_LOCATIONS.find((l) => l.key === location);
   };
 
+  const handleAutoFill = () => {
+    const locationConfig = EQUIPMENT_LOCATIONS.find(l => l.key === formData.equipment_location);
+    let sampleTemp: number;
+
+    if (locationConfig) {
+      if (locationConfig.type === 'freezer') {
+        // 냉동고: 기준 -18°C, 정상 범위 내 랜덤
+        sampleTemp = locationConfig.target + (Math.random() * 3 - 1.5);
+      } else {
+        // 냉장고: 기준 5°C, 정상 범위 내 랜덤
+        sampleTemp = locationConfig.target + (Math.random() * 4 - 2);
+      }
+      sampleTemp = Math.round(sampleTemp * 10) / 10;
+    } else {
+      sampleTemp = 4.5;
+    }
+
+    setFormData({
+      equipment_location: formData.equipment_location,
+      temperature: sampleTemp.toString(),
+      deviation_action: '',
+    });
+  };
+
   const isWithinLimit = (record: TemperatureRecord) => {
     const config = getLocationConfig(record.equipment_location);
     if (!config) return true;
@@ -321,6 +345,13 @@ export default function EquipmentTemperaturePage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              <button
+                type="button"
+                onClick={handleAutoFill}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
+              >
+                ✨ 자동 입력 (샘플 데이터)
+              </button>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   장비 위치

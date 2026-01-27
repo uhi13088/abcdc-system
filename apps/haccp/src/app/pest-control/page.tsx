@@ -344,6 +344,28 @@ export default function PestControlPage() {
     return acc;
   }, {} as Record<string, TrapCheckInput[]>);
 
+  // 자동 입력 핸들러
+  const handleAutoFill = () => {
+    const checkTypes = ['DAILY', 'WEEKLY', 'MONTHLY', 'EXTERNAL'] as const;
+    const randomCheckType = checkTypes[Math.floor(Math.random() * 3)]; // EXTERNAL 제외
+    const conditions = ['양호', '양호', '양호', '교체필요'] as const;
+
+    // 포획기 데이터 자동 채우기
+    const autoFilledTrapChecks = formData.trap_checks.map(trap => ({
+      ...trap,
+      catch_count: Math.floor(Math.random() * 3), // 0-2 사이의 정상 범위
+      condition: conditions[Math.floor(Math.random() * conditions.length)],
+    }));
+
+    setFormData({
+      check_type: randomCheckType,
+      trap_checks: autoFilledTrapChecks,
+      findings: '정기 점검 결과 특이사항 없음. 모든 포획기 정상 작동 확인.',
+      corrective_action: '',
+      external_company: '',
+    });
+  };
+
   if (settingsLoading) {
     return (
       <div className="p-6 flex items-center justify-center h-64">
@@ -569,6 +591,13 @@ export default function PestControlPage() {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
+                <button
+                  type="button"
+                  onClick={handleAutoFill}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
+                >
+                  ✨ 자동 입력 (샘플 데이터)
+                </button>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">점검 유형</label>

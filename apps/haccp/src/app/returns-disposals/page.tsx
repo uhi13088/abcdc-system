@@ -192,6 +192,45 @@ export default function ReturnsDisposalsPage() {
     setSelectedRecord(null);
   };
 
+  const handleAutoFill = () => {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const lotDate = today.toISOString().split('T')[0].replace(/-/g, '');
+
+    const sampleDisposals = [
+      { record_type: 'DISPOSAL' as const, item_name: '숯불갈비 양념 세트', reason_category: 'EXPIRY' as const, reason_detail: '유통기한 만료로 인한 폐기', disposal_method: 'DESTRUCTION' as const, disposal_company: '클린환경 주식회사', disposal_location: '지정 폐기물 처리장' },
+      { record_type: 'DISPOSAL' as const, item_name: '돼지불백 양념육', reason_category: 'QUALITY_DEFECT' as const, reason_detail: '냉장 온도 이탈로 인한 품질 이상', disposal_method: 'INCINERATION' as const, disposal_company: '에코그린 환경', disposal_location: '소각 처리장' },
+      { record_type: 'RETURN' as const, item_name: '매콤 닭갈비', reason_category: 'CUSTOMER_COMPLAINT' as const, reason_detail: '고객 불만 접수 - 이물질 발견', customer_name: '이마트 강남점', customer_contact: '02-555-1234' },
+      { record_type: 'RECALL' as const, item_name: '소불고기 간편식', reason_category: 'CONTAMINATION' as const, reason_detail: '제조공정 오염 가능성으로 인한 자발적 회수', customer_name: '롯데마트 잠실점', customer_contact: '02-666-5678' },
+    ];
+    const sample = sampleDisposals[Math.floor(Math.random() * sampleDisposals.length)];
+    const quantities = [3, 5, 10, 15, 20];
+
+    setFormData({
+      record_type: sample.record_type,
+      record_date: todayStr,
+      item_type: 'product',
+      product_id: products.length > 0 ? products[Math.floor(Math.random() * products.length)].id : '',
+      material_id: '',
+      item_name: sample.item_name,
+      lot_number: `LOT-${lotDate}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')}`,
+      quantity: quantities[Math.floor(Math.random() * quantities.length)],
+      unit: 'kg',
+      reason_category: sample.reason_category,
+      reason_detail: sample.reason_detail,
+      action_taken: sample.record_type === 'DISPOSAL' ? '폐기 처리 완료' : '반품/회수 처리 진행',
+      disposal_method: sample.disposal_method || '',
+      disposal_date: sample.record_type === 'DISPOSAL' ? todayStr : '',
+      disposal_location: sample.disposal_location || '',
+      disposal_company: sample.disposal_company || '',
+      disposal_cost: sample.record_type === 'DISPOSAL' ? Math.floor(Math.random() * 50 + 10) * 1000 : 0,
+      customer_name: sample.customer_name || '',
+      customer_contact: sample.customer_contact || '',
+      return_date: sample.record_type !== 'DISPOSAL' ? todayStr : '',
+      notes: sample.record_type === 'DISPOSAL' ? '폐기 증명서 보관 필요' : '고객 응대 완료',
+    });
+  };
+
   const handleEdit = (record: ReturnDisposal) => {
     setSelectedRecord(record);
     setFormData({
@@ -475,6 +514,13 @@ export default function ReturnsDisposalsPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <button
+                type="button"
+                onClick={handleAutoFill}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
+              >
+                ✨ 자동 입력 (샘플 데이터)
+              </button>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label required>유형</Label>

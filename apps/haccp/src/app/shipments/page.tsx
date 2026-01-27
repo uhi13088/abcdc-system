@@ -399,6 +399,68 @@ export default function ShipmentsPage() {
     totalItems: shipments.reduce((sum, s) => sum + (s.items?.length || 0), 0),
   };
 
+  // 자동 입력 핸들러
+  const handleAutoFill = () => {
+    const customers = [
+      { name: '신세계푸드', address: '서울시 강남구 삼성동 159', contact: '02-1234-5678' },
+      { name: '롯데마트 본사', address: '서울시 송파구 잠실동 40', contact: '02-2345-6789' },
+      { name: '이마트 물류센터', address: '경기도 용인시 처인구 양지면', contact: '031-345-6789' },
+      { name: 'CJ프레시웨이', address: '서울시 중구 동호로 330', contact: '02-3456-7890' },
+      { name: '홈플러스 용산점', address: '서울시 용산구 한강대로 23길', contact: '02-4567-8901' },
+    ];
+    const drivers = [
+      { name: '김철수', contact: '010-1234-5678' },
+      { name: '이영희', contact: '010-2345-6789' },
+      { name: '박민준', contact: '010-3456-7890' },
+      { name: '최서연', contact: '010-4567-8901' },
+    ];
+    const vehicleNumbers = ['12가 3456', '34나 5678', '56다 7890', '78라 9012'];
+
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0].replace(/-/g, '');
+    const randomNum = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+
+    const randomCustomer = customers[Math.floor(Math.random() * customers.length)];
+    const randomDriver = drivers[Math.floor(Math.random() * drivers.length)];
+    const randomVehicle = vehicleNumbers[Math.floor(Math.random() * vehicleNumbers.length)];
+
+    // LOT 번호 생성
+    const lotNumber = `LOT-${dateStr}-${randomNum}`;
+
+    // 제품 아이템 생성 (1-3개)
+    const itemCount = Math.floor(Math.random() * 3) + 1;
+    const units = ['box', 'ea', 'kg'];
+    const autoItems: ShipmentItem[] = [];
+
+    for (let i = 0; i < itemCount; i++) {
+      const productId = products.length > 0 ? products[Math.floor(Math.random() * products.length)].id : '';
+      autoItems.push({
+        product_id: productId,
+        lot_number: `LOT-${dateStr}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
+        quantity: Math.floor(Math.random() * 50) + 10,
+        unit: units[Math.floor(Math.random() * units.length)],
+      });
+    }
+
+    // 예상 도착 시간 (현재 시간 + 2-4시간)
+    const arrivalHour = today.getHours() + 2 + Math.floor(Math.random() * 3);
+    const arrivalTime = `${String(arrivalHour % 24).padStart(2, '0')}:00`;
+
+    setFormData({
+      shipment_number: '', // 자동 생성
+      customer_name: randomCustomer.name,
+      customer_address: randomCustomer.address,
+      customer_contact: randomCustomer.contact,
+      items: autoItems.length > 0 ? autoItems : [{ product_id: '', lot_number: lotNumber, quantity: 20, unit: 'box' }],
+      vehicle_number: randomVehicle,
+      vehicle_temp: parseFloat((Math.random() * 3 + 2).toFixed(1)), // 2-5°C
+      driver_name: randomDriver.name,
+      driver_contact: randomDriver.contact,
+      expected_arrival_time: arrivalTime,
+      notes: '냉장 상태 유지 필요. 하차 시 온도 확인 요망.',
+    });
+  };
+
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -783,6 +845,14 @@ export default function ShipmentsPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-6">
+              <button
+                type="button"
+                onClick={handleAutoFill}
+                className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
+              >
+                ✨ 자동 입력 (샘플 데이터)
+              </button>
+
               {/* 기본 정보 */}
               <div className="space-y-4">
                 <h3 className="font-medium text-gray-900 border-b pb-2">기본 정보</h3>
