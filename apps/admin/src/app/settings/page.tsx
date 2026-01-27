@@ -158,6 +158,108 @@ function SettingsContent() {
     } | null;
   } | null>(null);
 
+  // Password change state
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // Account deletion state
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Handle password change
+  const handleChangePassword = async () => {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setMessage({ type: 'error', text: '모든 필드를 입력해주세요.' });
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setMessage({ type: 'error', text: '새 비밀번호가 일치하지 않습니다.' });
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      setMessage({ type: 'error', text: '비밀번호는 최소 6자 이상이어야 합니다.' });
+      return;
+    }
+
+    setPasswordLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const supabase = createClient();
+
+      // First verify current password by re-authenticating
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user?.email) {
+        throw new Error('사용자 정보를 찾을 수 없습니다.');
+      }
+
+      // Try to sign in with current password to verify it
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: userData.user.email,
+        password: passwordForm.currentPassword,
+      });
+
+      if (signInError) {
+        throw new Error('현재 비밀번호가 올바르지 않습니다.');
+      }
+
+      // Update password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: passwordForm.newPassword,
+      });
+
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+
+      setMessage({ type: 'success', text: '비밀번호가 성공적으로 변경되었습니다.' });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '비밀번호 변경에 실패했습니다.';
+      setMessage({ type: 'error', text: errorMessage });
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // Handle account deletion
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== '계정삭제') {
+      setMessage({ type: 'error', text: '"계정삭제"를 정확히 입력해주세요.' });
+      return;
+    }
+
+    setDeleteLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const response = await fetch('/api/auth/delete-account', {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || '계정 삭제에 실패했습니다.');
+      }
+
+      // Sign out and redirect
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      window.location.href = '/auth/login?message=account_deleted';
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : '계정 삭제에 실패했습니다.';
+      setMessage({ type: 'error', text: errorMessage });
+      setDeleteLoading(false);
+    }
+  };
+
   const fetchTuyaSettings = async () => {
     try {
       const response = await fetch('/api/settings/tuya');
@@ -194,6 +296,7 @@ function SettingsContent() {
 
       setMessage({ type: 'success', text: 'Tuya API 설정이 저장되었습니다.' });
       fetchTuyaSettings();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message || '저장에 실패했습니다.' });
     } finally {
@@ -217,7 +320,7 @@ function SettingsContent() {
       } else {
         setMessage({ type: 'error', text: result.message });
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage({ type: 'error', text: '연결 테스트 중 오류가 발생했습니다.' });
     } finally {
       setTuyaTesting(false);
@@ -1907,17 +2010,37 @@ function SettingsContent() {
                   <div className="space-y-4 max-w-md">
                     <div>
                       <Label>현재 비밀번호</Label>
-                      <Input type="password" className="mt-1" />
+                      <Input
+                        type="password"
+                        className="mt-1"
+                        value={passwordForm.currentPassword}
+                        onChange={(e) => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
+                        placeholder="현재 비밀번호 입력"
+                      />
                     </div>
                     <div>
                       <Label>새 비밀번호</Label>
-                      <Input type="password" className="mt-1" />
+                      <Input
+                        type="password"
+                        className="mt-1"
+                        value={passwordForm.newPassword}
+                        onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                        placeholder="새 비밀번호 (최소 6자)"
+                      />
                     </div>
                     <div>
                       <Label>새 비밀번호 확인</Label>
-                      <Input type="password" className="mt-1" />
+                      <Input
+                        type="password"
+                        className="mt-1"
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                        placeholder="새 비밀번호 다시 입력"
+                      />
                     </div>
-                    <Button>비밀번호 변경</Button>
+                    <Button onClick={handleChangePassword} disabled={passwordLoading}>
+                      {passwordLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 변경 중...</> : '비밀번호 변경'}
+                    </Button>
                   </div>
                 </div>
 
@@ -1926,8 +2049,51 @@ function SettingsContent() {
                   <p className="text-sm text-gray-500 mb-4">
                     계정을 삭제하면 모든 데이터가 영구적으로 삭제됩니다.
                   </p>
-                  <Button variant="destructive">계정 삭제</Button>
+                  <Button variant="destructive" onClick={() => setShowDeleteModal(true)}>
+                    계정 삭제
+                  </Button>
                 </div>
+
+                {/* Delete Account Modal */}
+                {showDeleteModal && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                      <h3 className="text-lg font-bold text-red-600 mb-4">계정 삭제 확인</h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        이 작업은 되돌릴 수 없습니다. 계정과 관련된 모든 데이터가 영구적으로 삭제됩니다.
+                      </p>
+                      <p className="text-sm text-gray-600 mb-2">
+                        삭제를 확인하려면 <strong>&quot;계정삭제&quot;</strong>를 입력하세요:
+                      </p>
+                      <Input
+                        value={deleteConfirmText}
+                        onChange={(e) => setDeleteConfirmText(e.target.value)}
+                        placeholder="계정삭제"
+                        className="mb-4"
+                      />
+                      <div className="flex gap-3">
+                        <Button
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => {
+                            setShowDeleteModal(false);
+                            setDeleteConfirmText('');
+                          }}
+                        >
+                          취소
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          className="flex-1"
+                          onClick={handleDeleteAccount}
+                          disabled={deleteLoading || deleteConfirmText !== '계정삭제'}
+                        >
+                          {deleteLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 삭제 중...</> : '계정 삭제'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

@@ -246,7 +246,7 @@ async function detectLocationAnomalies(
     const staff = attendance?.users;
     const store = attendance?.stores;
 
-    if (staff && store) {
+    if (attendance && staff?.name && store?.name) {
       anomalies.push({
         type: 'LOCATION_OUTSIDE_GEOFENCE',
         staffId: attendance.staff_id,

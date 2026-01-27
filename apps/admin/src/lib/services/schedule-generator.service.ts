@@ -250,31 +250,99 @@ export class ScheduleGeneratorService {
   }
 
   /**
-   * 공휴일 목록 조회 (간단한 구현)
-   * 실제로는 외부 API 또는 데이터베이스에서 조회
+   * 공휴일 목록 조회
+   * 양력 고정 공휴일 + 음력 공휴일 (설날, 추석, 부처님오신날) 포함
    */
   private async getHolidays(startDate: Date, endDate: Date): Promise<string[]> {
-    const year = startDate.getFullYear();
+    const holidays: string[] = [];
+    const startYear = startDate.getFullYear();
+    const endYear = endDate.getFullYear();
 
-    // 한국 공휴일 (고정)
-    const fixedHolidays = [
-      `${year}-01-01`, // 신정
-      `${year}-03-01`, // 삼일절
-      `${year}-05-05`, // 어린이날
-      `${year}-06-06`, // 현충일
-      `${year}-08-15`, // 광복절
-      `${year}-10-03`, // 개천절
-      `${year}-10-09`, // 한글날
-      `${year}-12-25`, // 크리스마스
-    ];
+    for (let year = startYear; year <= endYear; year++) {
+      // 양력 고정 공휴일
+      const fixedHolidays = [
+        `${year}-01-01`, // 신정
+        `${year}-03-01`, // 삼일절
+        `${year}-05-05`, // 어린이날
+        `${year}-06-06`, // 현충일
+        `${year}-08-15`, // 광복절
+        `${year}-10-03`, // 개천절
+        `${year}-10-09`, // 한글날
+        `${year}-12-25`, // 크리스마스
+      ];
+      holidays.push(...fixedHolidays);
 
-    // TODO: 음력 공휴일 (설날, 추석 등) 및 대체공휴일 처리
-    // 실제 구현 시 공휴일 API 또는 데이터베이스 사용
+      // 음력 공휴일 (설날, 추석, 부처님오신날)
+      const lunarHolidays = this.getLunarHolidays(year);
+      holidays.push(...lunarHolidays);
 
-    return fixedHolidays.filter((h) => {
+      // 대체공휴일 처리: 어린이날이 토/일이면 월요일 대체
+      const childrensDay = new Date(`${year}-05-05`);
+      const dayOfWeek = childrensDay.getDay();
+      if (dayOfWeek === 0) { // 일요일
+        holidays.push(`${year}-05-06`);
+      } else if (dayOfWeek === 6) { // 토요일
+        holidays.push(`${year}-05-07`);
+      }
+    }
+
+    return holidays.filter((h) => {
       const date = parseISO(h);
       return date >= startDate && date <= endDate;
     });
+  }
+
+  /**
+   * 음력 공휴일 양력 변환 (2024-2030년 데이터)
+   * 설날 (음력 1/1 ± 1일), 추석 (음력 8/15 ± 1일), 부처님오신날 (음력 4/8)
+   */
+  private getLunarHolidays(year: number): string[] {
+    // 음력 공휴일 양력 날짜 매핑 (미리 계산된 값)
+    const lunarCalendar: Record<number, { seollal: string[]; chuseok: string[]; buddha: string }> = {
+      2024: {
+        seollal: ['2024-02-09', '2024-02-10', '2024-02-11', '2024-02-12'], // 2/10이 설날 + 대체공휴일
+        chuseok: ['2024-09-16', '2024-09-17', '2024-09-18'],
+        buddha: '2024-05-15',
+      },
+      2025: {
+        seollal: ['2025-01-28', '2025-01-29', '2025-01-30'],
+        chuseok: ['2025-10-05', '2025-10-06', '2025-10-07'],
+        buddha: '2025-05-05', // 어린이날과 겹침
+      },
+      2026: {
+        seollal: ['2026-02-16', '2026-02-17', '2026-02-18'],
+        chuseok: ['2026-09-24', '2026-09-25', '2026-09-26'],
+        buddha: '2026-05-24',
+      },
+      2027: {
+        seollal: ['2027-02-05', '2027-02-06', '2027-02-07', '2027-02-08'], // 토요일 대체
+        chuseok: ['2027-09-14', '2027-09-15', '2027-09-16'],
+        buddha: '2027-05-13',
+      },
+      2028: {
+        seollal: ['2028-01-25', '2028-01-26', '2028-01-27'],
+        chuseok: ['2028-10-02', '2028-10-03', '2028-10-04'], // 개천절과 연휴
+        buddha: '2028-05-02',
+      },
+      2029: {
+        seollal: ['2029-02-12', '2029-02-13', '2029-02-14'],
+        chuseok: ['2029-09-21', '2029-09-22', '2029-09-23', '2029-09-24'], // 일요일 대체
+        buddha: '2029-05-20',
+      },
+      2030: {
+        seollal: ['2030-02-02', '2030-02-03', '2030-02-04', '2030-02-05'], // 일요일 대체
+        chuseok: ['2030-09-11', '2030-09-12', '2030-09-13'],
+        buddha: '2030-05-09',
+      },
+    };
+
+    const yearData = lunarCalendar[year];
+    if (!yearData) {
+      // 데이터가 없는 연도는 빈 배열 반환
+      return [];
+    }
+
+    return [...yearData.seollal, ...yearData.chuseok, yearData.buddha];
   }
 
   /**

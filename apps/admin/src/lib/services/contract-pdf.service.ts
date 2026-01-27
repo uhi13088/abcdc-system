@@ -5,6 +5,7 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { PDFGenerator, ContractPDFData } from '@abc/shared/server';
+import { PDFDocument, rgb, degrees } from 'pdf-lib';
 
 let _supabaseClient: SupabaseClient | null = null;
 
@@ -130,8 +131,41 @@ export class ContractPDFService {
    */
   async generateDraft(contractId: string): Promise<Buffer> {
     const pdf = await this.generate(contractId);
-    // TODO: 워터마크 추가 로직
-    return pdf;
+    return this.addWatermark(pdf, 'DRAFT - 서명 전 문서');
+  }
+
+  /**
+   * PDF에 워터마크 추가
+   */
+  private async addWatermark(pdfBuffer: Buffer, watermarkText: string): Promise<Buffer> {
+    const pdfDoc = await PDFDocument.load(pdfBuffer);
+    const pages = pdfDoc.getPages();
+
+    for (const page of pages) {
+      const { width, height } = page.getSize();
+
+      // 대각선 워터마크 텍스트 추가
+      page.drawText(watermarkText, {
+        x: width / 2 - 150,
+        y: height / 2,
+        size: 50,
+        color: rgb(0.8, 0.8, 0.8), // 연한 회색
+        rotate: degrees(-45),
+        opacity: 0.3,
+      });
+
+      // 하단에 추가 워터마크
+      page.drawText('이 문서는 서명되지 않은 초안입니다.', {
+        x: 50,
+        y: 30,
+        size: 10,
+        color: rgb(0.6, 0.6, 0.6),
+        opacity: 0.7,
+      });
+    }
+
+    const modifiedPdfBytes = await pdfDoc.save();
+    return Buffer.from(modifiedPdfBytes);
   }
 
   /**

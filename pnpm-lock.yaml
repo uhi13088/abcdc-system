@@ -80,6 +80,9 @@ importers:
       openai:
         specifier: ^6.16.0
         version: 6.16.0(zod@3.25.76)
+      pdf-lib:
+        specifier: ^1.17.1
+        version: 1.17.1
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4

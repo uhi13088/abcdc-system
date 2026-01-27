@@ -104,6 +104,9 @@ export default function TodoPage() {
   const [newTemplateCategory, setNewTemplateCategory] = useState('CUSTOM');
   const [newTemplateItems, setNewTemplateItems] = useState<string[]>(['']);
 
+  // Error/Success message
+  const [message, setMessage] = useState<{ type: 'error' | 'success' | ''; text: string }>({ type: '', text: '' });
+
   const canManageTodo = userInfo?.role &&
     ['validator', 'company_admin', 'super_admin'].includes(userInfo.role);
 
@@ -154,6 +157,16 @@ export default function TodoPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Auto-dismiss message after 5 seconds
+  useEffect(() => {
+    if (message.text) {
+      const timer = setTimeout(() => {
+        setMessage({ type: '', text: '' });
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   const toggleTodo = (todoId: string) => {
     setExpandedTodos(prev => {
@@ -222,19 +235,21 @@ export default function TodoPage() {
         setShowTemplateModal(false);
         setSelectedTemplate(null);
         setTemplateItems([]);
+        setMessage({ type: 'success', text: '할 일이 추가되었습니다.' });
         fetchData();
       } else {
         const error = await res.json();
-        alert(error.error || '생성에 실패했습니다.');
+        setMessage({ type: 'error', text: error.error || '생성에 실패했습니다.' });
       }
     } catch (error) {
       console.error('Failed to apply template:', error);
+      setMessage({ type: 'error', text: '템플릿 적용 중 오류가 발생했습니다.' });
     }
   };
 
   const handleCreateTemplate = async () => {
     if (!newTemplateName || newTemplateItems.filter(i => i.trim()).length === 0) {
-      alert('템플릿 이름과 최소 1개 이상의 항목을 입력하세요.');
+      setMessage({ type: 'error', text: '템플릿 이름과 최소 1개 이상의 항목을 입력하세요.' });
       return;
     }
 
@@ -256,13 +271,15 @@ export default function TodoPage() {
         setNewTemplateName('');
         setNewTemplateCategory('CUSTOM');
         setNewTemplateItems(['']);
+        setMessage({ type: 'success', text: '템플릿이 생성되었습니다.' });
         fetchData();
       } else {
         const error = await res.json();
-        alert(error.error || '생성에 실패했습니다.');
+        setMessage({ type: 'error', text: error.error || '생성에 실패했습니다.' });
       }
     } catch (error) {
       console.error('Failed to create template:', error);
+      setMessage({ type: 'error', text: '템플릿 생성 중 오류가 발생했습니다.' });
     }
   };
 
@@ -339,6 +356,25 @@ export default function TodoPage() {
           </div>
         )}
       </div>
+
+      {/* Message Toast */}
+      {message.text && (
+        <div
+          className={`p-4 rounded-lg flex items-center justify-between ${
+            message.type === 'error'
+              ? 'bg-red-50 text-red-700 border border-red-200'
+              : 'bg-green-50 text-green-700 border border-green-200'
+          }`}
+        >
+          <span>{message.text}</span>
+          <button
+            onClick={() => setMessage({ type: '', text: '' })}
+            className="ml-4 text-current opacity-70 hover:opacity-100"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Workers Section */}
       <div className="bg-white rounded-xl shadow-sm border p-4">

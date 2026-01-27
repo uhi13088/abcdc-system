@@ -15,7 +15,7 @@ import {
   Label,
   Alert,
 } from '@/components/ui';
-import { Plus, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Clock, Calendar, CalendarDays } from 'lucide-react';
 
 interface Schedule {
   id: string;
@@ -56,7 +56,7 @@ export default function SchedulesPage() {
   const [loading, setLoading] = useState(true);
   const [storeFilter, setStoreFilter] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [_viewMode, _setViewMode] = useState<'week' | 'month'>('week');
+  const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
 
   // New schedule dialog
   const [showNewDialog, setShowNewDialog] = useState(false);
@@ -79,13 +79,21 @@ export default function SchedulesPage() {
   useEffect(() => {
     fetchSchedules();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate, storeFilter, _viewMode]);
+  }, [currentDate, storeFilter, viewMode]);
 
   const fetchSchedules = async () => {
     setLoading(true);
     try {
-      const startDate = getWeekStart(currentDate).toISOString().split('T')[0];
-      const endDate = getWeekEnd(currentDate).toISOString().split('T')[0];
+      let startDate: string;
+      let endDate: string;
+
+      if (viewMode === 'week') {
+        startDate = getWeekStart(currentDate).toISOString().split('T')[0];
+        endDate = getWeekEnd(currentDate).toISOString().split('T')[0];
+      } else {
+        startDate = getMonthStart(currentDate).toISOString().split('T')[0];
+        endDate = getMonthEnd(currentDate).toISOString().split('T')[0];
+      }
 
       const params = new URLSearchParams({
         startDate,
@@ -135,6 +143,33 @@ export default function SchedulesPage() {
     return d;
   };
 
+  const getMonthStart = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+  };
+
+  const getMonthEnd = (date: Date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  };
+
+  const getMonthDays = () => {
+    const start = getMonthStart(currentDate);
+    const end = getMonthEnd(currentDate);
+    const firstDayOfWeek = start.getDay();
+    const days: (Date | null)[] = [];
+
+    // 첫 주의 빈 칸
+    for (let i = 0; i < firstDayOfWeek; i++) {
+      days.push(null);
+    }
+
+    // 해당 월의 모든 날짜
+    for (let d = 1; d <= end.getDate(); d++) {
+      days.push(new Date(start.getFullYear(), start.getMonth(), d));
+    }
+
+    return days;
+  };
+
   const getWeekDays = () => {
     const start = getWeekStart(currentDate);
     const days = [];
@@ -160,6 +195,34 @@ export default function SchedulesPage() {
 
   const goToToday = () => {
     setCurrentDate(new Date());
+  };
+
+  const prevMonth = () => {
+    const d = new Date(currentDate);
+    d.setMonth(d.getMonth() - 1);
+    setCurrentDate(d);
+  };
+
+  const nextMonth = () => {
+    const d = new Date(currentDate);
+    d.setMonth(d.getMonth() + 1);
+    setCurrentDate(d);
+  };
+
+  const prevPeriod = () => {
+    if (viewMode === 'week') {
+      prevWeek();
+    } else {
+      prevMonth();
+    }
+  };
+
+  const nextPeriod = () => {
+    if (viewMode === 'week') {
+      nextWeek();
+    } else {
+      nextMonth();
+    }
   };
 
   const getSchedulesForDate = (date: Date) => {
@@ -234,22 +297,53 @@ export default function SchedulesPage() {
         <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={prevWeek}>
+              <Button variant="outline" size="sm" onClick={prevPeriod}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <Button variant="outline" size="sm" onClick={goToToday}>
                 오늘
               </Button>
-              <Button variant="outline" size="sm" onClick={nextWeek}>
+              <Button variant="outline" size="sm" onClick={nextPeriod}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
             <span className="font-medium">
-              {getWeekStart(currentDate).toLocaleDateString('ko-KR')} -{' '}
-              {getWeekEnd(currentDate).toLocaleDateString('ko-KR')}
+              {viewMode === 'week' ? (
+                <>
+                  {getWeekStart(currentDate).toLocaleDateString('ko-KR')} -{' '}
+                  {getWeekEnd(currentDate).toLocaleDateString('ko-KR')}
+                </>
+              ) : (
+                currentDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' })
+              )}
             </span>
           </div>
           <div className="flex gap-4">
+            {/* View Mode Toggle */}
+            <div className="flex border rounded-lg overflow-hidden">
+              <button
+                onClick={() => setViewMode('week')}
+                className={`px-3 py-1.5 flex items-center gap-1 text-sm ${
+                  viewMode === 'week'
+                    ? 'bg-primary text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <CalendarDays className="h-4 w-4" />
+                주간
+              </button>
+              <button
+                onClick={() => setViewMode('month')}
+                className={`px-3 py-1.5 flex items-center gap-1 text-sm ${
+                  viewMode === 'month'
+                    ? 'bg-primary text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <Calendar className="h-4 w-4" />
+                월간
+              </button>
+            </div>
             <Select
               value={storeFilter}
               onChange={(e) => setStoreFilter(e.target.value)}
@@ -264,7 +358,8 @@ export default function SchedulesPage() {
 
         {loading ? (
           <PageLoading />
-        ) : (
+        ) : viewMode === 'week' ? (
+          /* 주간 보기 */
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             {/* Week header */}
             <div className="grid grid-cols-7 border-b">
@@ -338,6 +433,83 @@ export default function SchedulesPage() {
                         추가
                       </button>
                     </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          /* 월간 보기 */
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            {/* Month header */}
+            <div className="grid grid-cols-7 border-b">
+              {DAYS.map((day, index) => {
+                const isWeekend = index === 0 || index === 6;
+                return (
+                  <div
+                    key={index}
+                    className="p-3 text-center border-r last:border-r-0"
+                  >
+                    <div
+                      className={`text-sm font-medium ${
+                        isWeekend ? 'text-red-500' : 'text-gray-500'
+                      }`}
+                    >
+                      {day}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Month calendar grid */}
+            <div className="grid grid-cols-7">
+              {getMonthDays().map((day, index) => {
+                const isWeekend = index % 7 === 0 || index % 7 === 6;
+                const isToday = day?.toDateString() === new Date().toDateString();
+                const daySchedules = day ? getSchedulesForDate(day) : [];
+
+                return (
+                  <div
+                    key={index}
+                    className={`min-h-[120px] border-r border-b last:border-r-0 p-2 ${
+                      isWeekend ? 'bg-gray-50' : ''
+                    } ${isToday ? 'bg-primary/5' : ''} ${!day ? 'bg-gray-100' : ''}`}
+                  >
+                    {day && (
+                      <>
+                        <div
+                          className={`text-sm font-semibold mb-1 ${
+                            isToday ? 'text-primary' : isWeekend ? 'text-red-500' : 'text-gray-700'
+                          }`}
+                        >
+                          {day.getDate()}
+                        </div>
+                        <div className="space-y-1">
+                          {daySchedules.slice(0, 3).map((schedule) => (
+                            <div
+                              key={schedule.id}
+                              className="p-1 bg-blue-50 rounded text-xs cursor-pointer hover:bg-blue-100 truncate"
+                              onClick={() => handleDeleteSchedule(schedule.id)}
+                              title={`${schedule.staff?.name} ${schedule.start_time?.slice(11, 16)}-${schedule.end_time?.slice(11, 16)}`}
+                            >
+                              <span className="font-medium">{schedule.staff?.name}</span>
+                            </div>
+                          ))}
+                          {daySchedules.length > 3 && (
+                            <div className="text-xs text-gray-500 text-center">
+                              +{daySchedules.length - 3}개 더
+                            </div>
+                          )}
+                          <button
+                            onClick={() => openNewDialog(day)}
+                            className="w-full p-1 border border-dashed border-gray-200 rounded text-gray-400 hover:border-primary hover:text-primary text-xs flex items-center justify-center"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })}
