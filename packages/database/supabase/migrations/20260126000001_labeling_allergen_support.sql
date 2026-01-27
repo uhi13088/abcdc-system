@@ -5,54 +5,66 @@
 -- ============================================
 -- 1. materials 테이블에 allergens 컬럼 추가
 -- ============================================
-ALTER TABLE materials
-  ADD COLUMN IF NOT EXISTS allergens JSONB DEFAULT '[]';
-
-COMMENT ON COLUMN materials.allergens IS '알레르기 유발물질 ID 배열 (예: ["egg", "milk", "wheat"])';
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'materials') THEN
+    ALTER TABLE materials ADD COLUMN IF NOT EXISTS allergens JSONB DEFAULT '[]';
+  END IF;
+END $$;
 
 -- ============================================
 -- 2. storage_inspections 테이블에 inspected_by_name 컬럼 추가
 -- ============================================
-ALTER TABLE storage_inspections
-  ADD COLUMN IF NOT EXISTS inspected_by_name VARCHAR(100);
-
-COMMENT ON COLUMN storage_inspections.inspected_by_name IS '점검자 이름 (외래키 없이 직접 저장)';
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'storage_inspections') THEN
+    ALTER TABLE storage_inspections ADD COLUMN IF NOT EXISTS inspected_by_name VARCHAR(100);
+  END IF;
+END $$;
 
 -- ============================================
 -- 3. products 테이블에 라벨링 관련 컬럼 추가
 -- ============================================
-ALTER TABLE products
-  ADD COLUMN IF NOT EXISTS label_data JSONB DEFAULT NULL;
-
-COMMENT ON COLUMN products.label_data IS '한글표시사항 데이터 (자동생성 또는 수동입력)';
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'products') THEN
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS label_data JSONB DEFAULT NULL;
+  END IF;
+END $$;
 
 -- ============================================
 -- 4. hygiene_checks 뷰 생성 (호환성)
 -- daily_hygiene_checks 테이블의 별칭으로 사용
 -- ============================================
-CREATE OR REPLACE VIEW hygiene_checks AS
-SELECT
-  id,
-  company_id,
-  check_date,
-  check_period,
-  checked_by,
-  checked_by_name,
-  pre_work_checks,
-  during_work_checks,
-  post_work_checks,
-  temperature_records,
-  overall_status,
-  corrective_action,
-  remarks,
-  improvement_result,
-  verified_by,
-  verified_by_name,
-  verified_at,
-  created_at
-FROM daily_hygiene_checks;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'daily_hygiene_checks') THEN
+    -- 뷰 생성
+    CREATE OR REPLACE VIEW hygiene_checks AS
+    SELECT
+      id,
+      company_id,
+      check_date,
+      check_period,
+      checked_by,
+      checked_by_name,
+      pre_work_checks,
+      during_work_checks,
+      post_work_checks,
+      temperature_records,
+      overall_status,
+      corrective_action,
+      remarks,
+      improvement_result,
+      verified_by,
+      verified_by_name,
+      verified_at,
+      created_at
+    FROM daily_hygiene_checks;
+  END IF;
+END $$;
 
--- 뷰에 대한 INSERT/UPDATE/DELETE 트리거 생성
+-- 뷰에 대한 INSERT 트리거 함수 생성
 CREATE OR REPLACE FUNCTION hygiene_checks_insert_trigger()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -76,10 +88,16 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS hygiene_checks_insert ON hygiene_checks;
-CREATE TRIGGER hygiene_checks_insert
-  INSTEAD OF INSERT ON hygiene_checks
-  FOR EACH ROW EXECUTE FUNCTION hygiene_checks_insert_trigger();
+-- 트리거 생성 (뷰가 존재할 때만)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.views WHERE table_name = 'hygiene_checks') THEN
+    DROP TRIGGER IF EXISTS hygiene_checks_insert ON hygiene_checks;
+    CREATE TRIGGER hygiene_checks_insert
+      INSTEAD OF INSERT ON hygiene_checks
+      FOR EACH ROW EXECUTE FUNCTION hygiene_checks_insert_trigger();
+  END IF;
+END $$;
 
 -- Done
 SELECT 'Labeling and allergen support migration completed!' as result;

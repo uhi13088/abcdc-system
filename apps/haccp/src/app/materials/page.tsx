@@ -30,11 +30,12 @@ export default function MaterialsPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     code: '',
     name: '',
-    type: '원료' as const,
+    type: '원료' as '원료' | '부재료' | '포장재',
     supplier_id: '',
     specification: '',
     storage_temp: '',
@@ -78,20 +79,42 @@ export default function MaterialsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const method = editingMaterial ? 'PUT' : 'POST';
+      const body = editingMaterial
+        ? { id: editingMaterial.id, ...formData }
+        : formData;
+
       const response = await fetch('/api/haccp/materials', {
-        method: 'POST',
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(body),
       });
 
       if (response.ok) {
         setShowModal(false);
+        setEditingMaterial(null);
         fetchMaterials();
-        setFormData({ code: '', name: '', type: '원료', supplier_id: '', specification: '', storage_temp: '', shelf_life: 0, unit: 'kg', allergens: [] });
+        resetForm();
       }
     } catch (error) {
-      console.error('Failed to create material:', error);
+      console.error('Failed to save material:', error);
     }
+  };
+
+  const handleEdit = (material: Material) => {
+    setEditingMaterial(material);
+    setFormData({
+      code: material.code || '',
+      name: material.name || '',
+      type: material.type || '원료',
+      supplier_id: material.supplier_id || '',
+      specification: material.specification || '',
+      storage_temp: material.storage_temp || '',
+      shelf_life: material.shelf_life || 0,
+      unit: material.unit || 'kg',
+      allergens: material.allergens || [],
+    });
+    setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -102,6 +125,16 @@ export default function MaterialsPage() {
     } catch (error) {
       console.error('Failed to delete material:', error);
     }
+  };
+
+  const resetForm = () => {
+    setFormData({ code: '', name: '', type: '원료', supplier_id: '', specification: '', storage_temp: '', shelf_life: 0, unit: 'kg', allergens: [] });
+    setEditingMaterial(null);
+  };
+
+  const openNewModal = () => {
+    resetForm();
+    setShowModal(true);
   };
 
   const filteredMaterials = materials.filter(m =>
@@ -123,7 +156,7 @@ export default function MaterialsPage() {
           <p className="mt-1 text-sm text-gray-500">원료, 부재료, 포장재 마스터 데이터를 관리합니다</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={openNewModal}
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Plus className="w-4 h-4" />
@@ -205,7 +238,7 @@ export default function MaterialsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button className="p-1 hover:bg-gray-100 rounded mr-1">
+                      <button onClick={() => handleEdit(material)} className="p-1 hover:bg-gray-100 rounded mr-1">
                         <Edit className="w-4 h-4 text-gray-500" />
                       </button>
                       <button onClick={() => handleDelete(material.id)} className="p-1 hover:bg-red-100 rounded">
@@ -225,8 +258,8 @@ export default function MaterialsPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">원부재료 등록</h2>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <h2 className="text-xl font-bold">{editingMaterial ? '원부재료 수정' : '원부재료 등록'}</h2>
+              <button onClick={() => { setShowModal(false); resetForm(); }} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -357,11 +390,11 @@ export default function MaterialsPage() {
                 )}
               </div>
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
+                <button type="button" onClick={() => { setShowModal(false); resetForm(); }} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
                   취소
                 </button>
                 <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  등록
+                  {editingMaterial ? '수정' : '등록'}
                 </button>
               </div>
             </form>

@@ -37,6 +37,24 @@ interface HaccpSettings {
   record_retention_years: number;
 }
 
+// 역할 계층 정의 (높은 권한 → 낮은 권한)
+const ROLE_HIERARCHY = [
+  'super_admin',
+  'company_admin',
+  'manager',
+  'store_manager',
+  'team_leader',
+  'staff',
+] as const;
+
+type UserRole = typeof ROLE_HIERARCHY[number];
+
+interface VerificationSettings {
+  verification_min_role: UserRole;
+  allow_self_verification: boolean;
+  verification_roles_by_type: Record<string, UserRole>;
+}
+
 // GET /api/haccp/settings - 설정 조회
 export async function GET() {
   try {
@@ -95,6 +113,12 @@ export async function GET() {
       record_retention_years: 3,
     };
 
+    const defaultVerificationSettings: VerificationSettings = {
+      verification_min_role: 'manager',
+      allow_self_verification: false,
+      verification_roles_by_type: {},
+    };
+
     const companySettings: CompanySettings = {
       company_name: company?.name || '',
       business_number: company?.business_number || '',
@@ -129,10 +153,18 @@ export async function GET() {
       record_retention_years: haccpSettings.record_retention_years ?? defaultHaccpSettings.record_retention_years,
     } : defaultHaccpSettings;
 
+    const verificationSettings: VerificationSettings = haccpSettings ? {
+      verification_min_role: haccpSettings.verification_min_role || defaultVerificationSettings.verification_min_role,
+      allow_self_verification: haccpSettings.allow_self_verification ?? defaultVerificationSettings.allow_self_verification,
+      verification_roles_by_type: haccpSettings.verification_roles_by_type || defaultVerificationSettings.verification_roles_by_type,
+    } : defaultVerificationSettings;
+
     return NextResponse.json({
       companySettings,
       notificationSettings,
       haccpSettings: operationalSettings,
+      verificationSettings,
+      roleHierarchy: ROLE_HIERARCHY,
     });
   } catch (error) {
     console.error('Error fetching settings:', error);
@@ -166,7 +198,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    const { companySettings, notificationSettings, haccpSettings } = body;
+    const { companySettings, notificationSettings, haccpSettings, verificationSettings } = body;
 
     // 회사 정보 업데이트
     if (companySettings) {
@@ -193,8 +225,8 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // HACCP 설정 업데이트 (알림 및 운영 설정)
-    if (notificationSettings || haccpSettings) {
+    // HACCP 설정 업데이트 (알림, 운영, 검증 설정)
+    if (notificationSettings || haccpSettings || verificationSettings) {
       const haccpSettingsData: Record<string, unknown> = {
         company_id: userProfile.company_id,
       };
@@ -222,6 +254,13 @@ export async function PUT(request: NextRequest) {
         if (haccpSettings.ccp_monitoring_interval !== undefined) haccpSettingsData.ccp_monitoring_interval = haccpSettings.ccp_monitoring_interval;
         if (haccpSettings.temperature_unit !== undefined) haccpSettingsData.temperature_unit = haccpSettings.temperature_unit;
         if (haccpSettings.record_retention_years !== undefined) haccpSettingsData.record_retention_years = haccpSettings.record_retention_years;
+      }
+
+      // 검증 권한 설정
+      if (verificationSettings) {
+        if (verificationSettings.verification_min_role !== undefined) haccpSettingsData.verification_min_role = verificationSettings.verification_min_role;
+        if (verificationSettings.allow_self_verification !== undefined) haccpSettingsData.allow_self_verification = verificationSettings.allow_self_verification;
+        if (verificationSettings.verification_roles_by_type !== undefined) haccpSettingsData.verification_roles_by_type = verificationSettings.verification_roles_by_type;
       }
 
       // 기존 설정 확인
