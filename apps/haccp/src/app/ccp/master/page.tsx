@@ -269,7 +269,12 @@ export default function CCPMasterPage() {
       process: item.process || '',
       hazard: item.hazard || '',
       control_measure: item.control_measure || '',
-      critical_limit: item.critical_limit || { parameter: '', min: 0, max: 0, unit: '' },
+      critical_limit: {
+        parameter: item.critical_limit?.parameter || '',
+        min: item.critical_limit?.min ?? 0,
+        max: item.critical_limit?.max ?? 0,
+        unit: item.critical_limit?.unit || ''
+      },
       monitoring_method: item.monitoring_method || '',
       monitoring_frequency: item.monitoring_frequency || '',
       corrective_action: item.corrective_action || '',
