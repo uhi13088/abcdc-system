@@ -36,6 +36,11 @@ export async function GET(
       .order('ccp_number', { ascending: true });
 
     if (error) {
+      // If master_id column doesn't exist, return empty array
+      if (error.code === '42703' || error.message?.includes('master_id')) {
+        console.warn('master_id column does not exist in ccp_definitions. Run migrations.');
+        return NextResponse.json([]);
+      }
       console.error('Error fetching CCP items:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }

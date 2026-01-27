@@ -191,21 +191,26 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (error) {
+    if (error || !data) {
       console.error('Failed to create corrective action:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: error?.message || 'Failed to create corrective action' }, { status: 500 });
     }
 
     // 담당자에게 알림 생성
-    if (responsible_person) {
-      await supabase.from('notifications').insert({
-        user_id: responsible_person,
-        category: 'HACCP',
-        priority: severity === 'CRITICAL' ? 'CRITICAL' : 'HIGH',
-        title: '개선조치 배정',
-        body: `새로운 개선조치가 배정되었습니다: ${problem_description.substring(0, 50)}`,
-        deep_link: `/corrective-actions/${data.id}`,
-      });
+    if (responsible_person && data?.id) {
+      try {
+        await supabase.from('notifications').insert({
+          user_id: responsible_person,
+          category: 'HACCP',
+          priority: severity === 'CRITICAL' ? 'CRITICAL' : 'HIGH',
+          title: '개선조치 배정',
+          body: `새로운 개선조치가 배정되었습니다: ${problem_description.substring(0, 50)}`,
+          deep_link: `/corrective-actions/${data.id}`,
+        });
+      } catch (notificationError) {
+        console.error('Failed to send notification:', notificationError);
+        // Continue even if notification fails
+      }
     }
 
     return NextResponse.json(data);

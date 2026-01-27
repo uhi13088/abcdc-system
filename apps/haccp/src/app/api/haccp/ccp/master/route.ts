@@ -36,6 +36,11 @@ export async function GET(_request: NextRequest) {
       .order('master_code', { ascending: true });
 
     if (error) {
+      // If table doesn't exist, return empty array instead of error
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        console.warn('ccp_master table does not exist yet. Run migrations to enable CCP group management.');
+        return NextResponse.json([]);
+      }
       console.error('Error fetching CCP masters:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -91,6 +96,12 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
+      // If table doesn't exist, return meaningful error
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json({
+          error: 'CCP 그룹 관리 기능을 사용하려면 데이터베이스 마이그레이션이 필요합니다.'
+        }, { status: 503 });
+      }
       console.error('Error creating CCP master:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -146,6 +157,11 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (error) {
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json({
+          error: 'CCP 그룹 관리 기능을 사용하려면 데이터베이스 마이그레이션이 필요합니다.'
+        }, { status: 503 });
+      }
       console.error('Error updating CCP master:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }

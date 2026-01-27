@@ -162,7 +162,7 @@ export async function POST(
     const readingData = {
       sensor_id: id,
       reading_value: readingValue,
-      reading_unit: body.reading_unit || sensor.sensor_type === 'TEMPERATURE' ? '°C' : null,
+      reading_unit: body.reading_unit || (sensor.sensor_type === 'TEMPERATURE' ? '°C' : null),
       is_within_limit: isWithinLimit,
       raw_data: body.raw_data || null,
       recorded_at: body.recorded_at || new Date().toISOString(),
