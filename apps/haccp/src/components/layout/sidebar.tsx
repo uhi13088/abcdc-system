@@ -25,6 +25,9 @@ import {
   RotateCcw,
   Warehouse,
   X,
+  Cpu,
+  ListChecks,
+  Bell,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -40,6 +43,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: '대시보드', href: '/dashboard', icon: LayoutDashboard },
+  { name: '일일 체크리스트', href: '/todo', icon: ListChecks },
   {
     name: 'CCP 관리',
     href: '/ccp',
@@ -92,13 +96,23 @@ const navigation: NavItem[] = [
   { name: '검교정 관리', href: '/calibration', icon: Gauge },
   { name: '반품/회수/폐기', href: '/returns-disposals', icon: RotateCcw },
   { name: '보관창고 점검', href: '/storage-inspections', icon: Warehouse },
+  {
+    name: 'IoT 관리',
+    href: '/sensors',
+    icon: Cpu,
+    children: [
+      { name: '센서 관리', href: '/sensors' },
+      { name: '기기 관리', href: '/devices' },
+    ],
+  },
+  { name: '알림', href: '/notifications', icon: Bell },
   { name: '설정', href: '/settings', icon: Settings },
 ];
 
 function SidebarComponent() {
   const pathname = usePathname();
   const router = useRouter();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['CCP 관리', '원재료 관리', '제품 관리', '재고 관리']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['CCP 관리', '원재료 관리', '제품 관리', '재고 관리', 'IoT 관리']);
   const [isHovered, setIsHovered] = useState(false);
 
   // Mobile sidebar state from context

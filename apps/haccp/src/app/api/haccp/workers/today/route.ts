@@ -79,17 +79,32 @@ export async function GET(request: NextRequest) {
     }
 
     // 출근한 직원 목록 정리
-    const workers = (attendances || []).map(attendance => ({
-      id: attendance.user?.id,
-      name: attendance.user?.name,
-      email: attendance.user?.email,
-      role: attendance.user?.role,
-      phone: attendance.user?.phone,
-      check_in: attendance.check_in,
-      check_out: attendance.check_out,
-      attendance_status: attendance.status,
-      attendance_id: attendance.id,
-    }));
+    interface AttendanceUser {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      phone: string;
+    }
+
+    const workers = (attendances || []).map(attendance => {
+      // user가 배열로 반환될 수 있으므로 처리
+      const user = Array.isArray(attendance.user)
+        ? attendance.user[0] as AttendanceUser | undefined
+        : attendance.user as AttendanceUser | undefined;
+
+      return {
+        id: user?.id,
+        name: user?.name,
+        email: user?.email,
+        role: user?.role,
+        phone: user?.phone,
+        check_in: attendance.check_in,
+        check_out: attendance.check_out,
+        attendance_status: attendance.status,
+        attendance_id: attendance.id,
+      };
+    });
 
     // 출근하지 않은 직원도 포함 (선택적)
     const { data: allUsers } = await adminClient
