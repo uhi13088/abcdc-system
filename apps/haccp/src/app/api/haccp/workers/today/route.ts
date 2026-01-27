@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/haccp/workers/today - 오늘 출근한 직원 목록 조회
+// GET /api/haccp/workers/today - 오늘 출근한 근무자 목록
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
 
@@ -15,9 +16,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('id, company_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -25,70 +26,101 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 해당 회사의 모든 근무자 조회
-    const { data: allWorkers, error: workersError } = await supabase
-      .from('users')
-      .select('id, name, role, avatar_url')
-      .eq('company_id', userProfile.company_id)
-      .in('role', ['staff', 'verifier', 'manager', 'admin'])
-      .eq('status', 'active');
-
-    if (workersError) {
-      console.error('Error fetching workers:', workersError);
-      return NextResponse.json({ error: workersError.message }, { status: 500 });
-    }
-
-    // 오늘 출근 기록 조회
-    const { data: attendances, error: attendanceError } = await supabase
+    // 오늘 출근 기록이 있는 직원 조회
+    const { data: attendances, error: attendanceError } = await adminClient
       .from('attendances')
-      .select('staff_id, actual_check_in, actual_check_out, status')
+      .select(`
+        id,
+        check_in,
+        check_out,
+        status,
+        user:users!attendances_user_id_fkey(
+          id,
+          name,
+          email,
+          role,
+          phone
+        )
+      `)
       .eq('company_id', userProfile.company_id)
-      .eq('work_date', date);
+      .gte('check_in', `${date}T00:00:00`)
+      .lt('check_in', `${date}T23:59:59`)
+      .order('check_in');
 
     if (attendanceError) {
+      // 테이블이 없으면 빈 배열 반환
+      if (attendanceError.code === '42P01') {
+        // attendances 테이블 없으면 users에서 직접 조회
+        const { data: users } = await adminClient
+          .from('users')
+          .select('id, name, email, role, phone, status')
+          .eq('company_id', userProfile.company_id)
+          .eq('status', 'ACTIVE')
+          .order('name');
+
+        return NextResponse.json({
+          date,
+          workers: (users || []).map(user => ({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            phone: user.phone,
+            check_in: null,
+            check_out: null,
+            attendance_status: 'NOT_CHECKED_IN',
+          })),
+          total_workers: users?.length || 0,
+          checked_in: 0,
+        });
+      }
       console.error('Error fetching attendances:', attendanceError);
       return NextResponse.json({ error: attendanceError.message }, { status: 500 });
     }
 
-    // 출근 기록을 staff_id로 매핑
-    const attendanceMap = new Map(
-      (attendances || []).map((a) => [a.staff_id, a])
-    );
+    // 출근한 직원 목록 정리
+    const workers = (attendances || []).map(attendance => ({
+      id: attendance.user?.id,
+      name: attendance.user?.name,
+      email: attendance.user?.email,
+      role: attendance.user?.role,
+      phone: attendance.user?.phone,
+      check_in: attendance.check_in,
+      check_out: attendance.check_out,
+      attendance_status: attendance.status,
+      attendance_id: attendance.id,
+    }));
 
-    // 근무자 목록에 출근 정보 병합
-    const workersWithAttendance = (allWorkers || []).map((worker) => {
-      const attendance = attendanceMap.get(worker.id);
-      return {
-        id: worker.id,
-        name: worker.name,
-        role: worker.role,
-        avatar_url: worker.avatar_url,
-        is_present: !!attendance?.actual_check_in,
-        check_in_time: attendance?.actual_check_in || null,
-        check_out_time: attendance?.actual_check_out || null,
-        status: attendance?.status || 'ABSENT',
-      };
-    });
+    // 출근하지 않은 직원도 포함 (선택적)
+    const { data: allUsers } = await adminClient
+      .from('users')
+      .select('id, name, email, role, phone')
+      .eq('company_id', userProfile.company_id)
+      .eq('status', 'ACTIVE');
 
-    // 출근한 사람 먼저, 그 다음 이름 순으로 정렬
-    workersWithAttendance.sort((a, b) => {
-      if (a.is_present && !b.is_present) return -1;
-      if (!a.is_present && b.is_present) return 1;
-      return a.name.localeCompare(b.name, 'ko');
-    });
-
-    // 통계 정보
-    const stats = {
-      total: workersWithAttendance.length,
-      present: workersWithAttendance.filter((w) => w.is_present).length,
-      absent: workersWithAttendance.filter((w) => !w.is_present).length,
-    };
+    const checkedInIds = new Set(workers.map(w => w.id));
+    const notCheckedIn = (allUsers || [])
+      .filter(user => !checkedInIds.has(user.id))
+      .map(user => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        check_in: null,
+        check_out: null,
+        attendance_status: 'NOT_CHECKED_IN',
+      }));
 
     return NextResponse.json({
       date,
-      workers: workersWithAttendance,
-      stats,
+      workers: [...workers, ...notCheckedIn],
+      checked_in_workers: workers,
+      not_checked_in_workers: notCheckedIn,
+      total_workers: (allUsers || []).length,
+      checked_in: workers.length,
     });
+
   } catch (error) {
     console.error('Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
