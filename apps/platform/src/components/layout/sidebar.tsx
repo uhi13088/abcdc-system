@@ -15,6 +15,7 @@ import {
   CreditCard,
   Scale,
   X,
+  Cpu,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -26,6 +27,7 @@ const navigation = [
   { name: '회사 관리', href: '/companies', icon: Building2 },
   { name: '브랜드 관리', href: '/brands', icon: Layers },
   { name: '사용자 관리', href: '/users', icon: Users },
+  { name: 'IoT 기기 관리', href: '/devices', icon: Cpu },
   { name: '구독 관리', href: '/subscriptions', icon: CreditCard },
   { name: '근로기준법', href: '/labor-law', icon: Scale },
   { name: '분석', href: '/analytics', icon: BarChart3 },
