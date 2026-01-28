@@ -470,6 +470,9 @@ importers:
       firebase-admin:
         specifier: ^13.6.0
         version: 13.6.0
+      lucide-react:
+        specifier: ^0.300.0
+        version: 0.300.0(react@18.3.1)
       pdf-lib:
         specifier: ^1.17.1
         version: 1.17.1
@@ -4444,6 +4447,14 @@ packages:
     dependencies:
       lodash.clonedeep: 4.5.0
       lru-cache: 6.0.0
+    dev: false
+
+  /lucide-react@0.300.0(react@18.3.1):
+    resolution: {integrity: sha512-rQxUUCmWAvNLoAsMZ5j04b2+OJv6UuNLYMY7VK0eVlm4aTwUEjEEHc09/DipkNIlhXUSDn2xoyIzVT0uh7dRsg==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0
+    dependencies:
+      react: 18.3.1
     dev: false
 
   /lucide-react@0.303.0(react@18.3.1):

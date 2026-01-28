@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/bottom-nav';
 import { formatTime, formatDate } from '@/lib/utils';
+import { PushNotificationPrompt } from '@abc/shared';
 
 interface UserProfile {
   id: string;
@@ -317,6 +318,9 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* Push Notification Prompt */}
+      <PushNotificationPrompt />
 
       <BottomNav />
     </div>
