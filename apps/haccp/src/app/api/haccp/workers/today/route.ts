@@ -34,13 +34,7 @@ export async function GET(request: NextRequest) {
         check_in,
         check_out,
         status,
-        user:users!attendances_user_id_fkey(
-          id,
-          name,
-          email,
-          role,
-          phone
-        )
+        user_id
       `)
       .eq('company_id', userProfile.company_id)
       .gte('check_in', `${date}T00:00:00`)
@@ -78,40 +72,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: attendanceError.message }, { status: 500 });
     }
 
+    // 모든 활성 직원 조회
+    const { data: allUsers } = await adminClient
+      .from('users')
+      .select('id, name, email, role, phone')
+      .eq('company_id', userProfile.company_id)
+      .eq('status', 'ACTIVE');
+
+    // 사용자 맵 생성
+    const userMap = new Map((allUsers || []).map(u => [u.id, u]));
+
     // 출근한 직원 목록 정리
-    interface AttendanceUser {
-      id: string;
-      name: string;
-      email: string;
-      role: string;
-      phone: string;
-    }
-
     const workers = (attendances || []).map(attendance => {
-      // user가 배열로 반환될 수 있으므로 처리
-      const user = Array.isArray(attendance.user)
-        ? attendance.user[0] as AttendanceUser | undefined
-        : attendance.user as AttendanceUser | undefined;
-
+      const user = userMap.get(attendance.user_id);
       return {
-        id: user?.id,
-        name: user?.name,
-        email: user?.email,
-        role: user?.role,
-        phone: user?.phone,
+        id: user?.id || attendance.user_id,
+        name: user?.name || 'Unknown',
+        email: user?.email || '',
+        role: user?.role || '',
+        phone: user?.phone || '',
         check_in: attendance.check_in,
         check_out: attendance.check_out,
         attendance_status: attendance.status,
         attendance_id: attendance.id,
       };
     });
-
-    // 출근하지 않은 직원도 포함 (선택적)
-    const { data: allUsers } = await adminClient
-      .from('users')
-      .select('id, name, email, role, phone')
-      .eq('company_id', userProfile.company_id)
-      .eq('status', 'ACTIVE');
 
     const checkedInIds = new Set(workers.map(w => w.id));
     const notCheckedIn = (allUsers || [])

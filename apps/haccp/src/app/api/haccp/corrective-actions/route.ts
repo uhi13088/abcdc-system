@@ -279,3 +279,69 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// DELETE /api/haccp/corrective-actions
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, company_id')
+      .eq('auth_id', user.id)
+      .single();
+
+    if (!userData?.company_id) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+    }
+
+    // 기록 존재 여부 확인
+    const { data: existing } = await supabase
+      .from('corrective_actions')
+      .select('id, status')
+      .eq('id', id)
+      .eq('company_id', userData.company_id)
+      .single();
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 });
+    }
+
+    // 검증/완료된 개선조치는 삭제 불가
+    if (existing.status === 'VERIFIED' || existing.status === 'CLOSED') {
+      return NextResponse.json(
+        { error: '검증 또는 종료된 개선조치는 삭제할 수 없습니다.' },
+        { status: 400 }
+      );
+    }
+
+    // 개선조치 삭제
+    const { error } = await supabase
+      .from('corrective_actions')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', userData.company_id);
+
+    if (error) {
+      console.error('Failed to delete corrective action:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, message: '개선조치가 삭제되었습니다.' });
+  } catch (error) {
+    console.error('Failed to delete corrective action:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

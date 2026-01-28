@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       .from('ccp_records')
       .select(`
         *,
-        ccp_definitions (id, ccp_number, process, critical_limit)
+        ccp_definitions (id, ccp_number, process, critical_limit, critical_limits)
       `)
       .order('record_date', { ascending: false })
       .order('record_time', { ascending: false });
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     // CCP 정보 조회 (이탈 시 개선조치 생성용)
     const { data: ccpDef } = await supabase
       .from('ccp_definitions')
-      .select('ccp_number, process, critical_limit')
+      .select('ccp_number, process, critical_limit, critical_limits')
       .eq('id', body.ccp_id)
       .single();
 
@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
         lot_number: body.lot_number || null,
         product_id: body.product_id || null,
         measurement: body.measurement,
+        measurements: body.measurements || null,
         is_within_limit: body.is_within_limit,
         deviation_action: body.deviation_action || null,
       })
@@ -160,10 +161,26 @@ export async function POST(request: NextRequest) {
     let correctiveAction = null;
     if (!body.is_within_limit) {
       const now = new Date();
-      const limit = ccpDef?.critical_limit;
+
+      // 측정값 이탈 상세 정보 생성
+      let measurementDetails = '';
+      if (body.measurements && body.measurements.length > 0) {
+        const deviations = body.measurements
+          .filter((m: { is_within_limit?: boolean }) => !m.is_within_limit)
+          .map((m: { parameter: string; value: number; unit: string; min?: number; max?: number }) =>
+            `  - ${m.parameter}: ${m.value}${m.unit} (기준: ${m.min ?? ''} ~ ${m.max ?? ''}${m.unit})`
+          );
+        measurementDetails = deviations.length > 0
+          ? `이탈 항목:\n${deviations.join('\n')}`
+          : `측정값: ${body.measurement?.value}${body.measurement?.unit}`;
+      } else {
+        const limit = ccpDef?.critical_limit;
+        measurementDetails = `측정값: ${body.measurement?.value}${body.measurement?.unit}\n` +
+          `한계기준: ${limit?.min !== undefined ? limit.min : ''} ~ ${limit?.max !== undefined ? limit.max : ''} ${limit?.unit || ''}`;
+      }
+
       const problemDesc = `[${ccpDef?.ccp_number || 'CCP'}] ${ccpDef?.process || ''} 한계기준 이탈\n` +
-        `측정값: ${body.measurement?.value}${body.measurement?.unit}\n` +
-        `한계기준: ${limit?.min !== undefined ? limit.min : ''} ~ ${limit?.max !== undefined ? limit.max : ''} ${limit?.unit || ''}\n` +
+        `${measurementDetails}\n` +
         `LOT: ${body.lot_number || '-'}`;
 
       const { data: caData, error: caError } = await supabase
@@ -202,6 +219,72 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ...data, corrective_action: correctiveAction });
   } catch (error) {
     console.error('Error in POST /api/haccp/ccp/records:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// DELETE /api/haccp/ccp/records
+export async function DELETE(request: NextRequest) {
+  const supabase = await createClient();
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('id, company_id')
+      .eq('auth_id', user.id)
+      .single();
+
+    if (!profile) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Record ID is required' }, { status: 400 });
+    }
+
+    // 기록 존재 여부 확인
+    const { data: existing } = await supabase
+      .from('ccp_records')
+      .select('id, corrective_action_id')
+      .eq('id', id)
+      .eq('company_id', profile.company_id)
+      .single();
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 });
+    }
+
+    // 연결된 개선조치가 있으면 연결 해제
+    if (existing.corrective_action_id) {
+      await supabase
+        .from('corrective_actions')
+        .update({ source_id: null })
+        .eq('id', existing.corrective_action_id);
+    }
+
+    // CCP 기록 삭제
+    const { error } = await supabase
+      .from('ccp_records')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', profile.company_id);
+
+    if (error) {
+      console.error('Error deleting CCP record:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, message: 'CCP 기록이 삭제되었습니다.' });
+  } catch (error) {
+    console.error('Error in DELETE /api/haccp/ccp/records:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

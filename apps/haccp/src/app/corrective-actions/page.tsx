@@ -13,6 +13,7 @@ import {
   AlertCircle,
   Loader2,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface CorrectiveAction {
   id: string;
@@ -68,6 +69,7 @@ export default function CorrectiveActionsPage() {
   const [selectedAction, setSelectedAction] = useState<CorrectiveAction | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<CorrectiveAction | null>(null);
 
   useEffect(() => {
     fetchActions();
@@ -88,6 +90,7 @@ export default function CorrectiveActionsPage() {
       }
     } catch (error) {
       console.error('Failed to fetch actions:', error);
+      toast.error('개선조치 목록을 불러오는데 실패했습니다');
     } finally {
       setLoading(false);
     }
@@ -101,6 +104,7 @@ export default function CorrectiveActionsPage() {
       }
     } catch (error) {
       console.error('Failed to fetch users:', error);
+      toast.error('사용자 목록을 불러오는데 실패했습니다');
     }
   };
 
@@ -119,11 +123,34 @@ export default function CorrectiveActionsPage() {
         const updated = await res.json();
         setActions(prev => prev.map(a => a.id === updated.id ? { ...a, ...updated } : a));
         setSelectedAction({ ...selectedAction, ...updated });
+        toast.success('개선조치가 수정되었습니다');
       }
     } catch (error) {
       console.error('Failed to update action:', error);
+      toast.error('개선조치 수정에 실패했습니다');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      const response = await fetch(`/api/haccp/corrective-actions?id=${deleteTarget.id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        toast.success('개선조치가 삭제되었습니다.');
+        setDeleteTarget(null);
+        setShowDetailModal(false);
+        fetchActions();
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || '개선조치 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to delete corrective action:', error);
+      toast.error('개선조치 삭제에 실패했습니다.');
     }
   };
 
@@ -564,10 +591,46 @@ export default function CorrectiveActionsPage() {
                 </span>
               )}
               <button
+                onClick={() => setDeleteTarget(selectedAction)}
+                className="px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50"
+                disabled={saving || selectedAction.status === 'VERIFIED' || selectedAction.status === 'CLOSED'}
+              >
+                삭제
+              </button>
+              <button
                 onClick={() => setShowDetailModal(false)}
                 className="px-4 py-2 border rounded-lg hover:bg-gray-100"
               >
                 닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">개선조치 삭제</h3>
+            <p className="text-gray-600 mb-4">
+              정말로 이 개선조치를 삭제하시겠습니까?<br/>
+              <span className="text-sm text-gray-500">
+                {deleteTarget.action_number}
+              </span>
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                삭제
               </button>
             </div>
           </div>

@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Calendar, Truck, Package, ThermometerSun, MapPin,
   Clock, CheckCircle2, XCircle, Eye, ClipboardCheck, Search,
-  ChevronDown, ChevronUp, AlertTriangle, User, FileCheck
+  ChevronDown, ChevronUp, AlertTriangle, User, FileCheck, FileText
 } from 'lucide-react';
+import Link from 'next/link';
+import toast from 'react-hot-toast';
 import { Label } from '@/components/ui/label';
 
 interface ShipmentItem {
@@ -131,6 +133,7 @@ export default function ShipmentsPage() {
       }
     } catch (error) {
       console.error('Failed to fetch shipments:', error);
+      toast.error('출하 목록을 불러오는데 실패했습니다');
     } finally {
       setLoading(false);
     }
@@ -145,6 +148,7 @@ export default function ShipmentsPage() {
       }
     } catch (error) {
       console.error('Failed to fetch products:', error);
+      toast.error('제품 목록을 불러오는데 실패했습니다');
     }
   };
 
@@ -175,9 +179,11 @@ export default function ShipmentsPage() {
         setShowModal(false);
         fetchShipments();
         resetForm();
+        toast.success('출하가 등록되었습니다');
       }
     } catch (error) {
       console.error('Failed to create shipment:', error);
+      toast.error('출하 등록에 실패했습니다');
     }
   };
 
@@ -215,9 +221,11 @@ export default function ShipmentsPage() {
       if (response.ok) {
         setShowPreCheckModal(false);
         fetchShipments();
+        toast.success('출하전 검사가 완료되었습니다');
       }
     } catch (error) {
       console.error('Failed to submit pre-shipment check:', error);
+      toast.error('출하전 검사 저장에 실패했습니다');
     }
   };
 
@@ -234,9 +242,11 @@ export default function ShipmentsPage() {
 
       if (response.ok) {
         fetchShipments();
+        toast.success('출하 처리되었습니다');
       }
     } catch (error) {
       console.error('Failed to ship:', error);
+      toast.error('출하 처리에 실패했습니다');
     }
   };
 
@@ -253,9 +263,11 @@ export default function ShipmentsPage() {
 
       if (response.ok) {
         fetchShipments();
+        toast.success('배송 완료 처리되었습니다');
       }
     } catch (error) {
       console.error('Failed to deliver:', error);
+      toast.error('배송 완료 처리에 실패했습니다');
     }
   };
 
@@ -277,9 +289,11 @@ export default function ShipmentsPage() {
       if (response.ok) {
         setShowReceiveModal(false);
         fetchShipments();
+        toast.success('수령 확인이 완료되었습니다');
       }
     } catch (error) {
       console.error('Failed to receive:', error);
+      toast.error('수령 확인 저장에 실패했습니다');
     }
   };
 
@@ -298,9 +312,11 @@ export default function ShipmentsPage() {
 
       if (response.ok) {
         fetchShipments();
+        toast.success('출하가 취소되었습니다');
       }
     } catch (error) {
       console.error('Failed to cancel:', error);
+      toast.error('출하 취소에 실패했습니다');
     }
   };
 
@@ -646,6 +662,14 @@ export default function ShipmentsPage() {
                   >
                     <Eye className="w-4 h-4 text-gray-600" />
                   </button>
+                  <Link
+                    href={`/shipments/invoice/${shipment.id}`}
+                    target="_blank"
+                    className="p-2 hover:bg-blue-100 rounded-lg"
+                    title="거래명세서"
+                  >
+                    <FileText className="w-4 h-4 text-blue-600" />
+                  </Link>
 
                   {/* 상태별 액션 버튼 */}
                   {shipment.status === 'PENDING' && !shipment.pre_shipment_check && (

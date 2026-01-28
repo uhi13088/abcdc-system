@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Package, ArrowUpCircle, ArrowDownCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Search, Package, ArrowUpCircle, ArrowDownCircle, AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
+import toast from 'react-hot-toast';
 
 interface MaterialStock {
   id: string;
@@ -55,6 +56,7 @@ export default function InventoryPage() {
     production_lot: '',
     notes: '',
   });
+  const [deleteTarget, setDeleteTarget] = useState<MaterialTransaction | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -74,6 +76,7 @@ export default function InventoryPage() {
       if (materialsRes.ok) setMaterials(await materialsRes.json());
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      toast.error('재고 데이터를 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -105,9 +108,14 @@ export default function InventoryPage() {
           production_lot: '',
           notes: '',
         });
+        toast.success(modalType === 'IN' ? '입고 처리되었습니다.' : '출고 처리되었습니다.');
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || '처리에 실패했습니다.');
       }
     } catch (error) {
       console.error('Failed to create transaction:', error);
+      toast.error('처리에 실패했습니다.');
     }
   };
 
@@ -138,6 +146,26 @@ export default function InventoryPage() {
       production_lot: modalType === 'OUT' ? `PROD-${lotDate}-001` : '',
       notes: sampleNotes[Math.floor(Math.random() * sampleNotes.length)],
     });
+  };
+
+  const handleDeleteTransaction = async () => {
+    if (!deleteTarget) return;
+    try {
+      const response = await fetch(`/api/haccp/inventory/transactions?id=${deleteTarget.id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        toast.success('트랜잭션이 삭제되었습니다.');
+        setDeleteTarget(null);
+        fetchData();
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || '트랜잭션 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to delete transaction:', error);
+      toast.error('트랜잭션 삭제에 실패했습니다.');
+    }
   };
 
   const filteredStocks = stocks.filter(s =>
@@ -340,6 +368,7 @@ export default function InventoryPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">LOT</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">수량</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">비고</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">관리</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -358,6 +387,15 @@ export default function InventoryPage() {
                       <td className="px-6 py-4 text-sm font-mono">{tx.lot_number}</td>
                       <td className="px-6 py-4 text-sm">{tx.quantity} {tx.unit}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">{tx.notes || '-'}</td>
+                      <td className="px-6 py-4 text-center">
+                        <button
+                          onClick={() => setDeleteTarget(tx)}
+                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="삭제"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -510,6 +548,38 @@ export default function InventoryPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">트랜잭션 삭제</h3>
+            <p className="text-gray-600 mb-4">
+              정말로 이 트랜잭션을 삭제하시겠습니까?<br/>
+              <span className="text-sm text-gray-500">
+                {deleteTarget.transaction_date} - {transactionText[deleteTarget.transaction_type]} ({deleteTarget.material_name}, {deleteTarget.quantity}{deleteTarget.unit})
+              </span>
+            </p>
+            <p className="text-sm text-orange-600 mb-4">
+              * 재고가 자동으로 롤백됩니다.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDeleteTransaction}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                삭제
+              </button>
+            </div>
           </div>
         </div>
       )}
