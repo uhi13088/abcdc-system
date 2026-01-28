@@ -6,6 +6,7 @@ import {
   Factory, Truck, Package, CheckCircle2, AlertTriangle,
   ClipboardCheck, ChevronLeft, ChevronRight, PenTool, Mail, Cloud
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface AttendanceRecord {
   user_id: string;
@@ -114,6 +115,7 @@ export default function DailyReportPage() {
       }
     } catch (error) {
       console.error('Failed to fetch report data:', error);
+      toast.error('보고서 데이터를 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -147,15 +149,15 @@ export default function DailyReportPage() {
       });
 
       if (response.ok) {
-        alert('이메일이 발송되었습니다.');
+        toast.success('이메일이 발송되었습니다.');
         setShowExportModal(false);
       } else {
         const error = await response.json();
-        alert(error.message || '이메일 발송에 실패했습니다.');
+        toast.error(error.message || '이메일 발송에 실패했습니다.');
       }
     } catch (error) {
       console.error('Email export failed:', error);
-      alert('이메일 발송에 실패했습니다.');
+      toast.error('이메일 발송에 실패했습니다.');
     } finally {
       setExporting(false);
     }
@@ -180,17 +182,17 @@ export default function DailyReportPage() {
           // Google OAuth 인증 필요
           window.open(data.authUrl, '_blank');
         } else if (data.fileUrl) {
-          alert('Google Drive에 저장되었습니다.');
+          toast.success('Google Drive에 저장되었습니다.');
           window.open(data.fileUrl, '_blank');
         }
         setShowExportModal(false);
       } else {
         const error = await response.json();
-        alert(error.message || 'Google Drive 저장에 실패했습니다.');
+        toast.error(error.message || 'Google Drive 저장에 실패했습니다.');
       }
     } catch (error) {
       console.error('Google Drive export failed:', error);
-      alert('Google Drive 저장에 실패했습니다.');
+      toast.error('Google Drive 저장에 실패했습니다.');
     } finally {
       setExporting(false);
     }

@@ -222,3 +222,69 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// DELETE /api/haccp/ccp/records
+export async function DELETE(request: NextRequest) {
+  const supabase = await createClient();
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('id, company_id')
+      .eq('auth_id', user.id)
+      .single();
+
+    if (!profile) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Record ID is required' }, { status: 400 });
+    }
+
+    // 기록 존재 여부 확인
+    const { data: existing } = await supabase
+      .from('ccp_records')
+      .select('id, corrective_action_id')
+      .eq('id', id)
+      .eq('company_id', profile.company_id)
+      .single();
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 });
+    }
+
+    // 연결된 개선조치가 있으면 연결 해제
+    if (existing.corrective_action_id) {
+      await supabase
+        .from('corrective_actions')
+        .update({ source_id: null })
+        .eq('id', existing.corrective_action_id);
+    }
+
+    // CCP 기록 삭제
+    const { error } = await supabase
+      .from('ccp_records')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', profile.company_id);
+
+    if (error) {
+      console.error('Error deleting CCP record:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, message: 'CCP 기록이 삭제되었습니다.' });
+  } catch (error) {
+    console.error('Error in DELETE /api/haccp/ccp/records:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

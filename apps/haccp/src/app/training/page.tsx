@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Users, Calendar, Award, BookOpen, CheckCircle, Clock, X, Edit2 } from 'lucide-react';
+import { Plus, Users, Calendar, Award, BookOpen, CheckCircle, Clock, X, Edit2, Trash2 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
+import toast from 'react-hot-toast';
 
 interface Attendee {
   user_id?: string;
@@ -38,6 +39,7 @@ export default function TrainingPage() {
   const [showAttendeeModal, setShowAttendeeModal] = useState(false);
   const [selectedTraining, setSelectedTraining] = useState<TrainingRecord | null>(null);
   const [editMode, setEditMode] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<TrainingRecord | null>(null);
   const [formData, setFormData] = useState({
     training_type: 'HACCP_BASIC' as TrainingRecord['training_type'],
     title: '',
@@ -69,6 +71,7 @@ export default function TrainingPage() {
       }
     } catch (error) {
       console.error('Failed to fetch trainings:', error);
+      toast.error('교육 목록을 불러오는데 실패했습니다');
     } finally {
       setLoading(false);
     }
@@ -92,9 +95,11 @@ export default function TrainingPage() {
         setShowModal(false);
         fetchTrainings();
         resetForm();
+        toast.success(editMode ? '교육이 수정되었습니다' : '교육이 등록되었습니다');
       }
     } catch (error) {
       console.error('Failed to save training:', error);
+      toast.error('교육 저장에 실패했습니다');
     }
   };
 
@@ -143,9 +148,11 @@ export default function TrainingPage() {
 
       if (response.ok) {
         fetchTrainings();
+        toast.success('교육 상태가 변경되었습니다');
       }
     } catch (error) {
       console.error('Failed to update status:', error);
+      toast.error('교육 상태 변경에 실패했습니다');
     }
   };
 
@@ -172,9 +179,11 @@ export default function TrainingPage() {
         setAttendeeForm({ employee_name: '', department: '' });
         // Update selectedTraining for UI
         setSelectedTraining({ ...selectedTraining, attendees: updatedAttendees });
+        toast.success('참석자가 추가되었습니다');
       }
     } catch (error) {
       console.error('Failed to add attendee:', error);
+      toast.error('참석자 추가에 실패했습니다');
     }
   };
 
@@ -195,9 +204,31 @@ export default function TrainingPage() {
       if (response.ok) {
         fetchTrainings();
         setSelectedTraining({ ...selectedTraining, attendees: updatedAttendees });
+        toast.success('참석자 이수 상태가 변경되었습니다');
       }
     } catch (error) {
       console.error('Failed to update attendee:', error);
+      toast.error('참석자 상태 변경에 실패했습니다');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      const response = await fetch(`/api/haccp/training?id=${deleteTarget.id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        toast.success('교육 기록이 삭제되었습니다.');
+        setDeleteTarget(null);
+        fetchTrainings();
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || '교육 기록 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to delete training:', error);
+      toast.error('교육 기록 삭제에 실패했습니다.');
     }
   };
 
@@ -426,6 +457,13 @@ export default function TrainingPage() {
                     수정
                   </button>
                   <button
+                    onClick={() => setDeleteTarget(training)}
+                    className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded flex items-center gap-1"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    삭제
+                  </button>
+                  <button
                     onClick={() => {
                       setSelectedTraining(training);
                       setShowAttendeeModal(true);
@@ -438,6 +476,35 @@ export default function TrainingPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">교육 기록 삭제</h3>
+            <p className="text-gray-600 mb-4">
+              정말로 이 교육 기록을 삭제하시겠습니까?<br/>
+              <span className="text-sm text-gray-500">
+                {deleteTarget.title} ({deleteTarget.training_date})
+              </span>
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

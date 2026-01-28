@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Check, X, AlertTriangle, Calendar, Filter, ExternalLink } from 'lucide-react';
+import { Plus, Check, X, AlertTriangle, Calendar, Filter, ExternalLink, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import toast from 'react-hot-toast';
 
 interface CriticalLimit {
   code: string;
@@ -101,6 +102,7 @@ function CCPRecordsContent() {
   const [showModal, setShowModal] = useState(false);
   const [selectedCcp, setSelectedCcp] = useState<string>(selectedCcpId || '');
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
+  const [deleteTarget, setDeleteTarget] = useState<CCPRecord | null>(null);
 
   const [formData, setFormData] = useState({
     ccp_id: selectedCcpId || '',
@@ -148,6 +150,7 @@ function CCPRecordsContent() {
       }
     } catch (error) {
       console.error('Failed to fetch CCPs:', error);
+      toast.error('CCP 목록을 불러오는데 실패했습니다.');
     }
   };
 
@@ -177,6 +180,7 @@ function CCPRecordsContent() {
       }
     } catch (error) {
       console.error('Failed to fetch records:', error);
+      toast.error('CCP 기록을 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -243,9 +247,34 @@ function CCPRecordsContent() {
           measurements: [],
           deviation_action: '',
         });
+        toast.success('CCP 기록이 저장되었습니다.');
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || 'CCP 기록 저장에 실패했습니다.');
       }
     } catch (error) {
       console.error('Failed to create record:', error);
+      toast.error('CCP 기록 저장에 실패했습니다.');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      const response = await fetch(`/api/haccp/ccp/records?id=${deleteTarget.id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        toast.success('CCP 기록이 삭제되었습니다.');
+        setDeleteTarget(null);
+        fetchRecords();
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || 'CCP 기록 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to delete record:', error);
+      toast.error('CCP 기록 삭제에 실패했습니다.');
     }
   };
 
@@ -444,6 +473,7 @@ function CCPRecordsContent() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">결과</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">기록자</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">검증</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">관리</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -535,10 +565,48 @@ function CCPRecordsContent() {
                       <span className="text-xs text-gray-400">미검증</span>
                     )}
                   </td>
+                  <td className="px-4 py-3 text-center">
+                    <button
+                      onClick={() => setDeleteTarget(record)}
+                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="삭제"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">CCP 기록 삭제</h3>
+            <p className="text-gray-600 mb-4">
+              정말로 이 기록을 삭제하시겠습니까?<br/>
+              <span className="text-sm text-gray-500">
+                {deleteTarget.record_date} {deleteTarget.record_time} - {deleteTarget.ccp_definitions?.ccp_number}
+              </span>
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

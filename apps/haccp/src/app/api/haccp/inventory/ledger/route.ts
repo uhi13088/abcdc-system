@@ -175,8 +175,11 @@ export async function GET(request: NextRequest) {
           existing.total_out += tx.quantity;
           break;
         case 'ADJUST':
-        case 'DISPOSE':
           existing.total_adjust += tx.quantity;
+          break;
+        case 'DISPOSE':
+          // DISPOSE는 재고 감소이므로 OUT과 동일하게 처리
+          existing.total_out += tx.quantity;
           break;
       }
     });
@@ -243,8 +246,11 @@ export async function GET(request: NextRequest) {
             }
             break;
           case 'ADJUST':
-          case 'DISPOSE':
             entry.adjust_quantity += tx.quantity;
+            break;
+          case 'DISPOSE':
+            // DISPOSE는 재고 감소이므로 OUT과 동일하게 처리
+            entry.out_quantity += tx.quantity;
             break;
         }
       });
@@ -271,8 +277,12 @@ export async function GET(request: NextRequest) {
               balance -= tx.quantity;
               break;
             case 'ADJUST':
-            case 'DISPOSE':
+              // ADJUST는 양수/음수 모두 가능
               balance += tx.quantity;
+              break;
+            case 'DISPOSE':
+              // DISPOSE는 재고 감소
+              balance -= tx.quantity;
               break;
           }
         });

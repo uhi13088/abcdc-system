@@ -168,3 +168,90 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// DELETE /api/haccp/inventory/transactions
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createServerClient();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+    }
+
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('id, company_id')
+      .eq('auth_id', userData.user.id)
+      .single();
+
+    if (!userProfile?.company_id) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+    }
+
+    // 기록 존재 여부 확인 (롤백용 정보 포함)
+    const { data: existing } = await supabase
+      .from('material_transactions')
+      .select('id, material_id, lot_number, quantity, transaction_type')
+      .eq('id', id)
+      .eq('company_id', userProfile.company_id)
+      .single();
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 });
+    }
+
+    // 재고 롤백 처리
+    const { data: stock } = await supabase
+      .from('material_stocks')
+      .select('id, quantity')
+      .eq('company_id', userProfile.company_id)
+      .eq('material_id', existing.material_id)
+      .eq('lot_number', existing.lot_number)
+      .single();
+
+    if (stock) {
+      let newQuantity = stock.quantity;
+      // 입고 취소 -> 재고 감소
+      if (existing.transaction_type === 'IN') {
+        newQuantity = Math.max(0, stock.quantity - existing.quantity);
+      }
+      // 출고 취소 -> 재고 증가
+      else if (existing.transaction_type === 'OUT' || existing.transaction_type === 'DISPOSE') {
+        newQuantity = stock.quantity + existing.quantity;
+      }
+
+      await supabase
+        .from('material_stocks')
+        .update({
+          quantity: newQuantity,
+          status: newQuantity > 0 ? 'AVAILABLE' : 'DISPOSED',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', stock.id);
+    }
+
+    // 트랜잭션 삭제
+    const { error } = await supabase
+      .from('material_transactions')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', userProfile.company_id);
+
+    if (error) {
+      console.error('Error deleting transaction:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, message: '재고 트랜잭션이 삭제되었습니다.' });
+  } catch (error) {
+    console.error('Error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Save, Building2, Bell, Shield, Users, Clock, Database, RefreshCw, AlertCircle, MapPin, Sun, Plus, Trash2, Edit2, CheckCircle, Lock, Info } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface CompanySettings {
   company_name: string;
@@ -226,7 +227,9 @@ export default function SettingsPage() {
         setCurrentSeason(seasonsData.currentSeason);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '설정을 불러오는데 실패했습니다.');
+      const errorMessage = err instanceof Error ? err.message : '설정을 불러오는데 실패했습니다.';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -254,10 +257,12 @@ export default function SettingsPage() {
         setEditingZone(null);
         fetchSettings();
         setSuccessMessage('구역이 저장되었습니다.');
+        toast.success('구역이 저장되었습니다.');
         setTimeout(() => setSuccessMessage(null), 3000);
       }
     } catch (_err) {
       setError('구역 저장에 실패했습니다.');
+      toast.error('구역 저장에 실패했습니다.');
     } finally {
       setSaving(false);
     }
@@ -274,10 +279,12 @@ export default function SettingsPage() {
       if (response.ok) {
         fetchSettings();
         setSuccessMessage('구역이 삭제되었습니다.');
+        toast.success('구역이 삭제되었습니다.');
         setTimeout(() => setSuccessMessage(null), 3000);
       }
     } catch (_err) {
       setError('구역 삭제에 실패했습니다.');
+      toast.error('구역 삭제에 실패했습니다.');
     }
   };
 
@@ -295,10 +302,12 @@ export default function SettingsPage() {
         const data = await response.json();
         setCurrentSeason(data.currentSeason);
         setSuccessMessage('시즌 설정이 저장되었습니다.');
+        toast.success('시즌 설정이 저장되었습니다.');
         setTimeout(() => setSuccessMessage(null), 3000);
       }
     } catch (_err) {
       setError('시즌 설정 저장에 실패했습니다.');
+      toast.error('시즌 설정 저장에 실패했습니다.');
     } finally {
       setSaving(false);
     }
@@ -333,9 +342,12 @@ export default function SettingsPage() {
       }
 
       setSuccessMessage('설정이 저장되었습니다.');
+      toast.success('설정이 저장되었습니다.');
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '설정 저장에 실패했습니다.');
+      const errorMessage = err instanceof Error ? err.message : '설정 저장에 실패했습니다.';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setSaving(false);
     }

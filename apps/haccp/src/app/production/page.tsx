@@ -5,10 +5,11 @@ import {
   Plus, Calendar, Factory, Clock, Users, Package,
   ThermometerSun, Droplets, CheckCircle2, XCircle,
   Eye, ClipboardCheck, FileCheck, Search,
-  ChevronDown, ChevronUp, Settings
+  ChevronDown, ChevronUp, Settings, Trash2
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 interface ProductionRecord {
   id: string;
@@ -138,6 +139,7 @@ export default function ProductionPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showQualityModal, setShowQualityModal] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<ProductionRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProductionRecord | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [filterQuality, setFilterQuality] = useState<string>('');
@@ -190,6 +192,7 @@ export default function ProductionPage() {
       }
     } catch (error) {
       console.error('Failed to fetch production records:', error);
+      toast.error('생산 기록을 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -335,9 +338,14 @@ export default function ProductionPage() {
         setShowModal(false);
         fetchRecords();
         resetForm();
+        toast.success('생산 기록이 저장되었습니다.');
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || '생산 기록 저장에 실패했습니다.');
       }
     } catch (error) {
       console.error('Failed to create production record:', error);
+      toast.error('생산 기록 저장에 실패했습니다.');
     }
   };
 
@@ -449,9 +457,13 @@ export default function ProductionPage() {
       if (response.ok) {
         setShowQualityModal(false);
         fetchRecords();
+        toast.success('품질검사가 완료되었습니다.');
+      } else {
+        toast.error('품질검사 저장에 실패했습니다.');
       }
     } catch (error) {
       console.error('Failed to submit quality check:', error);
+      toast.error('품질검사 저장에 실패했습니다.');
     }
   };
 
@@ -469,9 +481,14 @@ export default function ProductionPage() {
 
       if (response.ok) {
         fetchRecords();
+        const actionText = action === 'approve' ? '승인' : action === 'reject' ? '반려' : '보류';
+        toast.success(`${actionText} 처리되었습니다.`);
+      } else {
+        toast.error('승인 처리에 실패했습니다.');
       }
     } catch (error) {
       console.error('Failed to update approval:', error);
+      toast.error('승인 처리에 실패했습니다.');
     }
   };
 
@@ -488,9 +505,33 @@ export default function ProductionPage() {
 
       if (response.ok) {
         fetchRecords();
+        toast.success('생산 완료 처리되었습니다.');
+      } else {
+        toast.error('생산 완료 처리에 실패했습니다.');
       }
     } catch (error) {
       console.error('Failed to complete record:', error);
+      toast.error('생산 완료 처리에 실패했습니다.');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      const response = await fetch(`/api/haccp/production?id=${deleteTarget.id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        toast.success('생산 기록이 삭제되었습니다.');
+        setDeleteTarget(null);
+        fetchRecords();
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || '생산 기록 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to delete record:', error);
+      toast.error('생산 기록 삭제에 실패했습니다.');
     }
   };
 
@@ -852,6 +893,16 @@ export default function ProductionPage() {
                   >
                     <Eye className="w-4 h-4 text-gray-600" />
                   </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteTarget(record);
+                    }}
+                    className="p-2 hover:bg-red-100 rounded-lg text-red-500"
+                    title="삭제"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                   {record.quality_check_status === 'PENDING' && (
                     <button
                       onClick={() => openQualityModal(record)}
@@ -1065,6 +1116,35 @@ export default function ProductionPage() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">생산 기록 삭제</h3>
+            <p className="text-gray-600 mb-4">
+              정말로 이 기록을 삭제하시겠습니까?<br/>
+              <span className="text-sm text-gray-500">
+                {deleteTarget.lot_number} - {deleteTarget.product_name}
+              </span>
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

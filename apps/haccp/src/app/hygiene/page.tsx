@@ -12,6 +12,7 @@ import {
   ChevronUp,
   AlertTriangle,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 // 점검 항목 정의
 const CHECK_ITEMS = {
@@ -110,6 +111,7 @@ export default function HygienePage() {
   const [selectedPeriod, setSelectedPeriod] = useState<CheckPeriod>('작업전');
   const [formData, setFormData] = useState<FormData>(getInitialFormData('작업전'));
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  const [deleteTarget, setDeleteTarget] = useState<HygieneCheck | null>(null);
 
   useEffect(() => {
     fetchChecks();
@@ -126,6 +128,7 @@ export default function HygienePage() {
       }
     } catch (error) {
       console.error('Failed to fetch hygiene checks:', error);
+      toast.error('위생점검 기록을 불러오는데 실패했습니다');
     } finally {
       setLoading(false);
     }
@@ -196,9 +199,11 @@ export default function HygienePage() {
         setShowModal(false);
         setFormData(getInitialFormData(selectedPeriod));
         fetchChecks();
+        toast.success('위생점검 기록이 저장되었습니다');
       }
     } catch (error) {
       console.error('Failed to create hygiene check:', error);
+      toast.error('위생점검 기록 저장에 실패했습니다');
     }
   };
 
@@ -212,9 +217,31 @@ export default function HygienePage() {
 
       if (response.ok) {
         fetchChecks();
+        toast.success('검증이 완료되었습니다');
       }
     } catch (error) {
       console.error('Failed to verify:', error);
+      toast.error('검증 처리에 실패했습니다');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      const response = await fetch(`/api/haccp/hygiene?id=${deleteTarget.id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        toast.success('위생점검 기록이 삭제되었습니다.');
+        setDeleteTarget(null);
+        fetchChecks();
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || '위생점검 기록 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to delete hygiene check:', error);
+      toast.error('위생점검 기록 삭제에 실패했습니다.');
     }
   };
 
@@ -556,17 +583,23 @@ export default function HygienePage() {
                       </div>
                     )}
 
-                    {/* 검증 버튼 */}
-                    {!latestCheck.verified_by_name && (
-                      <div className="flex justify-end pt-2 border-t">
+                    {/* 검증 버튼 및 삭제 버튼 */}
+                    <div className="flex justify-end gap-2 pt-2 border-t">
+                      <button
+                        onClick={() => setDeleteTarget(latestCheck)}
+                        className="px-4 py-2 text-red-600 border border-red-300 text-sm rounded-lg hover:bg-red-50"
+                      >
+                        삭제
+                      </button>
+                      {!latestCheck.verified_by_name && (
                         <button
                           onClick={() => handleVerify(latestCheck.id)}
                           className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
                         >
                           검증 완료
                         </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -588,6 +621,35 @@ export default function HygienePage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">위생점검 기록 삭제</h3>
+            <p className="text-gray-600 mb-4">
+              정말로 이 기록을 삭제하시겠습니까?<br/>
+              <span className="text-sm text-gray-500">
+                {deleteTarget.check_date} - {deleteTarget.check_period}
+              </span>
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

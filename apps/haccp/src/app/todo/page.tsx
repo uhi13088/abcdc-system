@@ -13,6 +13,7 @@ import {
   Clock,
   Trash2,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface Worker {
   id: string;
@@ -149,6 +150,7 @@ export default function TodoPage() {
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      toast.error('체크리스트 데이터를 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -189,10 +191,12 @@ export default function TodoPage() {
       });
 
       if (res.ok) {
+        toast.success('체크리스트 항목을 완료했습니다.');
         fetchData();
       }
     } catch (error) {
       console.error('Failed to complete item:', error);
+      toast.error('체크리스트 항목 완료에 실패했습니다.');
     }
   };
 
@@ -203,10 +207,12 @@ export default function TodoPage() {
       });
 
       if (res.ok) {
+        toast.success('체크리스트 항목 완료를 취소했습니다.');
         fetchData();
       }
     } catch (error) {
       console.error('Failed to uncomplete item:', error);
+      toast.error('체크리스트 항목 완료 취소에 실패했습니다.');
     }
   };
 
@@ -236,14 +242,17 @@ export default function TodoPage() {
         setSelectedTemplate(null);
         setTemplateItems([]);
         setMessage({ type: 'success', text: '할 일이 추가되었습니다.' });
+        toast.success('체크리스트가 추가되었습니다.');
         fetchData();
       } else {
         const error = await res.json();
         setMessage({ type: 'error', text: error.error || '생성에 실패했습니다.' });
+        toast.error(error.error || '체크리스트 생성에 실패했습니다.');
       }
     } catch (error) {
       console.error('Failed to apply template:', error);
       setMessage({ type: 'error', text: '템플릿 적용 중 오류가 발생했습니다.' });
+      toast.error('체크리스트 템플릿 적용 중 오류가 발생했습니다.');
     }
   };
 
@@ -272,14 +281,17 @@ export default function TodoPage() {
         setNewTemplateCategory('CUSTOM');
         setNewTemplateItems(['']);
         setMessage({ type: 'success', text: '템플릿이 생성되었습니다.' });
+        toast.success('체크리스트 템플릿이 생성되었습니다.');
         fetchData();
       } else {
         const error = await res.json();
         setMessage({ type: 'error', text: error.error || '생성에 실패했습니다.' });
+        toast.error(error.error || '체크리스트 템플릿 생성에 실패했습니다.');
       }
     } catch (error) {
       console.error('Failed to create template:', error);
       setMessage({ type: 'error', text: '템플릿 생성 중 오류가 발생했습니다.' });
+      toast.error('체크리스트 템플릿 생성 중 오류가 발생했습니다.');
     }
   };
 
@@ -292,10 +304,12 @@ export default function TodoPage() {
       });
 
       if (res.ok) {
+        toast.success('체크리스트가 삭제되었습니다.');
         fetchData();
       }
     } catch (error) {
       console.error('Failed to delete todo:', error);
+      toast.error('체크리스트 삭제에 실패했습니다.');
     }
   };
 

@@ -187,3 +187,68 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// DELETE /api/haccp/training
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createServerClient();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+    }
+
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('id, company_id')
+      .eq('auth_id', userData.user.id)
+      .single();
+
+    if (!userProfile?.company_id) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+    }
+
+    // 기록 존재 여부 확인
+    const { data: existing } = await supabase
+      .from('haccp_training_records')
+      .select('id, status, verified_by')
+      .eq('id', id)
+      .eq('company_id', userProfile.company_id)
+      .single();
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Record not found' }, { status: 404 });
+    }
+
+    // 완료 및 검증된 교육기록은 삭제 불가
+    if (existing.status === 'COMPLETED' && existing.verified_by) {
+      return NextResponse.json(
+        { error: '완료 및 검증된 교육기록은 삭제할 수 없습니다.' },
+        { status: 400 }
+      );
+    }
+
+    // 교육 기록 삭제
+    const { error } = await supabase
+      .from('haccp_training_records')
+      .delete()
+      .eq('id', id)
+      .eq('company_id', userProfile.company_id);
+
+    if (error) {
+      console.error('Error deleting training record:', error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, message: '교육 기록이 삭제되었습니다.' });
+  } catch (error) {
+    console.error('Error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
