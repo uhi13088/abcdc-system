@@ -19,6 +19,8 @@ import {
   Clock,
   Zap,
   Loader2,
+  Sunrise,
+  Sunset,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -72,6 +74,8 @@ export default function HACCPDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quickCheckLoading, setQuickCheckLoading] = useState(false);
+  const [morningCheckLoading, setMorningCheckLoading] = useState(false);
+  const [closingCheckLoading, setClosingCheckLoading] = useState(false);
   const [quickCheckResult, setQuickCheckResult] = useState<{
     success: boolean;
     message: string;
@@ -147,6 +151,87 @@ export default function HACCPDashboard() {
     }
   };
 
+  // 원클릭 하루 시작
+  const handleMorningCheck = async () => {
+    if (!confirm('하루 시작 점검을 실행하시겠습니까?\n\n생성되는 기록:\n• 위생점검 (작업전)\n• 저장소 온도 점검\n• CCP 초기 점검\n• 장비 온도 기록\n\n이미 완료된 점검은 건너뜁니다.')) {
+      return;
+    }
+
+    setMorningCheckLoading(true);
+    setQuickCheckResult(null);
+
+    try {
+      const response = await fetch('/api/haccp/quick-morning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          check_date: new Date().toISOString().split('T')[0],
+          skip_existing: true,
+        }),
+      });
+
+      const data = await response.json();
+
+      setQuickCheckResult({
+        success: response.ok,
+        message: data.message || (response.ok ? '하루 시작 점검이 완료되었습니다!' : '오류가 발생했습니다.'),
+      });
+
+      if (response.ok) {
+        fetchStats(false);
+      }
+
+      setTimeout(() => setQuickCheckResult(null), 5000);
+    } catch (_err) {
+      setQuickCheckResult({
+        success: false,
+        message: '네트워크 오류가 발생했습니다.',
+      });
+    } finally {
+      setMorningCheckLoading(false);
+    }
+  };
+
+  // 원클릭 마감
+  const handleClosingCheck = async () => {
+    if (!confirm('마감 점검을 실행하시겠습니까?\n\n생성되는 기록:\n• 위생점검 (작업후)\n• 마감 저장소 온도 점검\n• 마감 CCP 기록\n• 마감 장비 온도 기록')) {
+      return;
+    }
+
+    setClosingCheckLoading(true);
+    setQuickCheckResult(null);
+
+    try {
+      const response = await fetch('/api/haccp/quick-closing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          check_date: new Date().toISOString().split('T')[0],
+        }),
+      });
+
+      const data = await response.json();
+
+      setQuickCheckResult({
+        success: response.ok,
+        message: data.message || (response.ok ? '마감 점검이 완료되었습니다!' : '오류가 발생했습니다.'),
+      });
+
+      if (response.ok) {
+        fetchStats(false);
+      }
+
+      setTimeout(() => setQuickCheckResult(null), 5000);
+    } catch (_err) {
+      setQuickCheckResult({
+        success: false,
+        message: '네트워크 오류가 발생했습니다.',
+      });
+    } finally {
+      setClosingCheckLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -167,19 +252,47 @@ export default function HACCPDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* 원클릭 일일점검 버튼 */}
+          {/* 원클릭 하루 시작 버튼 */}
+          <button
+            onClick={handleMorningCheck}
+            disabled={morningCheckLoading || closingCheckLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-lg hover:from-amber-500 hover:to-orange-600 disabled:opacity-50 shadow-sm"
+            title="출근 후 하루 시작 점검 (위생점검/CCP/저장소)"
+          >
+            {morningCheckLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Sunrise className="w-4 h-4" />
+            )}
+            <span className="text-sm font-medium">하루 시작</span>
+          </button>
+          {/* 원클릭 마감 버튼 */}
+          <button
+            onClick={handleClosingCheck}
+            disabled={morningCheckLoading || closingCheckLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50 shadow-sm"
+            title="퇴근 전 마감 점검"
+          >
+            {closingCheckLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Sunset className="w-4 h-4" />
+            )}
+            <span className="text-sm font-medium">마감</span>
+          </button>
+          {/* 원클릭 전체 점검 버튼 */}
           <button
             onClick={handleQuickDailyCheck}
-            disabled={quickCheckLoading}
+            disabled={quickCheckLoading || morningCheckLoading || closingCheckLoading}
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 shadow-sm"
-            title="오늘의 일일점검을 정상값으로 한번에 완료합니다"
+            title="오늘의 모든 일일점검을 정상값으로 한번에 완료합니다"
           >
             {quickCheckLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Zap className="w-4 h-4" />
             )}
-            <span className="text-sm font-medium">원클릭 점검</span>
+            <span className="text-sm font-medium">전체 점검</span>
           </button>
           <button
             onClick={() => fetchStats(true)}
