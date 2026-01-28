@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Shield } from 'lucide-react';
+import { PWAInstallButton } from '@abc/shared';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -58,8 +59,11 @@ export default function LoginPage() {
             <div className="mx-auto w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mb-4">
               <Shield className="w-8 h-8 text-primary-600" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Platform Admin</h1>
-            <p className="text-gray-600 mt-2">ABC Staff System 관리자 로그인</p>
+            <h1 className="text-2xl font-bold text-gray-900">PEANOTE Platform</h1>
+            <p className="text-gray-600 mt-2">플랫폼 관리자 로그인</p>
+            <div className="mt-4">
+              <PWAInstallButton />
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Clock } from 'lucide-react';
+import { PWAInstallButton } from '@abc/shared';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -43,8 +44,11 @@ export default function LoginPage() {
           <div className="mx-auto w-20 h-20 bg-primary rounded-2xl flex items-center justify-center mb-4">
             <Clock className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">ABC Staff</h1>
+          <h1 className="text-2xl font-bold text-gray-900">PEANOTE</h1>
           <p className="text-gray-500 mt-1">직원용 모바일 앱</p>
+          <div className="mt-4">
+            <PWAInstallButton />
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

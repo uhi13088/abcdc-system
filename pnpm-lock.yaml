@@ -476,6 +476,12 @@ importers:
       pdfkit:
         specifier: ^0.17.2
         version: 0.17.2
+      react:
+        specifier: ^18.0.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.0.0
+        version: 18.3.1(react@18.3.1)
       resend:
         specifier: ^6.7.0
         version: 6.7.0
@@ -486,6 +492,12 @@ importers:
       '@types/pdfkit':
         specifier: ^0.17.4
         version: 0.17.4
+      '@types/react':
+        specifier: 18.3.27
+        version: 18.3.27
+      '@types/react-dom':
+        specifier: 18.3.7
+        version: 18.3.7(@types/react@18.3.27)
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.53.1
         version: 8.53.1(@typescript-eslint/parser@8.53.1)(eslint@8.57.1)(typescript@5.9.3)

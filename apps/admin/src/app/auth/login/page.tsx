@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { LoginSchema } from '@abc/shared';
+import { LoginSchema, PWAInstallButton } from '@abc/shared';
 import type { Provider } from '@supabase/supabase-js';
 
 // Demo accounts for development testing only
@@ -152,11 +152,14 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h1 className="text-center text-3xl font-bold text-gray-900">
-            ABC Staff
+            PEANOTE
           </h1>
           <h2 className="mt-2 text-center text-lg text-gray-600">
             관리자 대시보드
           </h2>
+          <div className="mt-4 flex justify-center">
+            <PWAInstallButton />
+          </div>
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
