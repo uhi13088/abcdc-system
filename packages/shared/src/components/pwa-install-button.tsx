@@ -106,7 +106,20 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
       {/* iOS Guide Modal */}
       {showIOSGuide && (
         <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 p-4">
-          <div className="bg-white rounded-t-2xl w-full max-w-md p-6 animate-slide-up">
+          <div
+            className="bg-white rounded-t-2xl w-full max-w-md p-6"
+            style={{
+              animation: 'slideUp 0.3s ease-out',
+            }}
+          >
+            <style dangerouslySetInnerHTML={{
+              __html: `
+                @keyframes slideUp {
+                  from { transform: translateY(100%); }
+                  to { transform: translateY(0); }
+                }
+              `
+            }} />
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">앱 설치 방법</h3>
               <button
@@ -142,20 +155,6 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
           </div>
         </div>
       )}
-
-      <style jsx>{`
-        @keyframes slide-up {
-          from {
-            transform: translateY(100%);
-          }
-          to {
-            transform: translateY(0);
-          }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.3s ease-out;
-        }
-      `}</style>
     </>
   );
 }
