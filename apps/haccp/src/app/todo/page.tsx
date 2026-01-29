@@ -254,10 +254,13 @@ export default function TodoPage() {
     }
   };
 
-  // 태그 삭제 (길게 누르기로 변경 가능)
-  const handleDeleteSuggestion = async (id: string) => {
+  // 태그 삭제
+  const handleDeleteSuggestion = async (suggestion: Suggestion) => {
     try {
-      await fetch(`/api/haccp/todo/suggestions?id=${id}`, { method: 'DELETE' });
+      const params = suggestion.id
+        ? `id=${suggestion.id}`
+        : `content=${encodeURIComponent(suggestion.content)}`;
+      await fetch(`/api/haccp/todo/suggestions?${params}`, { method: 'DELETE' });
       fetchData();
     } catch (error) {
       console.error('Failed to delete suggestion:', error);
@@ -461,14 +464,12 @@ export default function TodoPage() {
                         >
                           {s.content}
                         </button>
-                        {s.id && (
-                          <button
-                            onClick={() => handleDeleteSuggestion(s.id!)}
-                            className="pr-2 pl-1 py-1.5 hover:text-red-500"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleDeleteSuggestion(s)}
+                          className="pr-2 pl-1 py-1.5 hover:text-red-500"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
                       </div>
                     ))}
                   </div>
