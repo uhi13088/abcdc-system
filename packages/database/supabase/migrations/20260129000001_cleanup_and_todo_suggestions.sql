@@ -82,6 +82,7 @@ CREATE INDEX IF NOT EXISTS idx_todo_suggestions_visible ON todo_suggestions(comp
 -- ============================================
 ALTER TABLE todo_suggestions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS todo_suggestions_policy ON todo_suggestions;
 CREATE POLICY todo_suggestions_policy ON todo_suggestions FOR ALL USING (
   company_id IN (SELECT company_id FROM users WHERE auth_id = auth.uid())
 );
