@@ -79,7 +79,15 @@ const navigation: NavItem[] = [
     ],
   },
   { name: '생산 관리', href: '/production', icon: Factory },
-  { name: '출하 관리', href: '/shipments', icon: Truck },
+  {
+    name: '출하 관리',
+    href: '/shipments',
+    icon: Truck,
+    children: [
+      { name: '출하 목록', href: '/shipments' },
+      { name: '고객 관리', href: '/customers' },
+    ],
+  },
   { name: '일일 종합 보고서', href: '/reports/daily', icon: FileText },
   { name: '감사 보고서', href: '/audit-report', icon: FileText },
   { name: '교육 관리', href: '/training', icon: Users },
@@ -102,7 +110,7 @@ const navigation: NavItem[] = [
 function SidebarComponent() {
   const pathname = usePathname();
   const router = useRouter();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['CCP 관리', '원부재료 관리', '제품 관리', 'IoT 관리']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['CCP 관리', '원부재료 관리', '제품 관리', '출하 관리', 'IoT 관리']);
   const [isHovered, setIsHovered] = useState(false);
 
   // Mobile sidebar state from context
