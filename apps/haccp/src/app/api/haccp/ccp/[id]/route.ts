@@ -27,8 +27,6 @@ export async function PUT(
       monitoring_method,
       monitoring_frequency,
       corrective_action,
-      master_id,
-      item_code,
     } = body;
 
     const { data, error } = await supabase
@@ -42,8 +40,6 @@ export async function PUT(
         monitoring_method,
         monitoring_frequency,
         corrective_action,
-        master_id: master_id || null,
-        item_code: item_code || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
