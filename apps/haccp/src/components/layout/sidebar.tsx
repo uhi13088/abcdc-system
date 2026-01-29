@@ -68,6 +68,7 @@ const navigation: NavItem[] = [
       { name: '반제품', href: '/semi-products' },
       { name: '레시피 관리', href: '/products/recipes' },
       { name: '패킹 규격', href: '/products/packing-specs' },
+      { name: '한글표시사항', href: '/products/labeling' },
     ],
   },
   { name: '생산 관리', href: '/production', icon: Factory },
