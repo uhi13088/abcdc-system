@@ -120,7 +120,12 @@ ON CONFLICT (company_id, content) DO UPDATE SET
   usage_count = todo_suggestions.usage_count + EXCLUDED.usage_count;
 
 -- ============================================
--- 8. 기존 CCP 머지 (CCP-1B-BREAD-TEMP + CCP-1B-BREAD-TIME -> CCP-1B-BREAD)
+-- 8. ccp_definitions에 critical_limits 컬럼 추가 (머지용)
+-- ============================================
+ALTER TABLE ccp_definitions ADD COLUMN IF NOT EXISTS critical_limits JSONB;
+
+-- ============================================
+-- 9. 기존 CCP 머지 (CCP-1B-BREAD-TEMP + CCP-1B-BREAD-TIME -> CCP-1B-BREAD)
 -- ============================================
 -- 같은 프리픽스를 가진 CCP들을 하나로 머지
 -- 예: CCP-1B-BREAD-TEMP, CCP-1B-BREAD-TIME, CCP-1B-BREAD-CORE -> CCP-1B-BREAD
