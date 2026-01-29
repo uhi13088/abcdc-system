@@ -24,7 +24,6 @@ interface Material {
   unit_type: UnitType;
   supplier_id: string | null;
   supplier_name?: string;
-  specification: string;
   storage_temp: string;
   shelf_life: number;
   unit: string;
@@ -257,7 +256,6 @@ function MasterTab({
     type: '원료' as '원료' | '부재료' | '포장재',
     unit_type: 'weight' as UnitType,
     supplier_id: '',
-    specification: '',
     storage_temp: '',
     shelf_life: 0,
     unit: 'kg',
@@ -299,7 +297,6 @@ function MasterTab({
       type: material.type || '원료',
       unit_type: material.unit_type || getUnitType(material.unit),
       supplier_id: material.supplier_id || '',
-      specification: material.specification || '',
       storage_temp: material.storage_temp || '',
       shelf_life: material.shelf_life || 0,
       unit: material.unit || 'kg',
@@ -327,7 +324,6 @@ function MasterTab({
       type: '원료',
       unit_type: 'weight',
       supplier_id: '',
-      specification: '',
       storage_temp: '',
       shelf_life: 0,
       unit: 'kg',
@@ -554,20 +550,6 @@ function MasterTab({
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
                   * kg/g, L/mL은 입출고 시 자동 환산됩니다
-                </p>
-              </div>
-
-              <div>
-                <Label>규격 (포장 형태)</Label>
-                <input
-                  type="text"
-                  value={formData.specification}
-                  onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="예: 20kg 포대, 500g 봉지, 1박스 24개입"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  * 포장 단위나 규격을 자유롭게 입력하세요
                 </p>
               </div>
 
