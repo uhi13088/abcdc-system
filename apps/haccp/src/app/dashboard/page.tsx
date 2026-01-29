@@ -243,10 +243,10 @@ export default function HACCPDashboard() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-4 lg:p-6">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">HACCP 관리</h1>
+          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">HACCP 관리</h1>
           <p className="mt-1 text-sm text-gray-500">
             식품 안전 관리 시스템 - 위해요소 중점관리
           </p>
