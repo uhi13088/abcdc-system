@@ -194,11 +194,9 @@ export default function TodoPage() {
     setShowModal(true);
   };
 
-  // 이전 항목 버튼 클릭
+  // 이전 항목 버튼 클릭 → 입력란에 채우기
   const handleSuggestionClick = (content: string) => {
-    if (!pendingItems.includes(content)) {
-      setPendingItems([...pendingItems, content]);
-    }
+    setNewItemText(content);
   };
 
   // 직접 입력 추가
@@ -451,15 +449,10 @@ export default function TodoPage() {
                     {suggestions.map((s, idx) => (
                       <div
                         key={s.id || idx}
-                        className={`inline-flex items-center rounded-full text-sm ${
-                          pendingItems.includes(s.content)
-                            ? 'bg-blue-200 text-blue-500'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
+                        className="inline-flex items-center rounded-full text-sm bg-gray-100 text-gray-700"
                       >
                         <button
                           onClick={() => handleSuggestionClick(s.content)}
-                          disabled={pendingItems.includes(s.content)}
                           className="px-3 py-1.5 hover:bg-blue-100 rounded-l-full"
                         >
                           {s.content}
