@@ -3,7 +3,7 @@ export type UnitType = 'weight' | 'volume' | 'count';
 
 export type WeightUnit = 'kg' | 'g';
 export type VolumeUnit = 'L' | 'mL';
-export type CountUnit = 'ea' | 'box';
+export type CountUnit = 'ea' | 'box' | 'pack' | 'roll';
 
 export type Unit = WeightUnit | VolumeUnit | CountUnit;
 
@@ -34,8 +34,10 @@ export const UNIT_CONFIG: Record<UnitType, {
     units: {
       ea: 1,
       box: 1, // box는 제품별로 다를 수 있음
+      pack: 1,
+      roll: 1,
     },
-    displayThreshold: Infinity, // 항상 ea로 표시
+    displayThreshold: Infinity, // 항상 입력한 단위로 표시
   },
 };
 
@@ -131,6 +133,8 @@ export const UNIT_OPTIONS: Record<UnitType, { value: string; label: string }[]> 
   count: [
     { value: 'ea', label: 'ea (개)' },
     { value: 'box', label: 'box (박스)' },
+    { value: 'pack', label: 'pack (팩)' },
+    { value: 'roll', label: 'roll (롤)' },
   ],
 };
 
@@ -142,6 +146,8 @@ export const ALL_UNIT_OPTIONS = [
   { value: 'mL', label: 'mL', type: 'volume' },
   { value: 'ea', label: 'ea', type: 'count' },
   { value: 'box', label: 'box', type: 'count' },
+  { value: 'pack', label: 'pack', type: 'count' },
+  { value: 'roll', label: 'roll', type: 'count' },
 ];
 
 // 호환되는 단위인지 확인

@@ -356,19 +356,6 @@ function MasterTab({
     setShowModal(true);
   };
 
-  const handleUnitTypeChange = (unitType: UnitType) => {
-    const defaultUnits: Record<UnitType, string> = {
-      weight: 'kg',
-      volume: 'L',
-      count: 'ea',
-    };
-    setFormData(prev => ({
-      ...prev,
-      unit_type: unitType,
-      unit: defaultUnits[unitType],
-    }));
-  };
-
   const filteredMaterials = materials.filter(m =>
     m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     m.code.toLowerCase().includes(searchQuery.toLowerCase())
@@ -411,7 +398,7 @@ function MasterTab({
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">코드</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">원부재료명</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">구분</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">단위타입</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">단위</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">알레르기</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">공급업체</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">보관</th>
@@ -437,10 +424,7 @@ function MasterTab({
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
-                    {material.unit_type === 'weight' && '중량 (kg/g)'}
-                    {material.unit_type === 'volume' && '용량 (L/mL)'}
-                    {material.unit_type === 'count' && '개수 (ea)'}
-                    {!material.unit_type && material.unit}
+                    {material.unit || '-'}
                   </td>
                   <td className="px-6 py-4">
                     {material.allergens && material.allergens.length > 0 ? (
@@ -541,57 +525,50 @@ function MasterTab({
                 </div>
               </div>
 
-              {/* 단위 타입 선택 */}
-              <div className="bg-blue-50 rounded-lg p-4">
-                <Label>단위 타입 (재고 관리 기준)</Label>
-                <div className="mt-2 flex gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="unit_type"
-                      value="weight"
-                      checked={formData.unit_type === 'weight'}
-                      onChange={() => handleUnitTypeChange('weight')}
-                      className="w-4 h-4"
-                    />
-                    <span>중량 (kg ↔ g)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="unit_type"
-                      value="volume"
-                      checked={formData.unit_type === 'volume'}
-                      onChange={() => handleUnitTypeChange('volume')}
-                      className="w-4 h-4"
-                    />
-                    <span>용량 (L ↔ mL)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="unit_type"
-                      value="count"
-                      checked={formData.unit_type === 'count'}
-                      onChange={() => handleUnitTypeChange('count')}
-                      className="w-4 h-4"
-                    />
-                    <span>개수 (ea)</span>
-                  </label>
-                </div>
-                <p className="text-xs text-blue-600 mt-2">
-                  * 중량/용량 선택 시 kg↔g, L↔mL 자동 환산됩니다
+              {/* 단위 선택 */}
+              <div>
+                <Label>단위</Label>
+                <select
+                  value={formData.unit}
+                  onChange={(e) => {
+                    const newUnit = e.target.value;
+                    const newUnitType = getUnitType(newUnit);
+                    setFormData(prev => ({ ...prev, unit: newUnit, unit_type: newUnitType }));
+                  }}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <optgroup label="중량 (kg ↔ g 자동 환산)">
+                    <option value="kg">kg (킬로그램)</option>
+                    <option value="g">g (그램)</option>
+                  </optgroup>
+                  <optgroup label="용량 (L ↔ mL 자동 환산)">
+                    <option value="L">L (리터)</option>
+                    <option value="mL">mL (밀리리터)</option>
+                  </optgroup>
+                  <optgroup label="개수">
+                    <option value="ea">ea (개)</option>
+                    <option value="box">box (박스)</option>
+                    <option value="pack">pack (팩)</option>
+                    <option value="roll">roll (롤)</option>
+                  </optgroup>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  * kg/g, L/mL은 입출고 시 자동 환산됩니다
                 </p>
               </div>
 
               <div>
-                <Label>규격</Label>
+                <Label>규격 (포장 형태)</Label>
                 <input
                   type="text"
                   value={formData.specification}
                   onChange={(e) => setFormData({ ...formData, specification: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="예: 20kg 포대, 500g 봉지, 1박스 24개입"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  * 포장 단위나 규격을 자유롭게 입력하세요
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
