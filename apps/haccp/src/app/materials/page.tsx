@@ -111,7 +111,16 @@ interface MaterialLedgerEntry {
 }
 
 // Tab type
-type TabType = 'master' | 'receiving' | 'stock' | 'outgoing' | 'ledger';
+type TabType = 'master' | 'receiving' | 'stock' | 'outgoing' | 'ledger' | 'settings';
+
+// 보관위치 타입
+interface StorageLocation {
+  id: string;
+  name: string;
+  zone_type: '냉장' | '냉동' | '상온';
+  description?: string;
+  is_active: boolean;
+}
 
 // ============================================
 // Main Component
@@ -123,20 +132,23 @@ export default function MaterialsPage() {
   const [stocks, setStocks] = useState<MaterialStock[]>([]);
   const [transactions, setTransactions] = useState<MaterialTransaction[]>([]);
   const [inspections, setInspections] = useState<MaterialInspection[]>([]);
+  const [storageLocations, setStorageLocations] = useState<StorageLocation[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch all data
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [materialsRes, suppliersRes, stocksRes, transactionsRes] = await Promise.all([
+      const [materialsRes, suppliersRes, stocksRes, transactionsRes, locationsRes] = await Promise.all([
         fetch('/api/haccp/materials'),
         fetch('/api/haccp/suppliers'),
         fetch('/api/haccp/inventory/stocks'),
         fetch('/api/haccp/inventory/transactions'),
+        fetch('/api/haccp/storage-locations'),
       ]);
 
       if (materialsRes.ok) setMaterials(await materialsRes.json());
+      if (locationsRes.ok) setStorageLocations(await locationsRes.json());
       if (suppliersRes.ok) setSuppliers(await suppliersRes.json());
       if (stocksRes.ok) setStocks(await stocksRes.json());
       if (transactionsRes.ok) setTransactions(await transactionsRes.json());
@@ -157,6 +169,7 @@ export default function MaterialsPage() {
     { id: 'stock' as TabType, label: '현재고', icon: Package },
     { id: 'outgoing' as TabType, label: '출고', icon: ArrowUpCircle },
     { id: 'ledger' as TabType, label: '수불부', icon: FileSpreadsheet },
+    { id: 'settings' as TabType, label: '설정', icon: Settings },
   ];
 
   return (
@@ -208,6 +221,7 @@ export default function MaterialsPage() {
             <ReceivingTab
               materials={materials}
               suppliers={suppliers}
+              storageLocations={storageLocations}
               onRefresh={fetchData}
             />
           )}
@@ -228,6 +242,12 @@ export default function MaterialsPage() {
           )}
           {activeTab === 'ledger' && (
             <LedgerTab materials={materials} />
+          )}
+          {activeTab === 'settings' && (
+            <SettingsTab
+              storageLocations={storageLocations}
+              onRefresh={fetchData}
+            />
           )}
         </>
       )}
@@ -621,18 +641,6 @@ function MasterTab({
 // Receiving Tab (입고/검사)
 // ============================================
 
-// 보관위치 옵션
-const STORAGE_LOCATIONS = [
-  { value: '', label: '선택하세요' },
-  { value: '냉장고-1', label: '냉장고-1' },
-  { value: '냉장고-2', label: '냉장고-2' },
-  { value: '냉동고-1', label: '냉동고-1' },
-  { value: '냉동고-2', label: '냉동고-2' },
-  { value: '창고-1', label: '창고-1 (상온)' },
-  { value: '창고-2', label: '창고-2 (상온)' },
-  { value: '창고-3', label: '창고-3 (상온)' },
-];
-
 // 부적합 사유 옵션
 const FAIL_REASONS = [
   { value: 'appearance', label: '외관 불량 (이물질, 변색 등)' },
@@ -647,10 +655,12 @@ const FAIL_REASONS = [
 function ReceivingTab({
   materials,
   suppliers,
+  storageLocations,
   onRefresh,
 }: {
   materials: Material[];
   suppliers: Supplier[];
+  storageLocations: StorageLocation[];
   onRefresh: () => void;
 }) {
   const [showModal, setShowModal] = useState(false);
@@ -970,7 +980,7 @@ function ReceivingTab({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>LOT 번호</Label>
                   <input
@@ -989,14 +999,17 @@ function ReceivingTab({
                       step="0.01"
                       value={formData.quantity}
                       onChange={(e) => setFormData({ ...formData, quantity: parseFloat(e.target.value) || 0 })}
-                      className="flex-1 px-3 py-2 border rounded-lg"
+                      className="w-32 px-3 py-2 border rounded-lg"
                       required
                     />
-                    <span className="px-3 py-2 bg-gray-100 border rounded-lg text-gray-700 font-medium min-w-[60px] text-center">
+                    <span className="px-4 py-2 bg-gray-100 border rounded-lg text-gray-700 font-medium">
                       {formData.unit}
                     </span>
                   </div>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>유통기한</Label>
                   <input
@@ -1006,20 +1019,27 @@ function ReceivingTab({
                     className="w-full px-3 py-2 border rounded-lg"
                   />
                 </div>
-              </div>
-
-              <div>
-                <Label required>보관위치</Label>
-                <select
-                  value={formData.storage_location}
-                  onChange={(e) => setFormData({ ...formData, storage_location: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  required
-                >
-                  {STORAGE_LOCATIONS.map(loc => (
-                    <option key={loc.value} value={loc.value}>{loc.label}</option>
-                  ))}
-                </select>
+                <div>
+                  <Label required>보관위치</Label>
+                  <select
+                    value={formData.storage_location}
+                    onChange={(e) => setFormData({ ...formData, storage_location: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    required
+                  >
+                    <option value="">선택하세요</option>
+                    {storageLocations.filter(loc => loc.is_active).map(loc => (
+                      <option key={loc.id} value={loc.name}>
+                        {loc.name} ({loc.zone_type})
+                      </option>
+                    ))}
+                  </select>
+                  {storageLocations.length === 0 && (
+                    <p className="text-xs text-orange-600 mt-1">
+                      * 설정 탭에서 보관위치를 먼저 등록해주세요
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* 검사 결과 (간편 모드가 아닐 때만) */}
@@ -1758,6 +1778,273 @@ function LedgerTab({ materials }: { materials: Material[] }) {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ============================================
+// Settings Tab (설정 - 보관위치 관리)
+// ============================================
+function SettingsTab({
+  storageLocations,
+  onRefresh,
+}: {
+  storageLocations: StorageLocation[];
+  onRefresh: () => void;
+}) {
+  const [showModal, setShowModal] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<StorageLocation | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    zone_type: '상온' as '냉장' | '냉동' | '상온',
+    description: '',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const method = editingLocation ? 'PUT' : 'POST';
+      const body = editingLocation
+        ? { id: editingLocation.id, ...formData }
+        : formData;
+
+      const response = await fetch('/api/haccp/storage-locations', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        toast.success(editingLocation ? '수정되었습니다.' : '등록되었습니다.');
+        setShowModal(false);
+        setEditingLocation(null);
+        resetForm();
+        onRefresh();
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || '저장에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to save location:', error);
+      toast.error('저장에 실패했습니다.');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('정말 삭제하시겠습니까?')) return;
+    try {
+      const response = await fetch(`/api/haccp/storage-locations?id=${id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        toast.success('삭제되었습니다.');
+        onRefresh();
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || '삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to delete location:', error);
+      toast.error('삭제에 실패했습니다.');
+    }
+  };
+
+  const handleToggleActive = async (location: StorageLocation) => {
+    try {
+      const response = await fetch('/api/haccp/storage-locations', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: location.id,
+          is_active: !location.is_active,
+        }),
+      });
+      if (response.ok) {
+        toast.success(location.is_active ? '비활성화되었습니다.' : '활성화되었습니다.');
+        onRefresh();
+      }
+    } catch (error) {
+      console.error('Failed to toggle active:', error);
+    }
+  };
+
+  const handleEdit = (location: StorageLocation) => {
+    setEditingLocation(location);
+    setFormData({
+      name: location.name,
+      zone_type: location.zone_type,
+      description: location.description || '',
+    });
+    setShowModal(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      zone_type: '상온',
+      description: '',
+    });
+    setEditingLocation(null);
+  };
+
+  const zoneTypeColors = {
+    '냉장': 'bg-blue-100 text-blue-700',
+    '냉동': 'bg-cyan-100 text-cyan-700',
+    '상온': 'bg-orange-100 text-orange-700',
+  };
+
+  return (
+    <>
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">보관위치 관리</h3>
+        <p className="text-sm text-gray-500">입고 시 선택할 수 있는 보관위치를 등록합니다.</p>
+      </div>
+
+      {/* Actions */}
+      <div className="mb-4 flex justify-end">
+        <button
+          onClick={() => {
+            resetForm();
+            setShowModal(true);
+          }}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          <Plus className="w-4 h-4" />
+          보관위치 추가
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">위치명</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">구역 타입</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">설명</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">관리</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {storageLocations.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                  <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  등록된 보관위치가 없습니다
+                </td>
+              </tr>
+            ) : (
+              storageLocations.map((location) => (
+                <tr key={location.id} className={`hover:bg-gray-50 ${!location.is_active ? 'opacity-50' : ''}`}>
+                  <td className="px-6 py-4 text-sm font-medium">{location.name}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 text-xs rounded-full ${zoneTypeColors[location.zone_type]}`}>
+                      {location.zone_type}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{location.description || '-'}</td>
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={() => handleToggleActive(location)}
+                      className={`px-2 py-1 text-xs rounded-full ${
+                        location.is_active
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      {location.is_active ? '활성' : '비활성'}
+                    </button>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button onClick={() => handleEdit(location)} className="p-1 hover:bg-gray-100 rounded mr-1">
+                      <Edit className="w-4 h-4 text-gray-500" />
+                    </button>
+                    <button onClick={() => handleDelete(location.id)} className="p-1 hover:bg-red-100 rounded">
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">{editingLocation ? '보관위치 수정' : '보관위치 추가'}</h2>
+              <button onClick={() => { setShowModal(false); resetForm(); }} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label required>위치명</Label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="예: 냉장고-1, 냉동고-A, 창고-1층"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label required>구역 타입</Label>
+                <div className="flex gap-2 mt-2">
+                  {(['냉장', '냉동', '상온'] as const).map((type) => (
+                    <label
+                      key={type}
+                      className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        formData.zone_type === type
+                          ? type === '냉장' ? 'border-blue-500 bg-blue-50'
+                            : type === '냉동' ? 'border-cyan-500 bg-cyan-50'
+                            : 'border-orange-500 bg-orange-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="zone_type"
+                        value={type}
+                        checked={formData.zone_type === type}
+                        onChange={() => setFormData({ ...formData, zone_type: type })}
+                        className="sr-only"
+                      />
+                      <span className="font-medium">{type}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <Label>설명</Label>
+                <input
+                  type="text"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg"
+                  placeholder="예: 유제품 보관용"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={() => { setShowModal(false); resetForm(); }} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
+                  취소
+                </button>
+                <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                  {editingLocation ? '수정' : '등록'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </>
