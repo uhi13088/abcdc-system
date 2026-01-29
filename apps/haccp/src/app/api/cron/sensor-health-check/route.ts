@@ -1,7 +1,9 @@
 /**
  * Cron: IoT Sensor Health Check
- * 5분마다 실행되어 센서 상태 체크 및 오프라인 알림
- * Schedule: every 5 minutes
+ * 1분마다 실행되어 센서 상태 체크 및 오프라인 알림
+ * Schedule: * * * * * (매분)
+ *
+ * 1분간 데이터 수신 없으면 즉시 OFFLINE 처리
  */
 
 import { NextResponse } from 'next/server';
@@ -20,8 +22,8 @@ function getSupabase(): SupabaseClient {
   return _supabaseClient;
 }
 
-// Offline threshold: 5 minutes
-const OFFLINE_THRESHOLD_MS = 5 * 60 * 1000;
+// Offline threshold: 1 minute (연결 실패 즉시 오프라인)
+const OFFLINE_THRESHOLD_MS = 1 * 60 * 1000;
 
 export async function GET() {
   logger.log('[Cron] Starting sensor health check...');

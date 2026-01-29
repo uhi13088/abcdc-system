@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Bell, Clock, Calendar, DollarSign, MessageSquare, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Bell, Clock, Calendar, DollarSign, MessageSquare, AlertTriangle, Smartphone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { useNotificationStatus } from '@abc/shared';
 
 interface NotificationSettings {
   push_enabled: boolean;
@@ -38,6 +39,8 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<NotificationSettings>(defaultSettings);
+  const { supported, permission, isRegistered, requestPermission } = useNotificationStatus();
+  const [permissionLoading, setPermissionLoading] = useState(false);
 
   const supabase = createClient();
 
@@ -159,6 +162,49 @@ export default function SettingsPage() {
       </div>
 
       <div className="p-4 space-y-4">
+        {/* System Notification Permission */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <Smartphone className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="ml-3">
+                <p className="font-medium text-gray-900">시스템 알림</p>
+                <p className="text-sm text-gray-500">
+                  {!supported ? '이 브라우저는 알림을 지원하지 않습니다' :
+                   permission === 'granted' ? '알림 권한이 허용되었습니다' :
+                   permission === 'denied' ? '알림이 차단되었습니다. 브라우저 설정에서 변경해주세요' :
+                   '알림을 받으려면 권한을 허용해주세요'}
+                </p>
+              </div>
+            </div>
+            {supported && permission === 'default' && (
+              <button
+                onClick={async () => {
+                  setPermissionLoading(true);
+                  await requestPermission();
+                  setPermissionLoading(false);
+                }}
+                disabled={permissionLoading}
+                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg disabled:opacity-50"
+              >
+                {permissionLoading ? '...' : '허용'}
+              </button>
+            )}
+            {supported && permission === 'granted' && (
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                <span className="text-green-600 text-lg">✓</span>
+              </div>
+            )}
+            {supported && permission === 'denied' && (
+              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                <span className="text-red-600 text-lg">✕</span>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Push Notification Toggle */}
         <div className="bg-white rounded-2xl p-4 shadow-sm">
           <div className="flex items-center justify-between">

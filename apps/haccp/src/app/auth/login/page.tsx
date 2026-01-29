@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { ShieldCheck } from 'lucide-react';
 import type { Provider } from '@supabase/supabase-js';
+import { PWAInstallButton } from '@abc/shared';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -155,10 +156,13 @@ export default function LoginPage() {
           <div className="mx-auto w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
             <ShieldCheck className="w-10 h-10 text-white" />
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">ABC HACCP</h2>
+          <h2 className="mt-6 text-3xl font-bold text-gray-900">PEANOTE HACCP</h2>
           <p className="mt-2 text-sm text-gray-600">
             식품 안전 관리 시스템
           </p>
+          <div className="mt-4">
+            <PWAInstallButton />
+          </div>
         </div>
 
         <form className="mt-8 space-y-6 bg-white p-8 rounded-xl shadow-lg" onSubmit={handleSubmit}>

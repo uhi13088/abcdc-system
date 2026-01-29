@@ -399,6 +399,9 @@ importers:
       recharts:
         specifier: ^2.15.1
         version: 2.15.4(react-dom@18.3.1)(react@18.3.1)
+      resend:
+        specifier: ^6.7.0
+        version: 6.7.0
       tailwind-merge:
         specifier: ^2.2.0
         version: 2.6.0
@@ -467,12 +470,21 @@ importers:
       firebase-admin:
         specifier: ^13.6.0
         version: 13.6.0
+      lucide-react:
+        specifier: ^0.300.0
+        version: 0.300.0(react@18.3.1)
       pdf-lib:
         specifier: ^1.17.1
         version: 1.17.1
       pdfkit:
         specifier: ^0.17.2
         version: 0.17.2
+      react:
+        specifier: ^18.0.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.0.0
+        version: 18.3.1(react@18.3.1)
       resend:
         specifier: ^6.7.0
         version: 6.7.0
@@ -483,6 +495,12 @@ importers:
       '@types/pdfkit':
         specifier: ^0.17.4
         version: 0.17.4
+      '@types/react':
+        specifier: 18.3.27
+        version: 18.3.27
+      '@types/react-dom':
+        specifier: 18.3.7
+        version: 18.3.7(@types/react@18.3.27)
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.53.1
         version: 8.53.1(@typescript-eslint/parser@8.53.1)(eslint@8.57.1)(typescript@5.9.3)
@@ -4429,6 +4447,14 @@ packages:
     dependencies:
       lodash.clonedeep: 4.5.0
       lru-cache: 6.0.0
+    dev: false
+
+  /lucide-react@0.300.0(react@18.3.1):
+    resolution: {integrity: sha512-rQxUUCmWAvNLoAsMZ5j04b2+OJv6UuNLYMY7VK0eVlm4aTwUEjEEHc09/DipkNIlhXUSDn2xoyIzVT0uh7dRsg==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0
+    dependencies:
+      react: 18.3.1
     dev: false
 
   /lucide-react@0.303.0(react@18.3.1):
