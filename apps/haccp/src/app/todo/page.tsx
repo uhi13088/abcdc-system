@@ -252,17 +252,19 @@ export default function TodoPage() {
     }
   };
 
-  // 태그 삭제
-  const handleDeleteSuggestion = async (suggestion: Suggestion) => {
-    try {
-      const params = suggestion.id
-        ? `id=${suggestion.id}`
-        : `content=${encodeURIComponent(suggestion.content)}`;
-      await fetch(`/api/haccp/todo/suggestions?${params}`, { method: 'DELETE' });
-      fetchData();
-    } catch (error) {
-      console.error('Failed to delete suggestion:', error);
-    }
+  // 태그 삭제 (Optimistic update - 즉시 UI 반영)
+  const handleDeleteSuggestion = (suggestion: Suggestion) => {
+    // 즉시 UI에서 제거
+    setSuggestions(prev => prev.filter(s =>
+      suggestion.id ? s.id !== suggestion.id : s.content !== suggestion.content
+    ));
+
+    // 백그라운드에서 API 호출 (await 없이)
+    const params = suggestion.id
+      ? `id=${suggestion.id}`
+      : `content=${encodeURIComponent(suggestion.content)}`;
+    fetch(`/api/haccp/todo/suggestions?${params}`, { method: 'DELETE' })
+      .catch(error => console.error('Failed to delete suggestion:', error));
   };
 
   if (loading) {
