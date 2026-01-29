@@ -140,13 +140,12 @@ function CCPRecordsContent() {
       if (response.ok) {
         const data = await response.json();
         setCcpList(data);
+        // URL 파라미터로 CCP가 지정된 경우에만 해당 CCP 선택
         if (selectedCcpId) {
           setSelectedCcp(selectedCcpId);
           setFormData(prev => ({ ...prev, ccp_id: selectedCcpId }));
-        } else if (data.length > 0 && !selectedCcp) {
-          setSelectedCcp(data[0].id);
-          setFormData(prev => ({ ...prev, ccp_id: data[0].id }));
         }
+        // 필터는 "전체 CCP"를 기본값으로 유지 (첫 번째 CCP 자동 선택 안함)
       }
     } catch (error) {
       console.error('Failed to fetch CCPs:', error);
@@ -370,13 +369,31 @@ function CCPRecordsContent() {
         </div>
         <button
           onClick={() => {
-            setFormData(prev => ({
-              ...prev,
-              lot_number: generateLotNumber(),
-              batch_number: generateBatchNumber(),
+            // 기본 CCP 선택 (첫 번째 CCP)
+            const defaultCcp = ccpList.filter(ccp => ccp.status !== 'MERGED')[0];
+            const ccpId = defaultCcp?.id || '';
+
+            // 선택된 CCP의 한계기준으로 측정값 필드 초기화
+            const limits = defaultCcp?.critical_limits || (defaultCcp?.critical_limit ? [defaultCcp.critical_limit] : []);
+            const initialMeasurements = limits.map(limit => ({
+              code: limit.code || '',
+              parameter: limit.parameter,
+              value: 0,
+              unit: limit.unit,
+              min: limit.min,
+              max: limit.max,
+            }));
+
+            setFormData({
+              ccp_id: ccpId,
               record_date: new Date().toISOString().split('T')[0],
               record_time: new Date().toTimeString().slice(0, 5),
-            }));
+              lot_number: generateLotNumber(),
+              batch_number: generateBatchNumber(),
+              product_id: '',
+              measurements: initialMeasurements,
+              deviation_action: '',
+            });
             setShowModal(true);
           }}
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -612,15 +629,15 @@ function CCPRecordsContent() {
 
       {/* Add Record Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-lg mx-4 p-6">
-            <div className="flex items-center justify-between mb-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 pb-4 border-b">
               <h2 className="text-xl font-bold">CCP 모니터링 기록</h2>
               <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form id="ccp-record-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
               {/* 자동 입력 버튼 */}
               <button
                 type="button"
@@ -807,22 +824,23 @@ function CCPRecordsContent() {
                 />
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  기록 저장
-                </button>
-              </div>
             </form>
+            <div className="flex gap-3 p-6 pt-4 border-t">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                form="ccp-record-form"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                기록 저장
+              </button>
+            </div>
           </div>
         </div>
       )}
