@@ -225,31 +225,35 @@ BEGIN
           status = 'ACTIVE'
         WHERE id = main_ccp_id;
 
-        -- ccp_records의 ccp_id를 메인 CCP로 업데이트
-        UPDATE ccp_records
-        SET ccp_id = main_ccp_id
-        WHERE ccp_id IN (
-          SELECT id FROM ccp_definitions
-          WHERE company_id = company_rec.company_id
-            AND id != main_ccp_id
-            AND (
-              ccp_number = prefix_rec.base_prefix
-              OR ccp_number LIKE prefix_rec.base_prefix || '-%'
-            )
-        );
+        -- ccp_records의 ccp_id를 메인 CCP로 업데이트 (테이블 있으면)
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ccp_records') THEN
+          UPDATE ccp_records
+          SET ccp_id = main_ccp_id
+          WHERE ccp_id IN (
+            SELECT id FROM ccp_definitions
+            WHERE company_id = company_rec.company_id
+              AND id != main_ccp_id
+              AND (
+                ccp_number = prefix_rec.base_prefix
+                OR ccp_number LIKE prefix_rec.base_prefix || '-%'
+              )
+          );
+        END IF;
 
-        -- sensors의 linked_ccp_id를 메인 CCP로 업데이트
-        UPDATE sensors
-        SET linked_ccp_id = main_ccp_id
-        WHERE linked_ccp_id IN (
-          SELECT id FROM ccp_definitions
-          WHERE company_id = company_rec.company_id
-            AND id != main_ccp_id
-            AND (
-              ccp_number = prefix_rec.base_prefix
-              OR ccp_number LIKE prefix_rec.base_prefix || '-%'
-            )
-        );
+        -- sensors의 linked_ccp_id를 메인 CCP로 업데이트 (테이블 있으면)
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'sensors') THEN
+          UPDATE sensors
+          SET linked_ccp_id = main_ccp_id
+          WHERE linked_ccp_id IN (
+            SELECT id FROM ccp_definitions
+            WHERE company_id = company_rec.company_id
+              AND id != main_ccp_id
+              AND (
+                ccp_number = prefix_rec.base_prefix
+                OR ccp_number LIKE prefix_rec.base_prefix || '-%'
+              )
+          );
+        END IF;
 
         -- 나머지 CCP들 삭제 (MERGED 상태로 변경 대신 삭제)
         DELETE FROM ccp_definitions
