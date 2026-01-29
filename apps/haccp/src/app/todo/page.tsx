@@ -446,27 +446,32 @@ export default function TodoPage() {
                   <p className="text-sm text-gray-600 mb-2">이전 항목 (클릭하여 추가)</p>
                   <div className="flex flex-wrap gap-2">
                     {suggestions.map((s, idx) => (
-                      <button
+                      <div
                         key={s.id || idx}
-                        onClick={() => handleSuggestionClick(s.content)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          if (s.id && confirm(`"${s.content}" 버튼을 삭제할까요?`)) {
-                            handleDeleteSuggestion(s.id);
-                          }
-                        }}
-                        disabled={pendingItems.includes(s.content)}
-                        className={`px-3 py-1.5 rounded-full text-sm ${
+                        className={`inline-flex items-center rounded-full text-sm ${
                           pendingItems.includes(s.content)
                             ? 'bg-blue-200 text-blue-500'
-                            : 'bg-gray-100 hover:bg-blue-100 text-gray-700'
+                            : 'bg-gray-100 text-gray-700'
                         }`}
                       >
-                        {s.content}
-                      </button>
+                        <button
+                          onClick={() => handleSuggestionClick(s.content)}
+                          disabled={pendingItems.includes(s.content)}
+                          className="px-3 py-1.5 hover:bg-blue-100 rounded-l-full"
+                        >
+                          {s.content}
+                        </button>
+                        {s.id && (
+                          <button
+                            onClick={() => handleDeleteSuggestion(s.id!)}
+                            className="pr-2 pl-1 py-1.5 hover:text-red-500"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     ))}
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">* 버튼 우클릭(길게 누르기)으로 삭제</p>
                 </div>
               )}
 
