@@ -11,8 +11,6 @@ import {
   ChevronRight,
   Clock,
   Trash2,
-  Edit2,
-  Tag,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -30,13 +28,10 @@ interface TodoItem {
   id: string;
   content: string;
   sort_order: number;
-  category: string | null;
-  is_required: boolean;
   is_completed: boolean;
   completed_by: string | null;
   completed_at: string | null;
   completer_name: string | null;
-  note: string | null;
 }
 
 interface DailyTodo {
@@ -54,7 +49,6 @@ interface DailyTodo {
 interface Suggestion {
   id?: string;
   content: string;
-  usage_count: number;
 }
 
 interface UserInfo {
@@ -78,32 +72,32 @@ export default function TodoPage() {
   const [expandedTodos, setExpandedTodos] = useState<Set<string>>(new Set());
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
 
-  // 체크리스트 작성 모드
-  const [isCreating, setIsCreating] = useState(false);
-  const [todoName, setTodoName] = useState('');
+  // 모달
+  const [showModal, setShowModal] = useState(false);
   const [pendingItems, setPendingItems] = useState<string[]>([]);
   const [newItemText, setNewItemText] = useState('');
-  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
-  const [editingItemText, setEditingItemText] = useState('');
-
-  // 태그 관리 모드
-  const [isManagingTags, setIsManagingTags] = useState(false);
 
   const canManageTodo = userInfo?.role &&
     ['validator', 'company_admin', 'super_admin'].includes(userInfo.role);
+
+  // 오늘 날짜 포맷
+  const todayFormatted = new Date().toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  });
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
 
-      // Fetch user info
       const userRes = await fetch('/api/auth/me');
       if (userRes.ok) {
         const userData = await userRes.json();
         setUserInfo({ role: userData.role });
       }
 
-      // Fetch today's workers
       const workersRes = await fetch('/api/haccp/workers/today');
       if (workersRes.ok) {
         const workersData = await workersRes.json();
@@ -111,19 +105,16 @@ export default function TodoPage() {
         setCheckedInCount(workersData.checked_in || 0);
       }
 
-      // Fetch daily todos
       const todosRes = await fetch('/api/haccp/todo/daily');
       if (todosRes.ok) {
         const todosData = await todosRes.json();
         setDailyTodos(todosData);
-        // Auto-expand active todos
         const activeIds = todosData
           .filter((t: DailyTodo) => t.status === 'ACTIVE')
           .map((t: DailyTodo) => t.id);
         setExpandedTodos(new Set(activeIds));
       }
 
-      // Fetch suggestions (버튼 태그들)
       const suggestionsRes = await fetch('/api/haccp/todo/suggestions');
       if (suggestionsRes.ok) {
         const suggestionsData = await suggestionsRes.json();
@@ -131,7 +122,6 @@ export default function TodoPage() {
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
-      toast.error('데이터를 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -160,14 +150,12 @@ export default function TodoPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       });
-
       if (res.ok) {
-        toast.success('완료했습니다.');
+        toast.success('완료');
         fetchData();
       }
     } catch (error) {
       console.error('Failed to complete item:', error);
-      toast.error('완료 처리에 실패했습니다.');
     }
   };
 
@@ -176,43 +164,44 @@ export default function TodoPage() {
       const res = await fetch(`/api/haccp/todo/daily/${todoId}/items/${itemId}/complete`, {
         method: 'DELETE',
       });
-
       if (res.ok) {
-        toast.success('완료 취소했습니다.');
         fetchData();
       }
     } catch (error) {
       console.error('Failed to uncomplete item:', error);
-      toast.error('완료 취소에 실패했습니다.');
     }
   };
 
   const handleDeleteTodo = async (todoId: string) => {
-    if (!confirm('이 체크리스트를 삭제하시겠습니까?')) return;
-
+    if (!confirm('삭제하시겠습니까?')) return;
     try {
       const res = await fetch(`/api/haccp/todo/daily?id=${todoId}`, {
         method: 'DELETE',
       });
-
       if (res.ok) {
-        toast.success('삭제되었습니다.');
+        toast.success('삭제됨');
         fetchData();
       }
     } catch (error) {
       console.error('Failed to delete todo:', error);
-      toast.error('삭제에 실패했습니다.');
     }
   };
 
-  // 태그 버튼 클릭 시 항목 추가
-  const handleTagClick = (content: string) => {
+  // 모달 열기
+  const openModal = () => {
+    setPendingItems([]);
+    setNewItemText('');
+    setShowModal(true);
+  };
+
+  // 이전 항목 버튼 클릭
+  const handleSuggestionClick = (content: string) => {
     if (!pendingItems.includes(content)) {
       setPendingItems([...pendingItems, content]);
     }
   };
 
-  // 직접 입력으로 항목 추가
+  // 직접 입력 추가
   const handleAddItem = () => {
     const text = newItemText.trim();
     if (text && !pendingItems.includes(text)) {
@@ -221,41 +210,15 @@ export default function TodoPage() {
     }
   };
 
-  // 항목 수정 시작
-  const handleStartEdit = (index: number) => {
-    setEditingItemIndex(index);
-    setEditingItemText(pendingItems[index]);
-  };
-
-  // 항목 수정 완료
-  const handleFinishEdit = () => {
-    if (editingItemIndex !== null && editingItemText.trim()) {
-      const updated = [...pendingItems];
-      const newContent = editingItemText.trim();
-
-      // 원래 내용과 다르면 수정
-      if (updated[editingItemIndex] !== newContent) {
-        updated[editingItemIndex] = newContent;
-        setPendingItems(updated);
-      }
-    }
-    setEditingItemIndex(null);
-    setEditingItemText('');
-  };
-
   // 항목 삭제
   const handleRemoveItem = (index: number) => {
     setPendingItems(pendingItems.filter((_, i) => i !== index));
   };
 
-  // 체크리스트 생성
-  const handleCreateTodo = async () => {
-    if (!todoName.trim()) {
-      toast.error('체크리스트 이름을 입력하세요.');
-      return;
-    }
+  // 체크리스트 등록
+  const handleCreate = async () => {
     if (pendingItems.length === 0) {
-      toast.error('최소 1개 이상의 항목을 추가하세요.');
+      toast.error('항목을 추가하세요');
       return;
     }
 
@@ -264,13 +227,13 @@ export default function TodoPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: todoName.trim(),
+          name: todayFormatted,
           items: pendingItems.map(content => ({ content })),
         }),
       });
 
       if (res.ok) {
-        // 새로 추가된 항목들을 suggestions에 등록
+        // suggestions에 등록
         for (const content of pendingItems) {
           await fetch('/api/haccp/todo/suggestions', {
             method: 'POST',
@@ -278,36 +241,26 @@ export default function TodoPage() {
             body: JSON.stringify({ content }),
           });
         }
-
-        toast.success('체크리스트가 생성되었습니다.');
-        setIsCreating(false);
-        setTodoName('');
-        setPendingItems([]);
+        toast.success('등록 완료');
+        setShowModal(false);
         fetchData();
       } else {
         const error = await res.json();
-        toast.error(error.error || '생성에 실패했습니다.');
+        toast.error(error.error || '등록 실패');
       }
     } catch (error) {
-      console.error('Failed to create todo:', error);
-      toast.error('생성 중 오류가 발생했습니다.');
+      console.error('Failed to create:', error);
+      toast.error('오류 발생');
     }
   };
 
-  // 태그 삭제
-  const handleDeleteTag = async (id: string) => {
+  // 태그 삭제 (길게 누르기로 변경 가능)
+  const handleDeleteSuggestion = async (id: string) => {
     try {
-      const res = await fetch(`/api/haccp/todo/suggestions?id=${id}`, {
-        method: 'DELETE',
-      });
-
-      if (res.ok) {
-        toast.success('태그가 삭제되었습니다.');
-        fetchData();
-      }
+      await fetch(`/api/haccp/todo/suggestions?id=${id}`, { method: 'DELETE' });
+      fetchData();
     } catch (error) {
-      console.error('Failed to delete tag:', error);
-      toast.error('태그 삭제에 실패했습니다.');
+      console.error('Failed to delete suggestion:', error);
     }
   };
 
@@ -325,37 +278,17 @@ export default function TodoPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">일일 업무 체크리스트</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {new Date().toLocaleDateString('ko-KR', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-              weekday: 'long',
-            })}
-          </p>
+          <p className="text-sm text-gray-500 mt-1">{todayFormatted}</p>
         </div>
 
-        {canManageTodo && !isCreating && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => setIsManagingTags(!isManagingTags)}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg ${
-                isManagingTags
-                  ? 'bg-orange-100 text-orange-700'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <Tag className="w-4 h-4" />
-              태그 관리
-            </button>
-            <button
-              onClick={() => setIsCreating(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              <Plus className="w-4 h-4" />
-              체크리스트 작성
-            </button>
-          </div>
+        {canManageTodo && (
+          <button
+            onClick={openModal}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4" />
+            새 체크리스트 작성
+          </button>
         )}
       </div>
 
@@ -368,227 +301,23 @@ export default function TodoPage() {
             출근 {checkedInCount}명 / 전체 {workers.length}명
           </span>
         </div>
-
         <div className="flex flex-wrap gap-2">
           {workers.map((worker) => (
             <div
               key={worker.id}
               className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
-                worker.check_in
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-gray-100 text-gray-500'
+                worker.check_in ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
               }`}
             >
-              <span className={`w-2 h-2 rounded-full ${
-                worker.check_in ? 'bg-green-500' : 'bg-gray-400'
-              }`} />
+              <span className={`w-2 h-2 rounded-full ${worker.check_in ? 'bg-green-500' : 'bg-gray-400'}`} />
               <span className="font-medium">{worker.name}</span>
-              <span className="text-xs opacity-70">
-                {ROLE_LABELS[worker.role] || worker.role}
-              </span>
-              {worker.check_in && (
-                <span className="text-xs">
-                  {new Date(worker.check_in).toLocaleTimeString('ko-KR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
-              )}
+              <span className="text-xs opacity-70">{ROLE_LABELS[worker.role] || worker.role}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* 체크리스트 작성 모드 */}
-      {isCreating && canManageTodo && (
-        <div className="bg-white rounded-xl shadow-sm border p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">새 체크리스트 작성</h2>
-            <button
-              onClick={() => {
-                setIsCreating(false);
-                setTodoName('');
-                setPendingItems([]);
-              }}
-              className="p-2 hover:bg-gray-100 rounded-lg"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* 체크리스트 이름 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              체크리스트 이름
-            </label>
-            <input
-              type="text"
-              value={todoName}
-              onChange={(e) => setTodoName(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="예: 오픈 준비, 마감 체크"
-            />
-          </div>
-
-          {/* 태그 버튼들 */}
-          {suggestions.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                이전에 사용한 항목 (클릭하여 추가)
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {suggestions.map((suggestion, idx) => (
-                  <button
-                    key={suggestion.id || idx}
-                    onClick={() => handleTagClick(suggestion.content)}
-                    disabled={pendingItems.includes(suggestion.content)}
-                    className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-                      pendingItems.includes(suggestion.content)
-                        ? 'bg-blue-100 text-blue-400 cursor-not-allowed'
-                        : 'bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700'
-                    }`}
-                  >
-                    {suggestion.content}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 직접 입력 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              새 항목 직접 입력
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newItemText}
-                onChange={(e) => setNewItemText(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleAddItem()}
-                className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="항목 내용을 입력하고 Enter"
-              />
-              <button
-                onClick={handleAddItem}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          {/* 추가된 항목들 */}
-          {pendingItems.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                추가된 항목 ({pendingItems.length}개)
-              </label>
-              <div className="space-y-2">
-                {pendingItems.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg group"
-                  >
-                    <span className="w-6 h-6 flex items-center justify-center bg-blue-100 text-blue-600 rounded-full text-sm font-medium">
-                      {index + 1}
-                    </span>
-                    {editingItemIndex === index ? (
-                      <input
-                        type="text"
-                        value={editingItemText}
-                        onChange={(e) => setEditingItemText(e.target.value)}
-                        onBlur={handleFinishEdit}
-                        onKeyPress={(e) => e.key === 'Enter' && handleFinishEdit()}
-                        className="flex-1 px-3 py-1 border rounded focus:ring-2 focus:ring-blue-500"
-                        autoFocus
-                      />
-                    ) : (
-                      <span className="flex-1">{item}</span>
-                    )}
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => handleStartEdit(index)}
-                        className="p-1 hover:bg-gray-200 rounded"
-                      >
-                        <Edit2 className="w-4 h-4 text-gray-500" />
-                      </button>
-                      <button
-                        onClick={() => handleRemoveItem(index)}
-                        className="p-1 hover:bg-red-100 rounded"
-                      >
-                        <X className="w-4 h-4 text-red-500" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 작성 완료 버튼 */}
-          <div className="flex gap-3 pt-4 border-t">
-            <button
-              onClick={() => {
-                setIsCreating(false);
-                setTodoName('');
-                setPendingItems([]);
-              }}
-              className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
-            >
-              취소
-            </button>
-            <button
-              onClick={handleCreateTodo}
-              disabled={!todoName.trim() || pendingItems.length === 0}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              체크리스트 생성
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 태그 관리 모드 */}
-      {isManagingTags && canManageTodo && (
-        <div className="bg-orange-50 rounded-xl border border-orange-200 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-orange-800">태그 관리 모드</h3>
-            <button
-              onClick={() => setIsManagingTags(false)}
-              className="text-sm text-orange-600 hover:text-orange-800"
-            >
-              완료
-            </button>
-          </div>
-          <p className="text-sm text-orange-700 mb-3">
-            X 버튼을 눌러 불필요한 태그를 삭제할 수 있습니다.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {suggestions.map((suggestion, idx) => (
-              <div
-                key={suggestion.id || idx}
-                className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-orange-200 rounded-full text-sm"
-              >
-                <span>{suggestion.content}</span>
-                {suggestion.id && (
-                  <button
-                    onClick={() => handleDeleteTag(suggestion.id!)}
-                    className="p-0.5 hover:bg-red-100 rounded-full"
-                  >
-                    <X className="w-3 h-3 text-red-500" />
-                  </button>
-                )}
-              </div>
-            ))}
-            {suggestions.length === 0 && (
-              <p className="text-sm text-orange-600">저장된 태그가 없습니다.</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Daily Todos Section */}
+      {/* Daily Todos */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <ClipboardList className="w-5 h-5 text-blue-600" />
@@ -598,10 +327,10 @@ export default function TodoPage() {
         {dailyTodos.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
             <ClipboardList className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <p className="text-gray-500 mb-4">오늘 등록된 체크리스트가 없습니다</p>
-            {canManageTodo && !isCreating && (
+            <p className="text-gray-500 mb-4">등록된 체크리스트가 없습니다</p>
+            {canManageTodo && (
               <button
-                onClick={() => setIsCreating(true)}
+                onClick={openModal}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 체크리스트 작성하기
@@ -611,7 +340,6 @@ export default function TodoPage() {
         ) : (
           dailyTodos.map((todo) => (
             <div key={todo.id} className="bg-white rounded-xl shadow-sm border overflow-hidden">
-              {/* Todo Header */}
               <div
                 className="p-4 cursor-pointer hover:bg-gray-50"
                 onClick={() => toggleTodo(todo.id)}
@@ -625,39 +353,23 @@ export default function TodoPage() {
                     )}
                     <div>
                       <h3 className="font-semibold text-gray-900">{todo.name}</h3>
-                      <p className="text-xs text-gray-500">
-                        작성: {todo.creator_name || '알 수 없음'}
-                      </p>
+                      <p className="text-xs text-gray-500">작성: {todo.creator_name || '-'}</p>
                     </div>
                   </div>
-
                   <div className="flex items-center gap-4">
-                    {/* Progress */}
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-blue-600">
-                        {todo.progress}%
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {todo.completed_items}/{todo.total_items} 완료
-                      </div>
+                      <div className="text-2xl font-bold text-blue-600">{todo.progress}%</div>
+                      <div className="text-xs text-gray-500">{todo.completed_items}/{todo.total_items}</div>
                     </div>
-
-                    {/* Progress Bar */}
                     <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div
-                        className={`h-full transition-all duration-300 ${
-                          todo.progress === 100 ? 'bg-green-500' : 'bg-blue-500'
-                        }`}
+                        className={`h-full ${todo.progress === 100 ? 'bg-green-500' : 'bg-blue-500'}`}
                         style={{ width: `${todo.progress}%` }}
                       />
                     </div>
-
                     {canManageTodo && (
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteTodo(todo.id);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); handleDeleteTodo(todo.id); }}
                         className="p-2 hover:bg-red-100 rounded-lg"
                       >
                         <Trash2 className="w-4 h-4 text-red-500" />
@@ -667,15 +379,12 @@ export default function TodoPage() {
                 </div>
               </div>
 
-              {/* Todo Items */}
               {expandedTodos.has(todo.id) && (
                 <div className="border-t divide-y">
                   {todo.items.map((item) => (
                     <div
                       key={item.id}
-                      className={`p-4 flex items-center gap-4 ${
-                        item.is_completed ? 'bg-green-50' : ''
-                      }`}
+                      className={`p-4 flex items-center gap-4 ${item.is_completed ? 'bg-green-50' : ''}`}
                     >
                       <button
                         onClick={() =>
@@ -683,7 +392,7 @@ export default function TodoPage() {
                             ? handleUncompleteItem(todo.id, item.id)
                             : handleCompleteItem(todo.id, item.id)
                         }
-                        className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors ${
+                        className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
                           item.is_completed
                             ? 'bg-green-500 border-green-500 text-white'
                             : 'border-gray-300 hover:border-green-500'
@@ -691,21 +400,15 @@ export default function TodoPage() {
                       >
                         {item.is_completed && <Check className="w-5 h-5" />}
                       </button>
-
                       <div className="flex-1">
-                        <p className={`${
-                          item.is_completed ? 'line-through text-gray-400' : 'text-gray-900'
-                        }`}>
+                        <p className={item.is_completed ? 'line-through text-gray-400' : ''}>
                           {item.content}
                         </p>
                         {item.is_completed && item.completer_name && (
                           <p className="text-xs text-gray-500 mt-1">
                             <Clock className="w-3 h-3 inline mr-1" />
-                            {item.completer_name}이(가) 완료
-                            {item.completed_at && ` (${new Date(item.completed_at).toLocaleTimeString('ko-KR', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })})`}
+                            {item.completer_name}
+                            {item.completed_at && ` (${new Date(item.completed_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })})`}
                           </p>
                         )}
                       </div>
@@ -717,6 +420,118 @@ export default function TodoPage() {
           ))
         )}
       </div>
+
+      {/* 모달 */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+            {/* 헤더 */}
+            <div className="p-4 border-b flex items-center justify-between">
+              <h2 className="text-xl font-bold">새 체크리스트</h2>
+              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 본문 */}
+            <div className="flex-1 overflow-auto p-4 space-y-4">
+              {/* 날짜 (자동) */}
+              <div className="p-3 bg-blue-50 rounded-lg text-blue-800 font-medium">
+                {todayFormatted}
+              </div>
+
+              {/* 이전에 사용한 항목 버튼들 */}
+              {suggestions.length > 0 && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">이전 항목 (클릭하여 추가)</p>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestions.map((s, idx) => (
+                      <button
+                        key={s.id || idx}
+                        onClick={() => handleSuggestionClick(s.content)}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          if (s.id && confirm(`"${s.content}" 버튼을 삭제할까요?`)) {
+                            handleDeleteSuggestion(s.id);
+                          }
+                        }}
+                        disabled={pendingItems.includes(s.content)}
+                        className={`px-3 py-1.5 rounded-full text-sm ${
+                          pendingItems.includes(s.content)
+                            ? 'bg-blue-200 text-blue-500'
+                            : 'bg-gray-100 hover:bg-blue-100 text-gray-700'
+                        }`}
+                      >
+                        {s.content}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">* 버튼 우클릭(길게 누르기)으로 삭제</p>
+                </div>
+              )}
+
+              {/* 직접 입력 */}
+              <div>
+                <p className="text-sm text-gray-600 mb-2">항목 입력</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newItemText}
+                    onChange={(e) => setNewItemText(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddItem()}
+                    className="flex-1 px-3 py-2 border rounded-lg"
+                    placeholder="내용 입력 후 Enter"
+                  />
+                  <button
+                    onClick={handleAddItem}
+                    className="px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 추가된 항목 목록 */}
+              {pendingItems.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">추가된 항목 ({pendingItems.length})</p>
+                  {pendingItems.map((item, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                      <span className="w-6 h-6 flex items-center justify-center bg-blue-100 text-blue-600 rounded-full text-sm">
+                        {index + 1}
+                      </span>
+                      <span className="flex-1">{item}</span>
+                      <button
+                        onClick={() => handleRemoveItem(index)}
+                        className="p-1 hover:bg-red-100 rounded"
+                      >
+                        <X className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 푸터 */}
+            <div className="p-4 border-t flex gap-3">
+              <button
+                onClick={() => setShowModal(false)}
+                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={pendingItems.length === 0}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                등록하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
