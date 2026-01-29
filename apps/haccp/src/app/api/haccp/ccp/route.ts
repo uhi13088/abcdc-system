@@ -25,50 +25,11 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // Try to fetch with ccp_master join, fallback to simple query if table doesn't exist
-    let data;
-    let error;
-
-    try {
-      const result = await adminClient
-        .from('ccp_definitions')
-        .select(`
-          *,
-          ccp_master:master_id (
-            id,
-            master_code,
-            group_prefix,
-            process_name
-          )
-        `)
-        .eq('company_id', userProfile.company_id)
-        .order('ccp_number', { ascending: true });
-
-      data = result.data;
-      error = result.error;
-
-      // If ccp_master table doesn't exist, fall back to simple query
-      if (error?.message?.includes('ccp_master') || error?.code === '42P01') {
-        const fallbackResult = await adminClient
-          .from('ccp_definitions')
-          .select('*')
-          .eq('company_id', userProfile.company_id)
-          .order('ccp_number', { ascending: true });
-
-        data = fallbackResult.data;
-        error = fallbackResult.error;
-      }
-    } catch (_e) {
-      // Fallback to simple query
-      const fallbackResult = await adminClient
-        .from('ccp_definitions')
-        .select('*')
-        .eq('company_id', userProfile.company_id)
-        .order('ccp_number', { ascending: true });
-
-      data = fallbackResult.data;
-      error = fallbackResult.error;
-    }
+    const { data, error } = await adminClient
+      .from('ccp_definitions')
+      .select('*')
+      .eq('company_id', userProfile.company_id)
+      .order('ccp_number', { ascending: true });
 
     if (error) {
       console.error('Error fetching CCP definitions:', error);

@@ -9,9 +9,10 @@ import {
   ClipboardList,
   ChevronDown,
   ChevronRight,
-  FileText,
   Clock,
   Trash2,
+  Edit2,
+  Tag,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -50,20 +51,10 @@ interface DailyTodo {
   items: TodoItem[];
 }
 
-interface Template {
-  id: string;
-  name: string;
-  description: string | null;
-  category: string;
-  items_count: number;
-}
-
-interface TemplateItem {
-  id: string;
+interface Suggestion {
+  id?: string;
   content: string;
-  sort_order: number;
-  category: string | null;
-  is_required: boolean;
+  usage_count: number;
 }
 
 interface UserInfo {
@@ -78,35 +69,25 @@ const ROLE_LABELS: Record<string, string> = {
   viewer: '조회자',
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  OPEN: '오픈 준비',
-  CLOSE: '마감 정리',
-  HYGIENE: '위생 점검',
-  CUSTOM: '기타',
-};
-
 export default function TodoPage() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [checkedInCount, setCheckedInCount] = useState(0);
   const [dailyTodos, setDailyTodos] = useState<DailyTodo[]>([]);
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedTodos, setExpandedTodos] = useState<Set<string>>(new Set());
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
 
-  // Modals
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [showCreateTodoModal, setShowCreateTodoModal] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
-  const [templateItems, setTemplateItems] = useState<TemplateItem[]>([]);
+  // 체크리스트 작성 모드
+  const [isCreating, setIsCreating] = useState(false);
+  const [todoName, setTodoName] = useState('');
+  const [pendingItems, setPendingItems] = useState<string[]>([]);
+  const [newItemText, setNewItemText] = useState('');
+  const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+  const [editingItemText, setEditingItemText] = useState('');
 
-  // New template form
-  const [newTemplateName, setNewTemplateName] = useState('');
-  const [newTemplateCategory, setNewTemplateCategory] = useState('CUSTOM');
-  const [newTemplateItems, setNewTemplateItems] = useState<string[]>(['']);
-
-  // Error/Success message
-  const [message, setMessage] = useState<{ type: 'error' | 'success' | ''; text: string }>({ type: '', text: '' });
+  // 태그 관리 모드
+  const [isManagingTags, setIsManagingTags] = useState(false);
 
   const canManageTodo = userInfo?.role &&
     ['validator', 'company_admin', 'super_admin'].includes(userInfo.role);
@@ -142,15 +123,15 @@ export default function TodoPage() {
         setExpandedTodos(new Set(activeIds));
       }
 
-      // Fetch templates
-      const templatesRes = await fetch('/api/haccp/todo/templates');
-      if (templatesRes.ok) {
-        const templatesData = await templatesRes.json();
-        setTemplates(templatesData);
+      // Fetch suggestions (버튼 태그들)
+      const suggestionsRes = await fetch('/api/haccp/todo/suggestions');
+      if (suggestionsRes.ok) {
+        const suggestionsData = await suggestionsRes.json();
+        setSuggestions(suggestionsData);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
-      toast.error('체크리스트 데이터를 불러오는데 실패했습니다.');
+      toast.error('데이터를 불러오는데 실패했습니다.');
     } finally {
       setLoading(false);
     }
@@ -159,16 +140,6 @@ export default function TodoPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  // Auto-dismiss message after 5 seconds
-  useEffect(() => {
-    if (message.text) {
-      const timer = setTimeout(() => {
-        setMessage({ type: '', text: '' });
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [message]);
 
   const toggleTodo = (todoId: string) => {
     setExpandedTodos(prev => {
@@ -191,12 +162,12 @@ export default function TodoPage() {
       });
 
       if (res.ok) {
-        toast.success('체크리스트 항목을 완료했습니다.');
+        toast.success('완료했습니다.');
         fetchData();
       }
     } catch (error) {
       console.error('Failed to complete item:', error);
-      toast.error('체크리스트 항목 완료에 실패했습니다.');
+      toast.error('완료 처리에 실패했습니다.');
     }
   };
 
@@ -207,96 +178,17 @@ export default function TodoPage() {
       });
 
       if (res.ok) {
-        toast.success('체크리스트 항목 완료를 취소했습니다.');
+        toast.success('완료 취소했습니다.');
         fetchData();
       }
     } catch (error) {
       console.error('Failed to uncomplete item:', error);
-      toast.error('체크리스트 항목 완료 취소에 실패했습니다.');
-    }
-  };
-
-  const handleSelectTemplate = async (template: Template) => {
-    setSelectedTemplate(template);
-
-    // Fetch template items
-    const res = await fetch(`/api/haccp/todo/templates/${template.id}/items`);
-    if (res.ok) {
-      const items = await res.json();
-      setTemplateItems(items);
-    }
-  };
-
-  const handleApplyTemplate = async () => {
-    if (!selectedTemplate) return;
-
-    try {
-      const res = await fetch('/api/haccp/todo/daily', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ template_id: selectedTemplate.id }),
-      });
-
-      if (res.ok) {
-        setShowTemplateModal(false);
-        setSelectedTemplate(null);
-        setTemplateItems([]);
-        setMessage({ type: 'success', text: '할 일이 추가되었습니다.' });
-        toast.success('체크리스트가 추가되었습니다.');
-        fetchData();
-      } else {
-        const error = await res.json();
-        setMessage({ type: 'error', text: error.error || '생성에 실패했습니다.' });
-        toast.error(error.error || '체크리스트 생성에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('Failed to apply template:', error);
-      setMessage({ type: 'error', text: '템플릿 적용 중 오류가 발생했습니다.' });
-      toast.error('체크리스트 템플릿 적용 중 오류가 발생했습니다.');
-    }
-  };
-
-  const handleCreateTemplate = async () => {
-    if (!newTemplateName || newTemplateItems.filter(i => i.trim()).length === 0) {
-      setMessage({ type: 'error', text: '템플릿 이름과 최소 1개 이상의 항목을 입력하세요.' });
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/haccp/todo/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newTemplateName,
-          category: newTemplateCategory,
-          items: newTemplateItems
-            .filter(i => i.trim())
-            .map(content => ({ content: content.trim() })),
-        }),
-      });
-
-      if (res.ok) {
-        setShowCreateTodoModal(false);
-        setNewTemplateName('');
-        setNewTemplateCategory('CUSTOM');
-        setNewTemplateItems(['']);
-        setMessage({ type: 'success', text: '템플릿이 생성되었습니다.' });
-        toast.success('체크리스트 템플릿이 생성되었습니다.');
-        fetchData();
-      } else {
-        const error = await res.json();
-        setMessage({ type: 'error', text: error.error || '생성에 실패했습니다.' });
-        toast.error(error.error || '체크리스트 템플릿 생성에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('Failed to create template:', error);
-      setMessage({ type: 'error', text: '템플릿 생성 중 오류가 발생했습니다.' });
-      toast.error('체크리스트 템플릿 생성 중 오류가 발생했습니다.');
+      toast.error('완료 취소에 실패했습니다.');
     }
   };
 
   const handleDeleteTodo = async (todoId: string) => {
-    if (!confirm('이 투두를 삭제하시겠습니까?')) return;
+    if (!confirm('이 체크리스트를 삭제하시겠습니까?')) return;
 
     try {
       const res = await fetch(`/api/haccp/todo/daily?id=${todoId}`, {
@@ -304,27 +196,119 @@ export default function TodoPage() {
       });
 
       if (res.ok) {
-        toast.success('체크리스트가 삭제되었습니다.');
+        toast.success('삭제되었습니다.');
         fetchData();
       }
     } catch (error) {
       console.error('Failed to delete todo:', error);
-      toast.error('체크리스트 삭제에 실패했습니다.');
+      toast.error('삭제에 실패했습니다.');
     }
   };
 
-  const addNewItemField = () => {
-    setNewTemplateItems([...newTemplateItems, '']);
+  // 태그 버튼 클릭 시 항목 추가
+  const handleTagClick = (content: string) => {
+    if (!pendingItems.includes(content)) {
+      setPendingItems([...pendingItems, content]);
+    }
   };
 
-  const updateNewItem = (index: number, value: string) => {
-    const updated = [...newTemplateItems];
-    updated[index] = value;
-    setNewTemplateItems(updated);
+  // 직접 입력으로 항목 추가
+  const handleAddItem = () => {
+    const text = newItemText.trim();
+    if (text && !pendingItems.includes(text)) {
+      setPendingItems([...pendingItems, text]);
+      setNewItemText('');
+    }
   };
 
-  const removeNewItem = (index: number) => {
-    setNewTemplateItems(newTemplateItems.filter((_, i) => i !== index));
+  // 항목 수정 시작
+  const handleStartEdit = (index: number) => {
+    setEditingItemIndex(index);
+    setEditingItemText(pendingItems[index]);
+  };
+
+  // 항목 수정 완료
+  const handleFinishEdit = () => {
+    if (editingItemIndex !== null && editingItemText.trim()) {
+      const updated = [...pendingItems];
+      const newContent = editingItemText.trim();
+
+      // 원래 내용과 다르면 수정
+      if (updated[editingItemIndex] !== newContent) {
+        updated[editingItemIndex] = newContent;
+        setPendingItems(updated);
+      }
+    }
+    setEditingItemIndex(null);
+    setEditingItemText('');
+  };
+
+  // 항목 삭제
+  const handleRemoveItem = (index: number) => {
+    setPendingItems(pendingItems.filter((_, i) => i !== index));
+  };
+
+  // 체크리스트 생성
+  const handleCreateTodo = async () => {
+    if (!todoName.trim()) {
+      toast.error('체크리스트 이름을 입력하세요.');
+      return;
+    }
+    if (pendingItems.length === 0) {
+      toast.error('최소 1개 이상의 항목을 추가하세요.');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/haccp/todo/daily', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: todoName.trim(),
+          items: pendingItems.map(content => ({ content })),
+        }),
+      });
+
+      if (res.ok) {
+        // 새로 추가된 항목들을 suggestions에 등록
+        for (const content of pendingItems) {
+          await fetch('/api/haccp/todo/suggestions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content }),
+          });
+        }
+
+        toast.success('체크리스트가 생성되었습니다.');
+        setIsCreating(false);
+        setTodoName('');
+        setPendingItems([]);
+        fetchData();
+      } else {
+        const error = await res.json();
+        toast.error(error.error || '생성에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to create todo:', error);
+      toast.error('생성 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 태그 삭제
+  const handleDeleteTag = async (id: string) => {
+    try {
+      const res = await fetch(`/api/haccp/todo/suggestions?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        toast.success('태그가 삭제되었습니다.');
+        fetchData();
+      }
+    } catch (error) {
+      console.error('Failed to delete tag:', error);
+      toast.error('태그 삭제에 실패했습니다.');
+    }
   };
 
   if (loading) {
@@ -351,44 +335,29 @@ export default function TodoPage() {
           </p>
         </div>
 
-        {canManageTodo && (
+        {canManageTodo && !isCreating && (
           <div className="flex gap-2">
             <button
-              onClick={() => setShowTemplateModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              onClick={() => setIsManagingTags(!isManagingTags)}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg ${
+                isManagingTags
+                  ? 'bg-orange-100 text-orange-700'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
             >
-              <FileText className="w-4 h-4" />
-              템플릿 적용
+              <Tag className="w-4 h-4" />
+              태그 관리
             </button>
             <button
-              onClick={() => setShowCreateTodoModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              onClick={() => setIsCreating(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               <Plus className="w-4 h-4" />
-              새 템플릿
+              체크리스트 작성
             </button>
           </div>
         )}
       </div>
-
-      {/* Message Toast */}
-      {message.text && (
-        <div
-          className={`p-4 rounded-lg flex items-center justify-between ${
-            message.type === 'error'
-              ? 'bg-red-50 text-red-700 border border-red-200'
-              : 'bg-green-50 text-green-700 border border-green-200'
-          }`}
-        >
-          <span>{message.text}</span>
-          <button
-            onClick={() => setMessage({ type: '', text: '' })}
-            className="ml-4 text-current opacity-70 hover:opacity-100"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
 
       {/* Workers Section */}
       <div className="bg-white rounded-xl shadow-sm border p-4">
@@ -430,23 +399,212 @@ export default function TodoPage() {
         </div>
       </div>
 
+      {/* 체크리스트 작성 모드 */}
+      {isCreating && canManageTodo && (
+        <div className="bg-white rounded-xl shadow-sm border p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">새 체크리스트 작성</h2>
+            <button
+              onClick={() => {
+                setIsCreating(false);
+                setTodoName('');
+                setPendingItems([]);
+              }}
+              className="p-2 hover:bg-gray-100 rounded-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* 체크리스트 이름 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              체크리스트 이름
+            </label>
+            <input
+              type="text"
+              value={todoName}
+              onChange={(e) => setTodoName(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="예: 오픈 준비, 마감 체크"
+            />
+          </div>
+
+          {/* 태그 버튼들 */}
+          {suggestions.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                이전에 사용한 항목 (클릭하여 추가)
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {suggestions.map((suggestion, idx) => (
+                  <button
+                    key={suggestion.id || idx}
+                    onClick={() => handleTagClick(suggestion.content)}
+                    disabled={pendingItems.includes(suggestion.content)}
+                    className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                      pendingItems.includes(suggestion.content)
+                        ? 'bg-blue-100 text-blue-400 cursor-not-allowed'
+                        : 'bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700'
+                    }`}
+                  >
+                    {suggestion.content}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 직접 입력 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              새 항목 직접 입력
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newItemText}
+                onChange={(e) => setNewItemText(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleAddItem()}
+                className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="항목 내용을 입력하고 Enter"
+              />
+              <button
+                onClick={handleAddItem}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* 추가된 항목들 */}
+          {pendingItems.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                추가된 항목 ({pendingItems.length}개)
+              </label>
+              <div className="space-y-2">
+                {pendingItems.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg group"
+                  >
+                    <span className="w-6 h-6 flex items-center justify-center bg-blue-100 text-blue-600 rounded-full text-sm font-medium">
+                      {index + 1}
+                    </span>
+                    {editingItemIndex === index ? (
+                      <input
+                        type="text"
+                        value={editingItemText}
+                        onChange={(e) => setEditingItemText(e.target.value)}
+                        onBlur={handleFinishEdit}
+                        onKeyPress={(e) => e.key === 'Enter' && handleFinishEdit()}
+                        className="flex-1 px-3 py-1 border rounded focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="flex-1">{item}</span>
+                    )}
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleStartEdit(index)}
+                        className="p-1 hover:bg-gray-200 rounded"
+                      >
+                        <Edit2 className="w-4 h-4 text-gray-500" />
+                      </button>
+                      <button
+                        onClick={() => handleRemoveItem(index)}
+                        className="p-1 hover:bg-red-100 rounded"
+                      >
+                        <X className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 작성 완료 버튼 */}
+          <div className="flex gap-3 pt-4 border-t">
+            <button
+              onClick={() => {
+                setIsCreating(false);
+                setTodoName('');
+                setPendingItems([]);
+              }}
+              className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleCreateTodo}
+              disabled={!todoName.trim() || pendingItems.length === 0}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              체크리스트 생성
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 태그 관리 모드 */}
+      {isManagingTags && canManageTodo && (
+        <div className="bg-orange-50 rounded-xl border border-orange-200 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-orange-800">태그 관리 모드</h3>
+            <button
+              onClick={() => setIsManagingTags(false)}
+              className="text-sm text-orange-600 hover:text-orange-800"
+            >
+              완료
+            </button>
+          </div>
+          <p className="text-sm text-orange-700 mb-3">
+            X 버튼을 눌러 불필요한 태그를 삭제할 수 있습니다.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {suggestions.map((suggestion, idx) => (
+              <div
+                key={suggestion.id || idx}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-white border border-orange-200 rounded-full text-sm"
+              >
+                <span>{suggestion.content}</span>
+                {suggestion.id && (
+                  <button
+                    onClick={() => handleDeleteTag(suggestion.id!)}
+                    className="p-0.5 hover:bg-red-100 rounded-full"
+                  >
+                    <X className="w-3 h-3 text-red-500" />
+                  </button>
+                )}
+              </div>
+            ))}
+            {suggestions.length === 0 && (
+              <p className="text-sm text-orange-600">저장된 태그가 없습니다.</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Daily Todos Section */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <ClipboardList className="w-5 h-5 text-blue-600" />
-          <h2 className="text-lg font-semibold">오늘의 할 일</h2>
+          <h2 className="text-lg font-semibold">오늘의 체크리스트</h2>
         </div>
 
         {dailyTodos.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
             <ClipboardList className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <p className="text-gray-500 mb-4">오늘 등록된 할 일이 없습니다</p>
-            {canManageTodo && (
+            <p className="text-gray-500 mb-4">오늘 등록된 체크리스트가 없습니다</p>
+            {canManageTodo && !isCreating && (
               <button
-                onClick={() => setShowTemplateModal(true)}
+                onClick={() => setIsCreating(true)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
-                템플릿에서 추가하기
+                체크리스트 작성하기
               </button>
             )}
           </div>
@@ -551,12 +709,6 @@ export default function TodoPage() {
                           </p>
                         )}
                       </div>
-
-                      {item.category && (
-                        <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-                          {item.category}
-                        </span>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -565,218 +717,6 @@ export default function TodoPage() {
           ))
         )}
       </div>
-
-      {/* Template Selection Modal */}
-      {showTemplateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="text-xl font-bold">템플릿 선택</h2>
-              <button
-                onClick={() => {
-                  setShowTemplateModal(false);
-                  setSelectedTemplate(null);
-                  setTemplateItems([]);
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-auto p-4">
-              {templates.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">등록된 템플릿이 없습니다.</p>
-                  <button
-                    onClick={() => {
-                      setShowTemplateModal(false);
-                      setShowCreateTodoModal(true);
-                    }}
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
-                  >
-                    새 템플릿 만들기
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {templates.map((template) => (
-                    <div
-                      key={template.id}
-                      onClick={() => handleSelectTemplate(template)}
-                      className={`p-4 border rounded-xl cursor-pointer transition-colors ${
-                        selectedTemplate?.id === template.id
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-semibold">{template.name}</h3>
-                          <p className="text-sm text-gray-500 mt-1">
-                            {template.items_count}개 항목
-                          </p>
-                        </div>
-                        <span className="px-2 py-1 text-xs bg-gray-100 rounded">
-                          {CATEGORY_LABELS[template.category] || template.category}
-                        </span>
-                      </div>
-                      {template.description && (
-                        <p className="text-sm text-gray-600 mt-2">
-                          {template.description}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Selected Template Preview */}
-              {selectedTemplate && templateItems.length > 0 && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-xl">
-                  <h3 className="font-semibold mb-3">
-                    {selectedTemplate.name} 미리보기
-                  </h3>
-                  <ul className="space-y-2">
-                    {templateItems.map((item) => (
-                      <li key={item.id} className="flex items-center gap-2 text-sm">
-                        <span className="w-5 h-5 rounded-full border border-gray-300 flex-shrink-0" />
-                        <span>{item.content}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-
-            <div className="p-4 border-t flex gap-3">
-              <button
-                onClick={() => {
-                  setShowTemplateModal(false);
-                  setSelectedTemplate(null);
-                  setTemplateItems([]);
-                }}
-                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleApplyTemplate}
-                disabled={!selectedTemplate}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                오늘 할 일로 추가
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create Template Modal */}
-      {showCreateTodoModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="text-xl font-bold">새 템플릿 만들기</h2>
-              <button
-                onClick={() => {
-                  setShowCreateTodoModal(false);
-                  setNewTemplateName('');
-                  setNewTemplateCategory('CUSTOM');
-                  setNewTemplateItems(['']);
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-auto p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  템플릿 이름
-                </label>
-                <input
-                  type="text"
-                  value={newTemplateName}
-                  onChange={(e) => setNewTemplateName(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="예: 오픈 준비 체크리스트"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  카테고리
-                </label>
-                <select
-                  value={newTemplateCategory}
-                  onChange={(e) => setNewTemplateCategory(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
-                >
-                  <option value="OPEN">오픈 준비</option>
-                  <option value="CLOSE">마감 정리</option>
-                  <option value="HYGIENE">위생 점검</option>
-                  <option value="CUSTOM">기타</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  체크리스트 항목
-                </label>
-                <div className="space-y-2">
-                  {newTemplateItems.map((item, index) => (
-                    <div key={index} className="flex gap-2">
-                      <input
-                        type="text"
-                        value={item}
-                        onChange={(e) => updateNewItem(index, e.target.value)}
-                        className="flex-1 px-3 py-2 border rounded-lg"
-                        placeholder={`항목 ${index + 1}`}
-                      />
-                      {newTemplateItems.length > 1 && (
-                        <button
-                          onClick={() => removeNewItem(index)}
-                          className="p-2 hover:bg-red-100 rounded-lg"
-                        >
-                          <X className="w-4 h-4 text-red-500" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <button
-                  onClick={addNewItemField}
-                  className="mt-2 text-sm text-blue-600 hover:text-blue-700"
-                >
-                  + 항목 추가
-                </button>
-              </div>
-            </div>
-
-            <div className="p-4 border-t flex gap-3">
-              <button
-                onClick={() => {
-                  setShowCreateTodoModal(false);
-                  setNewTemplateName('');
-                  setNewTemplateCategory('CUSTOM');
-                  setNewTemplateItems(['']);
-                }}
-                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleCreateTemplate}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                템플릿 저장
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
