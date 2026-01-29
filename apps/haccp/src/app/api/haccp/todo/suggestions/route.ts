@@ -128,9 +128,10 @@ export async function DELETE(request: NextRequest) {
     const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const content = searchParams.get('content');
 
-    if (!id) {
-      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+    if (!id && !content) {
+      return NextResponse.json({ error: 'ID or content is required' }, { status: 400 });
     }
 
     const { data: userData } = await supabase.auth.getUser();
@@ -148,12 +149,21 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 숨김 처리
-    await adminClient
-      .from('todo_suggestions')
-      .update({ is_hidden: true })
-      .eq('id', id)
-      .eq('company_id', userProfile.company_id);
+    // todo_suggestions 테이블에서 숨김 처리
+    if (id) {
+      await adminClient
+        .from('todo_suggestions')
+        .update({ is_hidden: true })
+        .eq('id', id)
+        .eq('company_id', userProfile.company_id);
+    } else if (content) {
+      // content 기반 삭제 (테이블이 있으면 숨김 처리, 없으면 무시)
+      await adminClient
+        .from('todo_suggestions')
+        .update({ is_hidden: true })
+        .eq('content', content)
+        .eq('company_id', userProfile.company_id);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -194,11 +194,9 @@ export default function TodoPage() {
     setShowModal(true);
   };
 
-  // 이전 항목 버튼 클릭
+  // 이전 항목 버튼 클릭 → 입력란에 채우기
   const handleSuggestionClick = (content: string) => {
-    if (!pendingItems.includes(content)) {
-      setPendingItems([...pendingItems, content]);
-    }
+    setNewItemText(content);
   };
 
   // 직접 입력 추가
@@ -254,10 +252,13 @@ export default function TodoPage() {
     }
   };
 
-  // 태그 삭제 (길게 누르기로 변경 가능)
-  const handleDeleteSuggestion = async (id: string) => {
+  // 태그 삭제
+  const handleDeleteSuggestion = async (suggestion: Suggestion) => {
     try {
-      await fetch(`/api/haccp/todo/suggestions?id=${id}`, { method: 'DELETE' });
+      const params = suggestion.id
+        ? `id=${suggestion.id}`
+        : `content=${encodeURIComponent(suggestion.content)}`;
+      await fetch(`/api/haccp/todo/suggestions?${params}`, { method: 'DELETE' });
       fetchData();
     } catch (error) {
       console.error('Failed to delete suggestion:', error);
@@ -448,27 +449,20 @@ export default function TodoPage() {
                     {suggestions.map((s, idx) => (
                       <div
                         key={s.id || idx}
-                        className={`inline-flex items-center rounded-full text-sm ${
-                          pendingItems.includes(s.content)
-                            ? 'bg-blue-200 text-blue-500'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
+                        className="inline-flex items-center rounded-full text-sm bg-gray-100 text-gray-700"
                       >
                         <button
                           onClick={() => handleSuggestionClick(s.content)}
-                          disabled={pendingItems.includes(s.content)}
                           className="px-3 py-1.5 hover:bg-blue-100 rounded-l-full"
                         >
                           {s.content}
                         </button>
-                        {s.id && (
-                          <button
-                            onClick={() => handleDeleteSuggestion(s.id!)}
-                            className="pr-2 pl-1 py-1.5 hover:text-red-500"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => handleDeleteSuggestion(s)}
+                          className="pr-2 pl-1 py-1.5 hover:text-red-500"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
                       </div>
                     ))}
                   </div>
