@@ -34,8 +34,26 @@ export async function GET(_request: NextRequest) {
       .order('content', { ascending: true });
 
     if (error) {
-      // 테이블이 없으면 빈 배열 반환
-      console.error('Error fetching suggestions:', error);
+      // 테이블이 없으면 daily_todo_items에서 기존 항목 조회
+      console.error('todo_suggestions table not found, fallback to daily_todo_items');
+
+      const { data: todos } = await adminClient
+        .from('daily_todos')
+        .select('id')
+        .eq('company_id', userProfile.company_id);
+
+      if (todos && todos.length > 0) {
+        const todoIds = todos.map(t => t.id);
+        const { data: items } = await adminClient
+          .from('daily_todo_items')
+          .select('content')
+          .in('daily_todo_id', todoIds);
+
+        // 중복 제거
+        const uniqueContents = [...new Set((items || []).map(i => i.content))];
+        return NextResponse.json(uniqueContents.map(content => ({ content })));
+      }
+
       return NextResponse.json([]);
     }
 
