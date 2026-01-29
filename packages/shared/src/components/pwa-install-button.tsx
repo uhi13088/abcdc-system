@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -28,8 +28,40 @@ interface PWAInstallButtonProps {
 function isInAppBrowser(): boolean {
   if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent || navigator.vendor || '';
-  // Common in-app browsers: KakaoTalk, Line, Facebook, Instagram, etc.
-  return /KAKAOTALK|FBAN|FBAV|Instagram|Line|NAVER|DaumApps/i.test(ua);
+  // Common in-app browsers: KakaoTalk, Line, Facebook, Instagram, Samsung Browser in-app, etc.
+  return /KAKAOTALK|FBAN|FBAV|Instagram|Line|NAVER|DaumApps|SamsungBrowser.*CrossApp/i.test(ua);
+}
+
+// Open URL in external browser (Chrome for Android)
+function openInExternalBrowser(url: string): void {
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  if (isAndroid) {
+    // Try intent:// scheme to open in Chrome
+    const intentUrl = `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
+
+    // Create a hidden link and click it
+    const link = document.createElement('a');
+    link.href = intentUrl;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Fallback: try to open normally after a delay (in case intent didn't work)
+    setTimeout(() => {
+      window.open(url, '_blank');
+    }, 1000);
+  } else if (isIOS) {
+    // iOS: Try to open in Safari using a workaround
+    // Unfortunately, iOS doesn't support intent:// scheme
+    // Copy URL and show instructions
+    navigator.clipboard?.writeText(url);
+    window.open(url, '_blank');
+  } else {
+    window.open(url, '_blank');
+  }
 }
 
 export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
@@ -40,6 +72,22 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [isInApp, setIsInApp] = useState(false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+
+  // Auto-trigger install prompt
+  const triggerInstallPrompt = useCallback(async () => {
+    if (globalDeferredPrompt) {
+      try {
+        await globalDeferredPrompt.prompt();
+        const { outcome } = await globalDeferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          globalDeferredPrompt = null;
+          setDeferredPrompt(null);
+        }
+      } catch {
+        // Prompt already shown or not available
+      }
+    }
+  }, []);
 
   useEffect(() => {
     // Check if already installed (standalone mode)
@@ -53,6 +101,10 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
       setIsInstalled(true);
       return;
     }
+
+    // Check for auto-install trigger from URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldAutoInstall = urlParams.get('pwa_install') === 'true';
 
     // Detect iOS (including iPad with desktop mode)
     const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -68,11 +120,24 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
     setIsMobile(isMobileDevice);
 
     // Detect in-app browser
-    setIsInApp(isInAppBrowser());
+    const inApp = isInAppBrowser();
+    setIsInApp(inApp);
 
     // Use globally cached prompt if available
     if (globalDeferredPrompt) {
       setDeferredPrompt(globalDeferredPrompt);
+
+      // Auto-trigger install if came from in-app browser redirect
+      if (shouldAutoInstall && !inApp) {
+        // Small delay to ensure prompt is ready
+        setTimeout(() => {
+          triggerInstallPrompt();
+          // Clean up URL parameter
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('pwa_install');
+          window.history.replaceState({}, '', newUrl.toString());
+        }, 500);
+      }
     }
 
     // Listen for beforeinstallprompt event (Android/Chrome)
@@ -80,29 +145,51 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
       e.preventDefault();
       globalDeferredPrompt = e as BeforeInstallPromptEvent;
       setDeferredPrompt(e as BeforeInstallPromptEvent);
+
+      // Auto-trigger install if came from in-app browser redirect
+      if (shouldAutoInstall && !inApp) {
+        setTimeout(() => {
+          triggerInstallPrompt();
+          // Clean up URL parameter
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('pwa_install');
+          window.history.replaceState({}, '', newUrl.toString());
+        }, 500);
+      }
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     // Listen for app installed event
-    window.addEventListener('appinstalled', () => {
+    const handleAppInstalled = () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
       globalDeferredPrompt = null;
-    });
+    };
+    window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
     };
-  }, []);
+  }, [triggerInstallPrompt]);
 
   const handleInstallClick = async () => {
+    // If in-app browser, open in external browser with auto-install flag
+    if (isInApp) {
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.set('pwa_install', 'true');
+      openInExternalBrowser(currentUrl.toString());
+      return;
+    }
+
     // If we have the native prompt, use it
     if (deferredPrompt) {
       await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         setDeferredPrompt(null);
+        globalDeferredPrompt = null;
       }
       return;
     }
@@ -176,37 +263,7 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
               </button>
             </div>
 
-            {isInApp ? (
-              // In-app browser guide - need to open in external browser
-              <div className="space-y-4 text-sm text-gray-600">
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-yellow-800 font-medium">인앱 브라우저에서는 앱 설치가 불가능합니다</p>
-                </div>
-                <ol className="space-y-4">
-                  <li className="flex gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center text-xs font-semibold">1</span>
-                    <span>오른쪽 상단 <strong>메뉴 (⋮)</strong>를 탭하세요</span>
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center text-xs font-semibold">2</span>
-                    <span><strong>&quot;다른 브라우저로 열기&quot;</strong> 또는 <strong>&quot;Chrome으로 열기&quot;</strong>를 선택하세요</span>
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="flex-shrink-0 w-6 h-6 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center text-xs font-semibold">3</span>
-                    <span>Chrome/Safari에서 다시 <strong>&quot;앱 설치하기&quot;</strong> 버튼을 탭하세요</span>
-                  </li>
-                </ol>
-                <button
-                  onClick={() => {
-                    // Try to copy URL for user convenience
-                    navigator.clipboard?.writeText(window.location.href);
-                  }}
-                  className="w-full py-2 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100"
-                >
-                  URL 복사하기
-                </button>
-              </div>
-            ) : isIOS ? (
+            {isIOS ? (
               // iOS 설치 가이드
               <ol className="space-y-4 text-sm text-gray-600">
                 <li className="flex gap-3">
