@@ -196,23 +196,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 중복 확인
+    // 같은 날짜+이름의 체크리스트가 있는지 확인
     const { data: existing } = await adminClient
       .from('daily_todos')
-      .select('id')
+      .select('id, total_items')
       .eq('company_id', userProfile.company_id)
       .eq('date', targetDate)
       .eq('name', name)
+      .neq('status', 'CANCELLED')
       .single();
 
+    // 이미 있으면 해당 체크리스트에 항목 추가
     if (existing) {
-      return NextResponse.json(
-        { error: '이미 오늘 같은 이름의 투두가 있습니다.' },
-        { status: 400 }
-      );
+      // 기존 항목 개수 확인
+      const { data: existingItems } = await adminClient
+        .from('daily_todo_items')
+        .select('sort_order')
+        .eq('daily_todo_id', existing.id)
+        .order('sort_order', { ascending: false })
+        .limit(1);
+
+      const lastSortOrder = existingItems?.[0]?.sort_order ?? -1;
+
+      // 새 항목 추가
+      const newItems = items.map((item: { content: string; category?: string; is_required?: boolean }, index: number) => ({
+        daily_todo_id: existing.id,
+        content: item.content,
+        sort_order: lastSortOrder + 1 + index,
+        category: item.category,
+        is_required: item.is_required !== false,
+      }));
+
+      await adminClient.from('daily_todo_items').insert(newItems);
+
+      // total_items 업데이트
+      await adminClient
+        .from('daily_todos')
+        .update({ total_items: existing.total_items + items.length })
+        .eq('id', existing.id);
+
+      return NextResponse.json({ id: existing.id, added: items.length }, { status: 200 });
     }
 
-    // 일일 투두 생성
+    // 새로 생성
     const { data: dailyTodo, error: todoError } = await adminClient
       .from('daily_todos')
       .insert({
