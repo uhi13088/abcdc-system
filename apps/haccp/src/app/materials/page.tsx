@@ -620,6 +620,30 @@ function MasterTab({
 // ============================================
 // Receiving Tab (입고/검사)
 // ============================================
+
+// 보관위치 옵션
+const STORAGE_LOCATIONS = [
+  { value: '', label: '선택하세요' },
+  { value: '냉장고-1', label: '냉장고-1' },
+  { value: '냉장고-2', label: '냉장고-2' },
+  { value: '냉동고-1', label: '냉동고-1' },
+  { value: '냉동고-2', label: '냉동고-2' },
+  { value: '창고-1', label: '창고-1 (상온)' },
+  { value: '창고-2', label: '창고-2 (상온)' },
+  { value: '창고-3', label: '창고-3 (상온)' },
+];
+
+// 부적합 사유 옵션
+const FAIL_REASONS = [
+  { value: 'appearance', label: '외관 불량 (이물질, 변색 등)' },
+  { value: 'packaging', label: '포장 불량 (파손, 오염)' },
+  { value: 'temperature', label: '온도 부적합' },
+  { value: 'expiry', label: '유통기한 임박/초과' },
+  { value: 'document', label: '서류 미비' },
+  { value: 'quantity', label: '수량 불일치' },
+  { value: 'other', label: '기타' },
+];
+
 function ReceivingTab({
   materials,
   suppliers,
@@ -641,9 +665,9 @@ function ReceivingTab({
     unit: 'kg',
     expiry_date: '',
     storage_location: '',
-    appearance_check: true,
-    packaging_check: true,
-    temp_check: { value: 5, passed: true },
+    overall_result: 'PASS' as 'PASS' | 'FAIL',
+    fail_reason: '',
+    fail_reason_detail: '',
     remarks: '',
   });
 
@@ -683,10 +707,31 @@ function ReceivingTab({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 유효성 검사
+    if (!formData.material_id) {
+      toast.error('원부재료를 선택해주세요.');
+      return;
+    }
+    if (formData.quantity <= 0) {
+      toast.error('입고량을 입력해주세요.');
+      return;
+    }
+    if (!formData.storage_location) {
+      toast.error('보관위치를 선택해주세요.');
+      return;
+    }
+
+    // 부적합인데 사유 없으면
+    if (!simpleMode && formData.overall_result === 'FAIL' && !formData.fail_reason) {
+      toast.error('부적합 사유를 선택해주세요.');
+      return;
+    }
+
+    const lotNumber = formData.lot_number || generateLotNumber();
+
     // 간편 모드면 검사 생략하고 바로 재고 등록
     if (simpleMode) {
       try {
-        // 재고 트랜잭션 직접 생성
         const response = await fetch('/api/haccp/inventory/transactions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -694,7 +739,7 @@ function ReceivingTab({
             transaction_type: 'IN',
             transaction_date: selectedDate,
             material_id: formData.material_id,
-            lot_number: formData.lot_number || generateLotNumber(),
+            lot_number: lotNumber,
             quantity: formData.quantity,
             unit: formData.unit,
             expiry_date: formData.expiry_date,
@@ -708,6 +753,9 @@ function ReceivingTab({
           setShowModal(false);
           onRefresh();
           resetForm();
+        } else {
+          const errorData = await response.json();
+          toast.error(`입고 처리 실패: ${errorData.error || '알 수 없는 오류'}`);
         }
       } catch (error) {
         console.error('Failed to process receiving:', error);
@@ -717,32 +765,42 @@ function ReceivingTab({
     }
 
     // 검사 모드: 검사 기록 생성 + 합격 시 재고 자동 등록
-    const overall_result = (formData.appearance_check && formData.packaging_check && formData.temp_check.passed)
-      ? 'PASS'
-      : (!formData.appearance_check || !formData.packaging_check || !formData.temp_check.passed)
-        ? 'FAIL'
-        : 'CONDITIONAL';
-
     try {
+      // 검사 결과에 따른 비고 설정
+      const remarks = formData.overall_result === 'FAIL'
+        ? `부적합 사유: ${FAIL_REASONS.find(r => r.value === formData.fail_reason)?.label || formData.fail_reason}${formData.fail_reason_detail ? ` - ${formData.fail_reason_detail}` : ''}`
+        : formData.remarks;
+
       const response = await fetch('/api/haccp/inspections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           inspection_date: selectedDate,
-          ...formData,
-          lot_number: formData.lot_number || generateLotNumber(),
-          overall_result,
-          auto_stock: overall_result !== 'FAIL', // 합격/조건부면 재고 자동 등록
+          material_id: formData.material_id,
+          supplier_id: formData.supplier_id || null,
+          lot_number: lotNumber,
+          quantity: formData.quantity,
+          unit: formData.unit,
+          expiry_date: formData.expiry_date || null,
+          storage_location: formData.storage_location,
+          overall_result: formData.overall_result,
+          appearance_check: formData.overall_result === 'PASS',
+          packaging_check: formData.overall_result === 'PASS',
+          temp_check: { value: 0, passed: formData.overall_result === 'PASS' },
+          remarks: remarks,
         }),
       });
 
       if (response.ok) {
-        const resultText = overall_result === 'PASS' ? '적합' : overall_result === 'FAIL' ? '부적합' : '조건부';
-        toast.success(`검사 완료 (${resultText})${overall_result !== 'FAIL' ? ' - 재고 자동 등록됨' : ''}`);
+        const resultText = formData.overall_result === 'PASS' ? '적합' : '부적합';
+        toast.success(`검사 완료 (${resultText})${formData.overall_result === 'PASS' ? ' - 재고 자동 등록됨' : ''}`);
         setShowModal(false);
         fetchInspections();
         onRefresh();
         resetForm();
+      } else {
+        const errorData = await response.json();
+        toast.error(`검사 등록 실패: ${errorData.error || '알 수 없는 오류'}`);
       }
     } catch (error) {
       console.error('Failed to create inspection:', error);
@@ -759,9 +817,9 @@ function ReceivingTab({
       unit: 'kg',
       expiry_date: '',
       storage_location: '',
-      appearance_check: true,
-      packaging_check: true,
-      temp_check: { value: 5, passed: true },
+      overall_result: 'PASS',
+      fail_reason: '',
+      fail_reason_detail: '',
       remarks: '',
     });
   };
@@ -925,7 +983,7 @@ function ReceivingTab({
                 </div>
                 <div>
                   <Label required>입고량</Label>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     <input
                       type="number"
                       step="0.01"
@@ -934,15 +992,9 @@ function ReceivingTab({
                       className="flex-1 px-3 py-2 border rounded-lg"
                       required
                     />
-                    <select
-                      value={formData.unit}
-                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                      className="w-20 px-2 py-2 border rounded-lg"
-                    >
-                      {ALL_UNIT_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                      ))}
-                    </select>
+                    <span className="px-3 py-2 bg-gray-100 border rounded-lg text-gray-700 font-medium min-w-[60px] text-center">
+                      {formData.unit}
+                    </span>
                   </div>
                 </div>
                 <div>
@@ -957,96 +1009,126 @@ function ReceivingTab({
               </div>
 
               <div>
-                <Label>보관위치</Label>
-                <input
-                  type="text"
+                <Label required>보관위치</Label>
+                <select
                   value={formData.storage_location}
                   onChange={(e) => setFormData({ ...formData, storage_location: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="예: 냉장고 A-1"
-                />
+                  required
+                >
+                  {STORAGE_LOCATIONS.map(loc => (
+                    <option key={loc.value} value={loc.value}>{loc.label}</option>
+                  ))}
+                </select>
               </div>
 
-              {/* 검사 항목 (간편 모드가 아닐 때만) */}
+              {/* 검사 결과 (간편 모드가 아닐 때만) */}
               {!simpleMode && (
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-medium mb-4">검사 항목</h4>
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-3 p-2 rounded hover:bg-gray-100 cursor-pointer">
+                  <h4 className="font-medium mb-4">검사 결과</h4>
+
+                  {/* 적합/부적합 선택 */}
+                  <div className="flex gap-4 mb-4">
+                    <label
+                      className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                        formData.overall_result === 'PASS'
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : 'border-gray-200 hover:border-green-300'
+                      }`}
+                    >
                       <input
-                        type="checkbox"
-                        checked={formData.appearance_check}
-                        onChange={(e) => setFormData({ ...formData, appearance_check: e.target.checked })}
-                        className="w-5 h-5 rounded"
+                        type="radio"
+                        name="overall_result"
+                        value="PASS"
+                        checked={formData.overall_result === 'PASS'}
+                        onChange={() => setFormData({ ...formData, overall_result: 'PASS', fail_reason: '', fail_reason_detail: '' })}
+                        className="sr-only"
                       />
-                      <div>
-                        <span className="font-medium">외관검사</span>
-                        <p className="text-xs text-gray-500">제품 외관 상태, 이물질 혼입 여부</p>
-                      </div>
+                      <CheckCircle className={`w-6 h-6 ${formData.overall_result === 'PASS' ? 'text-green-600' : 'text-gray-400'}`} />
+                      <span className="font-medium text-lg">적합</span>
                     </label>
-                    <label className="flex items-center gap-3 p-2 rounded hover:bg-gray-100 cursor-pointer">
+                    <label
+                      className={`flex-1 flex items-center justify-center gap-2 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                        formData.overall_result === 'FAIL'
+                          ? 'border-red-500 bg-red-50 text-red-700'
+                          : 'border-gray-200 hover:border-red-300'
+                      }`}
+                    >
                       <input
-                        type="checkbox"
-                        checked={formData.packaging_check}
-                        onChange={(e) => setFormData({ ...formData, packaging_check: e.target.checked })}
-                        className="w-5 h-5 rounded"
+                        type="radio"
+                        name="overall_result"
+                        value="FAIL"
+                        checked={formData.overall_result === 'FAIL'}
+                        onChange={() => setFormData({ ...formData, overall_result: 'FAIL' })}
+                        className="sr-only"
                       />
-                      <div>
-                        <span className="font-medium">포장상태</span>
-                        <p className="text-xs text-gray-500">포장 파손, 오염, 표시사항 확인</p>
-                      </div>
+                      <XCircle className={`w-6 h-6 ${formData.overall_result === 'FAIL' ? 'text-red-600' : 'text-gray-400'}`} />
+                      <span className="font-medium text-lg">부적합</span>
                     </label>
-                    <div className="flex items-center gap-3 p-2 rounded bg-blue-50">
-                      <input
-                        type="checkbox"
-                        checked={formData.temp_check.passed}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          temp_check: { ...formData.temp_check, passed: e.target.checked }
-                        })}
-                        className="w-5 h-5 rounded"
-                      />
-                      <div className="flex-1">
-                        <span className="font-medium">온도검사</span>
-                        <p className="text-xs text-gray-500">입고 온도 측정</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={formData.temp_check.value}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            temp_check: { ...formData.temp_check, value: parseFloat(e.target.value) || 0 }
-                          })}
-                          className="w-20 px-2 py-1 border rounded text-sm"
-                        />
-                        <span className="text-sm">°C</span>
-                      </div>
-                    </div>
                   </div>
 
-                  {/* 검사 결과 미리보기 */}
+                  {/* 부적합 사유 (부적합 선택 시만) */}
+                  {formData.overall_result === 'FAIL' && (
+                    <div className="space-y-3 p-4 bg-red-50 rounded-lg border border-red-200">
+                      <div>
+                        <Label required>부적합 사유</Label>
+                        <select
+                          value={formData.fail_reason}
+                          onChange={(e) => setFormData({ ...formData, fail_reason: e.target.value })}
+                          className="w-full px-3 py-2 border rounded-lg"
+                          required
+                        >
+                          <option value="">선택하세요</option>
+                          {FAIL_REASONS.map(reason => (
+                            <option key={reason.value} value={reason.value}>{reason.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {formData.fail_reason === 'other' && (
+                        <div>
+                          <Label>상세 사유</Label>
+                          <input
+                            type="text"
+                            value={formData.fail_reason_detail}
+                            onChange={(e) => setFormData({ ...formData, fail_reason_detail: e.target.value })}
+                            className="w-full px-3 py-2 border rounded-lg"
+                            placeholder="기타 사유를 입력하세요"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 결과 안내 */}
                   <div className="mt-4 p-3 bg-white rounded border">
-                    <span className="text-sm text-gray-500">예상 결과: </span>
-                    {formData.appearance_check && formData.packaging_check && formData.temp_check.passed ? (
-                      <span className="text-green-600 font-medium">적합 → 재고 자동 등록</span>
+                    {formData.overall_result === 'PASS' ? (
+                      <span className="text-green-600 font-medium flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        적합 → 재고 자동 등록
+                      </span>
                     ) : (
-                      <span className="text-red-600 font-medium">부적합 → 재고 미등록</span>
+                      <span className="text-red-600 font-medium flex items-center gap-2">
+                        <XCircle className="w-4 h-4" />
+                        부적합 → 재고 미등록 (반품/폐기 처리 필요)
+                      </span>
                     )}
                   </div>
                 </div>
               )}
 
-              <div>
-                <Label>비고</Label>
-                <textarea
-                  value={formData.remarks}
-                  onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  rows={2}
-                />
-              </div>
+              {/* 비고 (적합일 때만) */}
+              {(simpleMode || formData.overall_result === 'PASS') && (
+                <div>
+                  <Label>비고</Label>
+                  <textarea
+                    value={formData.remarks}
+                    onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    rows={2}
+                    placeholder="추가 메모 (선택사항)"
+                  />
+                </div>
+              )}
 
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
