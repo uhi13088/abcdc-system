@@ -19,18 +19,35 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
-  const [showIOSGuide, setShowIOSGuide] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
 
   useEffect(() => {
-    // Check if already installed
+    // Check if already installed (standalone mode)
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true);
       return;
     }
 
-    // Check if iOS
-    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    // Check if running inside PWA
+    if ((window.navigator as { standalone?: boolean }).standalone === true) {
+      setIsInstalled(true);
+      return;
+    }
+
+    // Detect iOS (including iPad with desktop mode)
+    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     setIsIOS(isIOSDevice);
+
+    // Detect Android
+    const isAndroidDevice = /Android/.test(navigator.userAgent);
+    setIsAndroid(isAndroidDevice);
+
+    // Detect mobile
+    const isMobileDevice = isIOSDevice || isAndroidDevice || /webOS|BlackBerry|Opera Mini|IEMobile/.test(navigator.userAgent);
+    setIsMobile(isMobileDevice);
 
     // Listen for beforeinstallprompt event (Android/Chrome)
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -52,21 +69,18 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
   }, []);
 
   const handleInstallClick = async () => {
-    if (isIOS) {
-      setShowIOSGuide(true);
+    // If we have the native prompt, use it
+    if (deferredPrompt) {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
       return;
     }
 
-    if (!deferredPrompt) {
-      return;
-    }
-
-    await deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-
-    if (outcome === 'accepted') {
-      setDeferredPrompt(null);
-    }
+    // Otherwise show manual installation guide
+    setShowInstallGuide(true);
   };
 
   // Don't show if already installed
@@ -74,8 +88,9 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
     return null;
   }
 
-  // Don't show on desktop if no install prompt available and not iOS
-  if (!deferredPrompt && !isIOS) {
+  // Always show on mobile (iOS/Android), or on desktop if prompt is available
+  const shouldShow = isMobile || deferredPrompt;
+  if (!shouldShow) {
     return null;
   }
 
@@ -103,8 +118,8 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
         앱 설치하기
       </button>
 
-      {/* iOS Guide Modal */}
-      {showIOSGuide && (
+      {/* Install Guide Modal */}
+      {showInstallGuide && (
         <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 p-4">
           <div
             className="bg-white rounded-t-2xl w-full max-w-md p-6"
@@ -123,7 +138,7 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">앱 설치 방법</h3>
               <button
-                onClick={() => setShowIOSGuide(false)}
+                onClick={() => setShowInstallGuide(false)}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -132,22 +147,59 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
                 </svg>
               </button>
             </div>
-            <ol className="space-y-4 text-sm text-gray-600">
-              <li className="flex gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">1</span>
-                <span>하단의 <strong>공유 버튼</strong>을 탭하세요</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">2</span>
-                <span><strong>&quot;홈 화면에 추가&quot;</strong>를 선택하세요</span>
-              </li>
-              <li className="flex gap-3">
-                <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">3</span>
-                <span><strong>&quot;추가&quot;</strong>를 탭하면 완료!</span>
-              </li>
-            </ol>
+
+            {isIOS ? (
+              // iOS 설치 가이드
+              <ol className="space-y-4 text-sm text-gray-600">
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">1</span>
+                  <span>하단의 <strong>공유 버튼</strong> (□↑)을 탭하세요</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">2</span>
+                  <span><strong>&quot;홈 화면에 추가&quot;</strong>를 선택하세요</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">3</span>
+                  <span><strong>&quot;추가&quot;</strong>를 탭하면 완료!</span>
+                </li>
+              </ol>
+            ) : isAndroid ? (
+              // Android 설치 가이드
+              <ol className="space-y-4 text-sm text-gray-600">
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold">1</span>
+                  <span>주소창 오른쪽의 <strong>메뉴 버튼</strong> (⋮)을 탭하세요</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold">2</span>
+                  <span><strong>&quot;앱 설치&quot;</strong> 또는 <strong>&quot;홈 화면에 추가&quot;</strong>를 선택하세요</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold">3</span>
+                  <span><strong>&quot;설치&quot;</strong>를 탭하면 완료!</span>
+                </li>
+              </ol>
+            ) : (
+              // 일반 브라우저 가이드
+              <ol className="space-y-4 text-sm text-gray-600">
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-xs font-semibold">1</span>
+                  <span>브라우저 메뉴에서 <strong>&quot;앱 설치&quot;</strong> 또는 <strong>&quot;바로가기 만들기&quot;</strong>를 찾으세요</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-xs font-semibold">2</span>
+                  <span>Chrome: 주소창의 설치 아이콘(⊕) 클릭</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-xs font-semibold">3</span>
+                  <span><strong>&quot;설치&quot;</strong>를 클릭하면 완료!</span>
+                </li>
+              </ol>
+            )}
+
             <button
-              onClick={() => setShowIOSGuide(false)}
+              onClick={() => setShowInstallGuide(false)}
               className="w-full mt-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors"
             >
               확인

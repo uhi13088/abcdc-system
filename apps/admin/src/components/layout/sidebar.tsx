@@ -163,7 +163,7 @@ function SidebarComponent() {
   return (
     <div
       className={cn(
-        'flex flex-col bg-white text-gray-700 transition-all duration-300 ease-in-out h-screen fixed left-0 top-0 z-50 border-r border-gray-200 shadow-sm',
+        'flex flex-col bg-white text-gray-700 transition-all duration-300 ease-in-out h-screen fixed left-0 top-0 z-50 border-r border-gray-200 shadow-sm overflow-hidden',
         // Desktop: w-16 collapsed, w-64 expanded on hover
         // Mobile: hidden by default, w-64 when open
         isMobileOpen ? 'w-64 translate-x-0' : 'w-16 -translate-x-full lg:translate-x-0',

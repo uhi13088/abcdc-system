@@ -54,7 +54,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <Sidebar />
 
         {/* Main content with left margin for collapsed sidebar (w-16 = 4rem) */}
-        <main className="flex-1 ml-0 lg:ml-16 overflow-auto pt-16 lg:pt-0">
+        <main className="flex-1 ml-0 lg:ml-16 overflow-auto">
           {children}
         </main>
       </div>

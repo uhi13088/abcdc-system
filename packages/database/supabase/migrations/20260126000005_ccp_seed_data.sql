@@ -56,7 +56,7 @@ INSERT INTO ccp_definitions_template (ccp_code, process_name, lower_limit, upper
   ('CCP-3B-SYRUP-CORE', '시럽가열-가열 후 품온(°C)', 80, 999, '°C', '매작업시', 14),
 
   -- CCP-4B: 세척원료
-  ('CCP-4B-RAWWT', '세척원료-원료량(g)', 0, 500, 'g', '매작업시', 15),
+  ('CCP-4B-WASH-RAWWT', '세척원료-원료량(g)', 0, 500, 'g', '매작업시', 15),
   ('CCP-4B-WASH-VOL', '세척원료-세척수량(ℓ)', 3, 9999, 'L', '매작업시', 16),
   ('CCP-4B-WASH-TIME', '세척원료-세척시간(분)', 5, 9999, '분', '매작업시', 17),
 
