@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
           id,
           code,
           name,
-          material_type
+          type
         )
       `)
       .eq('company_id', userData.company_id)
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
           id,
           code,
           name,
-          material_type
+          type
         )
       `)
       .eq('company_id', userData.company_id)
@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
           material_id: stock.material_id,
           material_code: stock.materials.code,
           material_name: stock.materials.name,
-          material_type: stock.materials.material_type,
+          material_type: stock.materials.type,
           unit: stock.unit,
           total_in: 0,
           total_out: 0,
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
           material_id: tx.material_id,
           material_code: tx.materials.code,
           material_name: tx.materials.name,
-          material_type: tx.materials.material_type,
+          material_type: tx.materials.type,
           unit: tx.unit,
           total_in: 0,
           total_out: 0,

@@ -33,9 +33,7 @@ export async function GET(request: NextRequest) {
       .select(`
         *,
         materials:material_id (id, name, code, type, storage_temp, shelf_life),
-        suppliers:supplier_id (id, name),
-        inspected_by_user:inspected_by (name),
-        verified_by_user:verified_by (name)
+        suppliers:supplier_id (id, name)
       `)
       .eq('company_id', userProfile.company_id)
       .eq('inspection_date', date);
@@ -63,8 +61,6 @@ export async function GET(request: NextRequest) {
       material_type: i.material_type || i.materials?.type,
       material_storage_temp: i.materials?.storage_temp,
       supplier_name: i.suppliers?.name,
-      inspected_by_name: i.inspected_by_name || i.inspected_by_user?.name,
-      verified_by_name: i.verified_by_name || i.verified_by_user?.name,
     }));
 
     return NextResponse.json(resultData);
