@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus,
   X,
@@ -150,6 +150,16 @@ const defaultTemperatureRanges: Record<string, { min: number; max: number }> = {
   OTHER: { min: 0, max: 30 },
 };
 
+// 창고 유형별 코드 접두사
+const storageTypePrefix: Record<string, string> = {
+  REFRIGERATOR: 'REF',
+  FREEZER: 'FRZ',
+  DRY_STORAGE: 'DRY',
+  CHEMICAL_STORAGE: 'CHM',
+  PACKAGING_STORAGE: 'PKG',
+  OTHER: 'ETC',
+};
+
 // ============================================
 // Main Component
 // ============================================
@@ -158,9 +168,20 @@ export default function MaterialsStoragePage() {
   const [loading, setLoading] = useState(true);
 
   // Storage Settings State
-  const [settings, setSettings] = useState<StorageAreaSetting[]>([]);
+  const [settingsRaw, setSettingsRaw] = useState<StorageAreaSetting[]>([]);
   const [sensors, setSensors] = useState<IoTSensor[]>([]);
   const [showSettingModal, setShowSettingModal] = useState(false);
+
+  // settings에 sensor 데이터를 매칭
+  const settings = useMemo(() => {
+    return settingsRaw.map(setting => {
+      if (setting.iot_sensor_id) {
+        const sensor = sensors.find(s => s.id === setting.iot_sensor_id);
+        return { ...setting, sensor };
+      }
+      return setting;
+    });
+  }, [settingsRaw, sensors]);
   const [editMode, setEditMode] = useState(false);
   const [selectedSetting, setSelectedSetting] = useState<StorageAreaSetting | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -221,7 +242,7 @@ export default function MaterialsStoragePage() {
       const response = await fetch('/api/haccp/storage-area-settings');
       if (response.ok) {
         const data = await response.json();
-        setSettings(data);
+        setSettingsRaw(data);
       }
     } catch (error) {
       console.error('Failed to fetch storage settings:', error);
@@ -268,11 +289,29 @@ export default function MaterialsStoragePage() {
   // ============================================
   // Setting Handlers
   // ============================================
+
+  // 창고 코드 자동 생성 함수
+  const generateAreaCode = (type: StorageAreaSetting['storage_type']) => {
+    const prefix = storageTypePrefix[type] || 'ETC';
+    // 같은 유형의 기존 창고들 중 가장 큰 번호 찾기
+    const existingCodes = settings
+      .filter(s => s.storage_type === type)
+      .map(s => {
+        const match = s.area_code?.match(new RegExp(`^${prefix}-(\\d+)$`));
+        return match ? parseInt(match[1], 10) : 0;
+      });
+    const maxNum = existingCodes.length > 0 ? Math.max(...existingCodes) : 0;
+    const nextNum = maxNum + 1;
+    return `${prefix}-${String(nextNum).padStart(3, '0')}`;
+  };
+
   const handleStorageTypeChange = (type: StorageAreaSetting['storage_type']) => {
     const range = defaultTemperatureRanges[type];
+    const autoCode = generateAreaCode(type);
     setSettingFormData({
       ...settingFormData,
       storage_type: type,
+      area_code: autoCode,
       temperature_min: range.min,
       temperature_max: range.max,
     });
@@ -348,10 +387,12 @@ export default function MaterialsStoragePage() {
   };
 
   const resetSettingForm = () => {
+    const defaultType = 'REFRIGERATOR' as StorageAreaSetting['storage_type'];
+    const autoCode = generateAreaCode(defaultType);
     setSettingFormData({
       area_name: '',
-      area_code: '',
-      storage_type: 'REFRIGERATOR',
+      area_code: autoCode,
+      storage_type: defaultType,
       description: '',
       temperature_min: 0,
       temperature_max: 10,
@@ -821,13 +862,12 @@ function ManagementTab({
                   />
                 </div>
                 <div>
-                  <Label>창고 코드</Label>
+                  <Label>창고 코드 <span className="text-xs text-gray-400">(자동생성)</span></Label>
                   <input
                     type="text"
                     value={formData.area_code}
-                    onChange={(e) => setFormData({ ...formData, area_code: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="예: REF-01"
+                    readOnly
+                    className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-gray-600"
                   />
                 </div>
               </div>
@@ -1247,189 +1287,190 @@ function InspectionTab({
               </button>
             </div>
 
-            <form onSubmit={onSubmit} className="space-y-4">
-              {/* Pre-configured Area Selection */}
-              {settings.length > 0 && (
+            {/* 등록된 창고가 없으면 안내 메시지 */}
+            {settings.filter(s => s.is_active).length === 0 ? (
+              <div className="text-center py-12">
+                <Warehouse className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">등록된 보관창고가 없습니다</h3>
+                <p className="text-gray-500 mb-4">점검 기록을 작성하려면 먼저 보관창고를 등록해주세요.</p>
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  보관창고 관리로 이동
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={onSubmit} className="space-y-4">
+                {/* 보관창고 선택 (필수) */}
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <Label>등록된 보관창고 선택</Label>
+                  <Label required>점검할 보관창고</Label>
                   <select
                     value={formData.storage_area_setting_id}
                     onChange={(e) => onAreaSettingSelect(e.target.value)}
                     className="w-full px-3 py-2 border rounded-lg bg-white mt-1"
+                    required
                   >
-                    <option value="">직접 입력...</option>
+                    <option value="">보관창고를 선택하세요</option>
                     {settings.filter(s => s.is_active).map((setting) => (
                       <option key={setting.id} value={setting.id}>
                         {setting.area_name} ({storageTypeText[setting.storage_type]})
-                        {setting.iot_enabled && setting.sensor ? ' [IoT 연동]' : ''}
+                        {setting.iot_enabled ? ' 📡' : ''}
                       </option>
                     ))}
                   </select>
-                  {selectedSetting?.iot_enabled && selectedSetting?.sensor && (
-                    <div className="mt-2 p-2 bg-white rounded border flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1">
-                          <Wifi className="w-4 h-4 text-purple-600" />
-                          <span className="text-sm text-purple-700">{selectedSetting.sensor.name}</span>
+
+                  {/* 선택한 창고 정보 표시 */}
+                  {selectedSetting && (
+                    <div className="mt-3 p-3 bg-white rounded-lg border">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">창고 유형:</span>
+                          <span className="ml-2 font-medium">{storageTypeText[selectedSetting.storage_type]}</span>
                         </div>
-                        <div className="flex items-center gap-3 text-sm">
-                          {selectedSetting.sensor.current_temperature !== undefined && (
-                            <span className="text-orange-600">
-                              <Thermometer className="w-3 h-3 inline mr-1" />
-                              {selectedSetting.sensor.current_temperature}°C
-                            </span>
-                          )}
-                          {selectedSetting.sensor.current_humidity !== undefined && (
-                            <span className="text-blue-600">
-                              <Droplets className="w-3 h-3 inline mr-1" />
-                              {selectedSetting.sensor.current_humidity}%
-                            </span>
-                          )}
+                        <div>
+                          <span className="text-gray-500">창고 코드:</span>
+                          <span className="ml-2 font-medium">{selectedSetting.area_code || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">온도 기준:</span>
+                          <span className="ml-2 font-medium text-orange-600">
+                            {selectedSetting.temperature_min}~{selectedSetting.temperature_max}°C
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">습도 기준:</span>
+                          <span className="ml-2 font-medium text-blue-600">
+                            {selectedSetting.humidity_min}~{selectedSetting.humidity_max}%
+                          </span>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={onRefreshSensor}
-                        className="p-1 hover:bg-gray-100 rounded"
-                        title="센서 데이터 새로고침"
-                      >
-                        <RefreshCw className="w-4 h-4 text-gray-500" />
-                      </button>
+
+                      {/* IoT 센서 연동 정보 */}
+                      {selectedSetting.iot_enabled && selectedSetting.sensor && (
+                        <div className="mt-3 pt-3 border-t">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Wifi className="w-4 h-4 text-purple-600" />
+                              <span className="text-sm font-medium text-purple-700">IoT 센서 연동</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // 센서 값을 측정값에 자동 입력
+                                setFormData(prev => ({
+                                  ...prev,
+                                  temperature: selectedSetting.sensor?.current_temperature?.toString() || '',
+                                  humidity: selectedSetting.sensor?.current_humidity?.toString() || '',
+                                }));
+                              }}
+                              className="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded hover:bg-purple-200"
+                            >
+                              현재값 자동입력
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-6 mt-2 text-sm">
+                            {selectedSetting.sensor.current_temperature !== undefined && (
+                              <div className="flex items-center gap-1">
+                                <Thermometer className="w-4 h-4 text-orange-500" />
+                                <span className="text-orange-600 font-medium">
+                                  {selectedSetting.sensor.current_temperature}°C
+                                </span>
+                              </div>
+                            )}
+                            {selectedSetting.sensor.current_humidity !== undefined && (
+                              <div className="flex items-center gap-1">
+                                <Droplets className="w-4 h-4 text-blue-500" />
+                                <span className="text-blue-600 font-medium">
+                                  {selectedSetting.sensor.current_humidity}%
+                                </span>
+                              </div>
+                            )}
+                            {selectedSetting.sensor.last_reading_at && (
+                              <span className="text-gray-400 text-xs">
+                                {new Date(selectedSetting.sensor.last_reading_at).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
 
-              {/* Basic Info */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label required>점검일</Label>
-                  <input
-                    type="date"
-                    value={formData.inspection_date}
-                    onChange={(e) => setFormData({ ...formData, inspection_date: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label required>점검시간</Label>
-                  <input
-                    type="time"
-                    value={formData.inspection_time}
-                    onChange={(e) => setFormData({ ...formData, inspection_time: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>교대</Label>
-                  <select
-                    value={formData.shift}
-                    onChange={(e) => setFormData({ ...formData, shift: e.target.value as StorageInspection['shift'] })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                  >
-                    <option value="morning">오전</option>
-                    <option value="afternoon">오후</option>
-                    <option value="night">야간</option>
-                  </select>
-                </div>
-              </div>
-
-              {!formData.storage_area_setting_id && (
-                <div className="grid grid-cols-2 gap-4">
+                {/* 점검 일시 */}
+                <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label required>창고명</Label>
+                    <Label required>점검일</Label>
                     <input
-                      type="text"
-                      value={formData.storage_area}
-                      onChange={(e) => setFormData({ ...formData, storage_area: e.target.value })}
+                      type="date"
+                      value={formData.inspection_date}
+                      onChange={(e) => setFormData({ ...formData, inspection_date: e.target.value })}
                       className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="예: 냉장고-1"
                       required
                     />
                   </div>
                   <div>
-                    <Label required>창고 유형</Label>
+                    <Label required>점검시간</Label>
+                    <input
+                      type="time"
+                      value={formData.inspection_time}
+                      onChange={(e) => setFormData({ ...formData, inspection_time: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label>교대</Label>
                     <select
-                      value={formData.storage_type}
-                      onChange={(e) => setFormData({ ...formData, storage_type: e.target.value as StorageInspection['storage_type'] })}
+                      value={formData.shift}
+                      onChange={(e) => setFormData({ ...formData, shift: e.target.value as StorageInspection['shift'] })}
                       className="w-full px-3 py-2 border rounded-lg"
                     >
-                      {Object.entries(storageTypeText).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
+                      <option value="morning">오전</option>
+                      <option value="afternoon">오후</option>
+                      <option value="night">야간</option>
                     </select>
                   </div>
                 </div>
-              )}
 
-              {/* Temperature & Humidity */}
-              <div className="border-t pt-4">
-                <h3 className="font-medium mb-3">온습도 측정</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>온도 (°C)</Label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.temperature}
-                      onChange={(e) => setFormData({ ...formData, temperature: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="측정 온도"
-                    />
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={formData.temperature_min}
-                        onChange={(e) => setFormData({ ...formData, temperature_min: e.target.value })}
-                        className="flex-1 px-2 py-1 border rounded text-sm"
-                        placeholder="최소"
-                      />
-                      <span className="text-gray-400">~</span>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={formData.temperature_max}
-                        onChange={(e) => setFormData({ ...formData, temperature_max: e.target.value })}
-                        className="flex-1 px-2 py-1 border rounded text-sm"
-                        placeholder="최대"
-                      />
+                {/* 온습도 측정값 입력 */}
+                {selectedSetting && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-medium mb-3">온습도 측정값</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>온도 (°C)</Label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          value={formData.temperature}
+                          onChange={(e) => setFormData({ ...formData, temperature: e.target.value })}
+                          className="w-full px-3 py-2 border rounded-lg"
+                          placeholder="측정 온도"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                          기준: {selectedSetting.temperature_min}~{selectedSetting.temperature_max}°C
+                        </p>
+                      </div>
+                      <div>
+                        <Label>습도 (%)</Label>
+                        <input
+                          type="number"
+                          step="1"
+                          value={formData.humidity}
+                          onChange={(e) => setFormData({ ...formData, humidity: e.target.value })}
+                          className="w-full px-3 py-2 border rounded-lg"
+                          placeholder="측정 습도"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                          기준: {selectedSetting.humidity_min}~{selectedSetting.humidity_max}%
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>습도 (%)</Label>
-                    <input
-                      type="number"
-                      step="1"
-                      value={formData.humidity}
-                      onChange={(e) => setFormData({ ...formData, humidity: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="측정 습도"
-                    />
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        step="1"
-                        value={formData.humidity_min}
-                        onChange={(e) => setFormData({ ...formData, humidity_min: e.target.value })}
-                        className="flex-1 px-2 py-1 border rounded text-sm"
-                        placeholder="최소"
-                      />
-                      <span className="text-gray-400">~</span>
-                      <input
-                        type="number"
-                        step="1"
-                        value={formData.humidity_max}
-                        onChange={(e) => setFormData({ ...formData, humidity_max: e.target.value })}
-                        className="flex-1 px-2 py-1 border rounded text-sm"
-                        placeholder="최대"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+                )}
 
               {/* Check Items */}
               <div className="border-t pt-4">
@@ -1528,7 +1569,8 @@ function InspectionTab({
                   저장
                 </button>
               </div>
-            </form>
+              </form>
+            )}
           </div>
         </div>
       )}
