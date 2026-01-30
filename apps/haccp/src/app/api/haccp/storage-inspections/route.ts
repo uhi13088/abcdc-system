@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, name')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -133,6 +133,7 @@ export async function POST(request: NextRequest) {
       .insert({
         company_id: userProfile.company_id,
         inspected_by: userProfile.id,
+        inspected_by_name: userProfile.name || '미지정',
         inspection_date: body.inspection_date || new Date().toISOString().split('T')[0],
         inspection_time: body.inspection_time || new Date().toTimeString().split(' ')[0].slice(0, 5),
         shift: body.shift,
