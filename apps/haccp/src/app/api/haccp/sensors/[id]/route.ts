@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,13 +11,14 @@ export async function GET(
   try {
     const { id } = await params;
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', userData.user.id)
@@ -27,7 +28,7 @@ export async function GET(
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const { data: sensor, error } = await supabase
+    const { data: sensor, error } = await adminClient
       .from('iot_sensors')
       .select(`
         *,
@@ -44,7 +45,7 @@ export async function GET(
     // 최근 24시간 읽기값
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    const { data: readings } = await supabase
+    const { data: readings } = await adminClient
       .from('sensor_readings')
       .select('*')
       .eq('sensor_id', id)
@@ -69,6 +70,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -76,7 +78,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', userData.user.id)
@@ -87,7 +89,7 @@ export async function PUT(
     }
 
     // 권한 확인 (같은 회사 소속 센서인지)
-    const { data: existingSensor } = await supabase
+    const { data: existingSensor } = await adminClient
       .from('iot_sensors')
       .select('id')
       .eq('id', id)
@@ -133,10 +135,11 @@ export async function PUT(
       }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('iot_sensors')
       .update(updateData)
       .eq('id', id)
+      .eq('company_id', userProfile.company_id)
       .select(`
         *,
         ccp_definition:ccp_definitions(id, ccp_number, process)
@@ -163,13 +166,14 @@ export async function DELETE(
   try {
     const { id } = await params;
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', userData.user.id)
@@ -179,23 +183,13 @@ export async function DELETE(
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 권한 확인
-    const { data: existingSensor } = await supabase
-      .from('iot_sensors')
-      .select('id')
-      .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .single();
-
-    if (!existingSensor) {
-      return NextResponse.json({ error: 'Sensor not found' }, { status: 404 });
-    }
-
     // 센서 삭제 (연관 readings는 CASCADE로 자동 삭제)
-    const { error } = await supabase
+    // company_id 조건 추가로 defense-in-depth 적용
+    const { error } = await adminClient
       .from('iot_sensors')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('company_id', userProfile.company_id);
 
     if (error) {
       console.error('Error deleting sensor:', error);

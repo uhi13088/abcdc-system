@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,6 +92,7 @@ interface DailySummary {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
 
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', userData.user.id)
@@ -113,7 +114,7 @@ export async function GET(request: NextRequest) {
     const companyId = userProfile.company_id;
 
     // 1. CCP 기록
-    const { data: ccpRecords } = await supabase
+    const { data: ccpRecords } = await adminClient
       .from('ccp_records')
       .select(`
         id, ccp_id, record_time, measurement, is_within_limit, deviation_action,
@@ -125,7 +126,7 @@ export async function GET(request: NextRequest) {
       .order('record_time');
 
     // 2. 위생 점검
-    const { data: hygieneChecks } = await supabase
+    const { data: hygieneChecks } = await adminClient
       .from('daily_hygiene_checks')
       .select(`
         id, shift, overall_status,
@@ -135,7 +136,7 @@ export async function GET(request: NextRequest) {
       .eq('check_date', date);
 
     // 3. 장비 온도 기록
-    const { data: equipmentTemp } = await supabase
+    const { data: equipmentTemp } = await adminClient
       .from('equipment_temperature_records')
       .select(`
         id, equipment_name, temperature, recorded_at, is_normal,
@@ -147,7 +148,7 @@ export async function GET(request: NextRequest) {
       .order('recorded_at');
 
     // 4. 입고 검사
-    const { data: inspections } = await supabase
+    const { data: inspections } = await adminClient
       .from('material_inspections')
       .select(`
         id, lot_number, overall_result, inspected_by_name,
@@ -157,7 +158,7 @@ export async function GET(request: NextRequest) {
       .eq('inspection_date', date);
 
     // 5. 생산 기록
-    const { data: productionRecords } = await supabase
+    const { data: productionRecords } = await adminClient
       .from('production_records')
       .select(`
         id, lot_number, actual_quantity, unit, status,
@@ -168,7 +169,7 @@ export async function GET(request: NextRequest) {
       .eq('production_date', date);
 
     // 6. 출하 기록
-    const { data: shipments } = await supabase
+    const { data: shipments } = await adminClient
       .from('shipment_records')
       .select(`
         id, shipment_number, customer_name, status, shipped_by_name
@@ -177,7 +178,7 @@ export async function GET(request: NextRequest) {
       .eq('shipment_date', date);
 
     // 7. 방충방서 점검
-    const { data: pestControl } = await supabase
+    const { data: pestControl } = await adminClient
       .from('pest_control_checks')
       .select(`
         id, check_type, overall_status,
@@ -187,7 +188,7 @@ export async function GET(request: NextRequest) {
       .eq('check_date', date);
 
     // 8. 검증 상태 조회
-    const { data: verification } = await supabase
+    const { data: verification } = await adminClient
       .from('daily_report_verifications')
       .select('*')
       .eq('company_id', companyId)
@@ -320,6 +321,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
     const { date, signature, comment } = body;
 
@@ -332,7 +334,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('id, name, company_id, role')
       .eq('auth_id', userData.user.id)
@@ -353,7 +355,7 @@ export async function POST(request: NextRequest) {
     const reportData = await reportResponse.json();
 
     // 기존 검증 확인
-    const { data: existingVerification } = await supabase
+    const { data: existingVerification } = await adminClient
       .from('daily_report_verifications')
       .select('id, status')
       .eq('company_id', userProfile.company_id)
@@ -379,7 +381,7 @@ export async function POST(request: NextRequest) {
     let result;
     if (existingVerification) {
       // 업데이트
-      const { data, error } = await supabase
+      const { data, error } = await adminClient
         .from('daily_report_verifications')
         .update(verificationData)
         .eq('id', existingVerification.id)
@@ -390,7 +392,7 @@ export async function POST(request: NextRequest) {
       result = data;
     } else {
       // 새로 생성
-      const { data, error } = await supabase
+      const { data, error } = await adminClient
         .from('daily_report_verifications')
         .insert(verificationData)
         .select()
