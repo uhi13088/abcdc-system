@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Check, X, AlertTriangle, Calendar, FileText, Settings,
-  ChevronDown, ChevronRight, Send, CheckCircle, XCircle, Clock,
-  ClipboardCheck, Shield, Thermometer, Scale, Timer, Search, Eye
+  Send, CheckCircle, XCircle, Clock, ClipboardCheck, Eye
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -103,7 +102,7 @@ export default function CCPVerificationPage() {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
 
-  const [processTypes, setProcessTypes] = useState<ProcessType[]>([]);
+  const [_processTypes, setProcessTypes] = useState<ProcessType[]>([]);
   const [verifications, setVerifications] = useState<CCPVerification[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -118,7 +117,6 @@ export default function CCPVerificationPage() {
   // Form states for unified checklist
   const [allQuestionsData, setAllQuestionsData] = useState<AllQuestionsData | null>(null);
   const [responses, setResponses] = useState<Record<string, { is_compliant: boolean | null; reason?: string; action?: string }>>({});
-  const [expandedProcesses, setExpandedProcesses] = useState<Set<string>>(new Set());
 
   const [formData, setFormData] = useState<{
     verification_year: number;
@@ -394,18 +392,6 @@ export default function CCPVerificationPage() {
     });
   };
 
-  const toggleProcess = (processId: string) => {
-    setExpandedProcesses(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(processId)) {
-        newSet.delete(processId);
-      } else {
-        newSet.add(processId);
-      }
-      return newSet;
-    });
-  };
-
   // Calculate summary
   const completedCount = verifications.filter(v => v.status === 'APPROVED').length;
   const pendingCount = verifications.filter(v => v.status === 'SUBMITTED').length;
@@ -658,7 +644,7 @@ export default function CCPVerificationPage() {
             <div className="flex items-center justify-between p-6 border-b bg-blue-50">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">CCP 월간 검증점검표</h2>
-                <p className="text-sm text-gray-600 mt-1">모든 항목은 기본 "예(정상)"으로 설정되어 있습니다. 부적합 항목만 변경하세요.</p>
+                <p className="text-sm text-gray-600 mt-1">모든 항목은 기본 &quot;예(정상)&quot;으로 설정되어 있습니다. 부적합 항목만 변경하세요.</p>
               </div>
               <button onClick={() => { setShowModal(false); resetForm(); }} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
@@ -715,10 +701,9 @@ export default function CCPVerificationPage() {
                           const questions = allQuestionsData.questionsByProcess[pt.id] || [];
                           if (questions.length === 0) return null;
 
-                          return questions.map((question, qIdx) => {
+                          return questions.map((question) => {
                             const responseKey = `q_${question.id}`;
                             const response = responses[responseKey] || { is_compliant: true };
-                            const isFirstInGroup = qIdx === 0;
 
                             return (
                               <tr key={question.id} className={ptIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
