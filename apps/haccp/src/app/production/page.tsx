@@ -65,6 +65,14 @@ interface Product {
   id: string;
   name: string;
   code?: string;
+  unit?: string;
+}
+
+interface User {
+  id: string;
+  name: string;
+  email?: string;
+  role?: string;
 }
 
 interface RecipeIngredient {
@@ -134,6 +142,8 @@ export default function ProductionPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [materialStocks, setMaterialStocks] = useState<MaterialStock[]>([]);
   const [materialUsage, setMaterialUsage] = useState<MaterialUsage[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -151,14 +161,11 @@ export default function ProductionPage() {
     product_id: '',
     line_number: '',
     start_time: '',
-    end_time: '',
-    planned_quantity: 0,
     actual_quantity: 0,
     defect_quantity: 0,
     unit: 'kg',
-    production_temp: undefined as number | undefined,
-    production_humidity: undefined as number | undefined,
     worker_names: [''],
+    supervisor_id: '',
     supervisor_name: '',
     defect_reason: '',
     defect_action: '',
@@ -246,6 +253,30 @@ export default function ProductionPage() {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch('/api/haccp/users');
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    }
+  };
+
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await fetch('/api/haccp/me');
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentUser(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch current user:', error);
+    }
+  };
+
   useEffect(() => {
     fetchRecords();
   }, [fetchRecords]);
@@ -255,6 +286,8 @@ export default function ProductionPage() {
     fetchStandards();
     fetchRecipes();
     fetchMaterialStocks();
+    fetchUsers();
+    fetchCurrentUser();
   }, []);
 
   // 제품 선택 시 원재료 사용량 계산
@@ -287,7 +320,12 @@ export default function ProductionPage() {
 
   // 제품 변경 시
   const handleProductChange = (productId: string) => {
-    setFormData(prev => ({ ...prev, product_id: productId }));
+    const product = products.find(p => p.id === productId);
+    setFormData(prev => ({
+      ...prev,
+      product_id: productId,
+      unit: product?.unit || 'kg',
+    }));
     calculateMaterialUsage(productId, formData.actual_quantity);
   };
 
@@ -355,14 +393,11 @@ export default function ProductionPage() {
       product_id: '',
       line_number: '',
       start_time: '',
-      end_time: '',
-      planned_quantity: 0,
       actual_quantity: 0,
       defect_quantity: 0,
       unit: 'kg',
-      production_temp: undefined,
-      production_humidity: undefined,
       worker_names: [''],
+      supervisor_id: '',
       supervisor_name: '',
       defect_reason: '',
       defect_action: '',
@@ -378,41 +413,25 @@ export default function ProductionPage() {
 
     // 제품 선택 (첫 번째 제품 또는 랜덤)
     const selectedProduct = products.length > 0 ? products[Math.floor(Math.random() * products.length)] : null;
-    const standard = selectedProduct ? getStandardForProduct(selectedProduct.id) : null;
-
-    // 적정 온습도 생성
-    let temp = 20 + Math.random() * 5; // 기본값 20-25도
-    let humidity = 50 + Math.random() * 10; // 기본값 50-60%
-
-    if (standard) {
-      // 기준 범위 내 값 생성
-      temp = standard.temp_min + Math.random() * (standard.temp_max - standard.temp_min);
-      humidity = standard.humidity_min + Math.random() * (standard.humidity_max - standard.humidity_min);
-    }
 
     // 생산량 생성
-    const planned = Math.floor(100 + Math.random() * 400); // 100-500
-    const actual = Math.floor(planned * (0.95 + Math.random() * 0.05)); // 95-100%
+    const actual = Math.floor(100 + Math.random() * 400); // 100-500
     const defect = Math.floor(actual * Math.random() * 0.02); // 0-2% 불량
 
-    // 작업자 이름
-    const workerNames = ['김생산', '이품질', '박관리'];
-    const selectedWorkers = workerNames.slice(0, Math.floor(Math.random() * 2) + 1);
+    // 작업자 이름 - 현재 사용자 또는 기본값
+    const selectedWorkers = currentUser ? [currentUser.name] : [''];
 
     setFormData({
       lot_number: lotNumber,
       product_id: selectedProduct?.id || '',
       line_number: `L-${Math.floor(Math.random() * 3) + 1}`,
-      start_time: '08:00',
-      end_time: '17:00',
-      planned_quantity: planned,
+      start_time: `${today.getHours().toString().padStart(2, '0')}:${today.getMinutes().toString().padStart(2, '0')}`,
       actual_quantity: actual,
       defect_quantity: defect,
-      unit: 'ea',
-      production_temp: Math.round(temp * 10) / 10,
-      production_humidity: Math.round(humidity * 10) / 10,
+      unit: selectedProduct?.unit || 'kg',
       worker_names: selectedWorkers,
-      supervisor_name: '홍책임',
+      supervisor_id: '',
+      supervisor_name: '',
       defect_reason: defect > 0 ? '경미한 외관 불량' : '',
       defect_action: defect > 0 ? '선별 후 재가공' : '',
       notes: '',
@@ -512,6 +531,32 @@ export default function ProductionPage() {
     } catch (error) {
       console.error('Failed to complete record:', error);
       toast.error('생산 완료 처리에 실패했습니다.');
+    }
+  };
+
+  const handleEndTime = async (recordId: string) => {
+    const now = new Date();
+    const endTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    try {
+      const response = await fetch('/api/haccp/production', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: recordId,
+          end_time: endTime,
+        }),
+      });
+
+      if (response.ok) {
+        fetchRecords();
+        toast.success('종료시간이 기록되었습니다.');
+      } else {
+        toast.error('종료시간 기록에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to set end time:', error);
+      toast.error('종료시간 기록에 실패했습니다.');
     }
   };
 
@@ -688,7 +733,17 @@ export default function ProductionPage() {
             생산기준 설정
           </Link>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              // 현재 사용자를 기본 작업자로 설정
+              if (currentUser) {
+                setFormData(prev => ({
+                  ...prev,
+                  worker_names: [currentUser.name],
+                  start_time: new Date().toTimeString().slice(0, 5),
+                }));
+              }
+              setShowModal(true);
+            }}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Plus className="w-4 h-4" />
@@ -903,6 +958,14 @@ export default function ProductionPage() {
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
+                  {record.status === 'IN_PROGRESS' && !record.end_time && (
+                    <button
+                      onClick={() => handleEndTime(record.id)}
+                      className="px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                    >
+                      종료
+                    </button>
+                  )}
                   {record.quality_check_status === 'PENDING' && (
                     <button
                       onClick={() => openQualityModal(record)}
@@ -923,7 +986,7 @@ export default function ProductionPage() {
               </div>
 
               {/* Record Summary */}
-              <div className="p-4 grid grid-cols-2 md:grid-cols-6 gap-4">
+              <div className="p-4 grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div>
                   <p className="text-xs text-gray-500">생산라인</p>
                   <p className="font-medium">{record.line_number || '-'}</p>
@@ -935,28 +998,10 @@ export default function ProductionPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">계획/실적</p>
+                  <p className="text-xs text-gray-500">생산량</p>
                   <p className="font-medium">
-                    {record.planned_quantity} / {record.actual_quantity} {record.unit}
+                    {record.actual_quantity} {record.unit}
                   </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500">달성률</p>
-                  <div className="flex items-center gap-2">
-                    <div className="w-16 bg-gray-200 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full ${
-                          calculateYield(record.actual_quantity, record.planned_quantity) >= 100
-                            ? 'bg-green-500'
-                            : calculateYield(record.actual_quantity, record.planned_quantity) >= 80
-                              ? 'bg-yellow-500'
-                              : 'bg-red-500'
-                        }`}
-                        style={{ width: `${Math.min(calculateYield(record.actual_quantity, record.planned_quantity), 100)}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-sm font-medium">{calculateYield(record.actual_quantity, record.planned_quantity)}%</span>
-                  </div>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">불량</p>
@@ -1210,86 +1255,22 @@ export default function ProductionPage() {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>시작 시간</Label>
-                    <input
-                      type="time"
-                      value={formData.start_time}
-                      onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <Label>종료 시간</Label>
-                    <input
-                      type="time"
-                      value={formData.end_time}
-                      onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* 생산조건 */}
-              <div className="space-y-4">
-                <h3 className="font-medium text-gray-900 border-b pb-2">생산조건</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>생산온도 (°C)</Label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.production_temp ?? ''}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        production_temp: e.target.value ? parseFloat(e.target.value) : undefined
-                      })}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="예: 25.0"
-                    />
-                    {formData.product_id && getStandardForProduct(formData.product_id) && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        기준: {getStandardForProduct(formData.product_id)?.temp_min}~{getStandardForProduct(formData.product_id)?.temp_max}°C
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>습도 (%)</Label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.production_humidity ?? ''}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        production_humidity: e.target.value ? parseFloat(e.target.value) : undefined
-                      })}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="예: 60"
-                    />
-                    {formData.product_id && getStandardForProduct(formData.product_id) && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        기준: {getStandardForProduct(formData.product_id)?.humidity_min}~{getStandardForProduct(formData.product_id)?.humidity_max}%
-                      </p>
-                    )}
-                  </div>
+                <div>
+                  <Label>시작 시간</Label>
+                  <input
+                    type="time"
+                    value={formData.start_time}
+                    onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">종료 시간은 생산 목록에서 종료 버튼으로 입력</p>
                 </div>
               </div>
 
               {/* 수량 정보 */}
               <div className="space-y-4">
                 <h3 className="font-medium text-gray-900 border-b pb-2">수량 정보</h3>
-                <div className="grid grid-cols-4 gap-4">
-                  <div>
-                    <Label>계획 수량</Label>
-                    <input
-                      type="number"
-                      value={formData.planned_quantity}
-                      onChange={(e) => setFormData({ ...formData, planned_quantity: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label>실적 수량</Label>
                     <input
@@ -1310,16 +1291,13 @@ export default function ProductionPage() {
                   </div>
                   <div>
                     <Label>단위</Label>
-                    <select
+                    <input
+                      type="text"
                       value={formData.unit}
-                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    >
-                      <option value="kg">kg</option>
-                      <option value="ea">ea</option>
-                      <option value="box">box</option>
-                      <option value="L">L</option>
-                    </select>
+                      readOnly
+                      className="w-full px-3 py-2 border rounded-lg bg-gray-100"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">제품에 따라 자동 설정</p>
                   </div>
                 </div>
 
@@ -1424,13 +1402,18 @@ export default function ProductionPage() {
                 <div className="space-y-2">
                   {formData.worker_names.map((worker, idx) => (
                     <div key={idx} className="flex gap-2">
-                      <input
-                        type="text"
+                      <select
                         value={worker}
                         onChange={(e) => updateWorker(idx, e.target.value)}
-                        className="flex-1 px-3 py-2 border rounded-lg"
-                        placeholder={`작업자 ${idx + 1}`}
-                      />
+                        className="flex-1 px-3 py-2 border rounded-lg bg-white"
+                      >
+                        <option value="">작업자 선택</option>
+                        {users.map((user) => (
+                          <option key={user.id} value={user.name}>
+                            {user.name}
+                          </option>
+                        ))}
+                      </select>
                       {formData.worker_names.length > 1 && (
                         <button
                           type="button"
@@ -1445,13 +1428,25 @@ export default function ProductionPage() {
                 </div>
                 <div>
                   <Label>담당자(관리자)</Label>
-                  <input
-                    type="text"
-                    value={formData.supervisor_name}
-                    onChange={(e) => setFormData({ ...formData, supervisor_name: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="생산 담당자명"
-                  />
+                  <select
+                    value={formData.supervisor_id}
+                    onChange={(e) => {
+                      const selectedUser = users.find(u => u.id === e.target.value);
+                      setFormData({
+                        ...formData,
+                        supervisor_id: e.target.value,
+                        supervisor_name: selectedUser?.name || ''
+                      });
+                    }}
+                    className="w-full px-3 py-2 border rounded-lg bg-white"
+                  >
+                    <option value="">담당자 선택</option>
+                    {users.filter(u => u.role === 'admin' || u.role === 'team_leader' || u.role === 'manager' || u.role === '팀장').map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} ({user.role === 'admin' ? '관리자' : user.role === 'team_leader' || user.role === '팀장' ? '팀장' : user.role === 'manager' ? '매니저' : user.role})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
