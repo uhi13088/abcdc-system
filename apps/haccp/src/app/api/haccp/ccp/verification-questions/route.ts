@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
 // CCP 검증 질문 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     const includeCommon = request.nextUrl.searchParams.get('include_common') === 'true';
 
     // 공정별 질문 조회
-    let query = supabase
+    let query = adminClient
       .from('ccp_verification_questions')
       .select(`
         *,
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
 
     // 공통 질문 포함 옵션
     if (includeCommon) {
-      const { data: commonQuestions, error: commonError } = await supabase
+      const { data: commonQuestions, error: commonError } = await adminClient
         .from('ccp_common_verification_questions')
         .select('*')
         .eq('company_id', userData.company_id)
@@ -76,14 +77,15 @@ export async function GET(request: NextRequest) {
 // CCP 검증 질문 생성
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -111,7 +113,7 @@ export async function POST(request: NextRequest) {
 
     if (is_common) {
       // 공통 질문 생성
-      const { data, error } = await supabase
+      const { data, error } = await adminClient
         .from('ccp_common_verification_questions')
         .insert({
           company_id: userData.company_id,
@@ -138,7 +140,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'process_type_id is required for non-common questions' }, { status: 400 });
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await adminClient
         .from('ccp_verification_questions')
         .insert({
           company_id: userData.company_id,
@@ -170,14 +172,15 @@ export async function POST(request: NextRequest) {
 // CCP 검증 질문 수정
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -196,7 +199,7 @@ export async function PUT(request: NextRequest) {
 
     const table = is_common ? 'ccp_common_verification_questions' : 'ccp_verification_questions';
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from(table)
       .update({
         ...updateData,
@@ -222,14 +225,15 @@ export async function PUT(request: NextRequest) {
 // CCP 검증 질문 삭제
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -248,7 +252,7 @@ export async function DELETE(request: NextRequest) {
 
     const table = isCommon ? 'ccp_common_verification_questions' : 'ccp_verification_questions';
 
-    const { error } = await supabase
+    const { error } = await adminClient
       .from(table)
       .delete()
       .eq('id', id)

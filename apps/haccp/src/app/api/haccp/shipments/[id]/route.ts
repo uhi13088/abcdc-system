@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,14 +9,15 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -26,7 +27,7 @@ export async function GET(
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('shipment_records')
       .select(`
         *,
@@ -52,7 +53,7 @@ export async function GET(
 
     let productMap: Record<string, { name: string; code: string }> = {};
     if (productIds.length > 0) {
-      const { data: products } = await supabase
+      const { data: products } = await adminClient
         .from('products')
         .select('id, name, code')
         .in('id', productIds);
@@ -79,7 +80,7 @@ export async function GET(
     };
 
     if (data.customer_name) {
-      const { data: customer } = await supabase
+      const { data: customer } = await adminClient
         .from('customers')
         .select('business_number, representative')
         .eq('company_id', userData.company_id)

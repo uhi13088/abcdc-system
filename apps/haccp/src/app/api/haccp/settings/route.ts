@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,13 +60,14 @@ interface VerificationSettings {
 export async function GET() {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('company_id, role')
       .eq('auth_id', userData.user.id)
@@ -77,14 +78,14 @@ export async function GET() {
     }
 
     // 회사 정보 조회
-    const { data: company } = await supabase
+    const { data: company } = await adminClient
       .from('companies')
       .select('name, business_number, ceo_name, address, address_detail, phone, haccp_certification_number, haccp_certification_date, haccp_certification_expiry')
       .eq('id', userProfile.company_id)
       .single();
 
     // HACCP 설정 조회
-    const { data: haccpSettings } = await supabase
+    const { data: haccpSettings } = await adminClient
       .from('haccp_company_settings')
       .select('*')
       .eq('company_id', userProfile.company_id)
@@ -178,6 +179,7 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -185,7 +187,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('company_id, role')
       .eq('auth_id', userData.user.id)
@@ -216,7 +218,7 @@ export async function PUT(request: NextRequest) {
       if (companySettings.certification_expiry !== undefined) companyUpdate.haccp_certification_expiry = companySettings.certification_expiry || null;
 
       if (Object.keys(companyUpdate).length > 0) {
-        const { error: companyError } = await supabase
+        const { error: companyError } = await adminClient
           .from('companies')
           .update(companyUpdate)
           .eq('id', userProfile.company_id);
@@ -267,7 +269,7 @@ export async function PUT(request: NextRequest) {
       }
 
       // 기존 설정 확인
-      const { data: existingSettings } = await supabase
+      const { data: existingSettings } = await adminClient
         .from('haccp_company_settings')
         .select('id')
         .eq('company_id', userProfile.company_id)
@@ -275,7 +277,7 @@ export async function PUT(request: NextRequest) {
 
       if (existingSettings) {
         // 기존 설정 업데이트
-        const { error: updateError } = await supabase
+        const { error: updateError } = await adminClient
           .from('haccp_company_settings')
           .update(haccpSettingsData)
           .eq('company_id', userProfile.company_id);
@@ -286,7 +288,7 @@ export async function PUT(request: NextRequest) {
         }
       } else {
         // 새 설정 생성
-        const { error: insertError } = await supabase
+        const { error: insertError } = await adminClient
           .from('haccp_company_settings')
           .insert(haccpSettingsData);
 

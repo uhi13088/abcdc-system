@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
 // CCP 공정 유형 조회
 export async function GET() {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -24,7 +25,7 @@ export async function GET() {
     }
 
     // 회사의 공정 유형이 없으면 템플릿에서 초기화
-    const { data: existingTypes } = await supabase
+    const { data: existingTypes } = await adminClient
       .from('ccp_process_types')
       .select('id')
       .eq('company_id', userData.company_id)
@@ -33,7 +34,7 @@ export async function GET() {
     if (!existingTypes || existingTypes.length === 0) {
       // 초기화 함수 호출 (함수가 없으면 무시)
       try {
-        await supabase.rpc('initialize_ccp_verification_templates', {
+        await adminClient.rpc('initialize_ccp_verification_templates', {
           p_company_id: userData.company_id
         });
       } catch (rpcError) {
@@ -42,7 +43,7 @@ export async function GET() {
     }
 
     // 공정 유형 조회
-    const { data: processTypes, error } = await supabase
+    const { data: processTypes, error } = await adminClient
       .from('ccp_process_types')
       .select(`
         *,
@@ -66,14 +67,15 @@ export async function GET() {
 // CCP 공정 유형 생성
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'code and name are required' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('ccp_process_types')
       .insert({
         company_id: userData.company_id,
@@ -119,14 +121,15 @@ export async function POST(request: NextRequest) {
 // CCP 공정 유형 수정
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -143,7 +146,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('ccp_process_types')
       .update({
         ...updateData,
@@ -169,14 +172,15 @@ export async function PUT(request: NextRequest) {
 // CCP 공정 유형 삭제
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -192,7 +196,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const { error } = await supabase
+    const { error } = await adminClient
       .from('ccp_process_types')
       .delete()
       .eq('id', id)

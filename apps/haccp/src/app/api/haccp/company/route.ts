@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export async function GET() {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
 
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
@@ -12,7 +13,7 @@ export async function GET() {
     }
 
     // Get user's company_id
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -23,7 +24,7 @@ export async function GET() {
     }
 
     // Get company details
-    const { data: company, error } = await supabase
+    const { data: company, error } = await adminClient
       .from('companies')
       .select('*')
       .eq('id', userData.company_id)
