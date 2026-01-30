@@ -1,7 +1,9 @@
 /**
- * HACCP 교육훈련 기록 API
- * GET /api/haccp/training - 교육 기록 조회
- * POST /api/haccp/training - 교육 기록 생성
+ * 보관창고 구역 설정 API
+ * GET /api/haccp/storage-area-settings - 구역 설정 목록 조회
+ * POST /api/haccp/storage-area-settings - 구역 설정 생성
+ * PUT /api/haccp/storage-area-settings - 구역 설정 수정
+ * DELETE /api/haccp/storage-area-settings - 구역 설정 삭제
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,16 +11,14 @@ import { createClient as createServerClient, createAdminClient } from '@/lib/sup
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/haccp/training
+// GET /api/haccp/storage-area-settings
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
     const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
-    const startDate = searchParams.get('startDate');
-    const endDate = searchParams.get('endDate');
-    const trainingType = searchParams.get('type');
-    const status = searchParams.get('status');
+    const activeOnly = searchParams.get('activeOnly') === 'true';
+    const withSensor = searchParams.get('withSensor') === 'true';
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
@@ -36,50 +36,45 @@ export async function GET(request: NextRequest) {
     }
 
     let query = adminClient
-      .from('haccp_training_records')
+      .from('storage_area_settings')
       .select(`
         *,
-        created_by_user:created_by (name),
-        verified_by_user:verified_by (name)
+        sensor:iot_sensor_id (
+          id,
+          name,
+          sensor_type,
+          current_temperature,
+          current_humidity,
+          last_reading_at
+        )
       `)
       .eq('company_id', userProfile.company_id)
-      .order('training_date', { ascending: false });
+      .order('sort_order', { ascending: true })
+      .order('area_name', { ascending: true });
 
-    if (startDate) {
-      query = query.gte('training_date', startDate);
+    if (activeOnly) {
+      query = query.eq('is_active', true);
     }
-    if (endDate) {
-      query = query.lte('training_date', endDate);
-    }
-    if (trainingType) {
-      query = query.eq('training_type', trainingType);
-    }
-    if (status) {
-      query = query.eq('status', status);
+
+    if (withSensor) {
+      query = query.not('iot_sensor_id', 'is', null);
     }
 
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching training records:', error);
+      console.error('Error fetching storage area settings:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = (data || []).map((record: any) => ({
-      ...record,
-      created_by_name: record.created_by_user?.name,
-      verified_by_name: record.verified_by_user?.name,
-    }));
-
-    return NextResponse.json(result);
+    return NextResponse.json(data || []);
   } catch (error) {
     console.error('Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// POST /api/haccp/training
+// POST /api/haccp/storage-area-settings
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
@@ -93,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('company_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -101,29 +96,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 기존 정렬 순서 확인
+    const { data: maxOrderData } = await adminClient
+      .from('storage_area_settings')
+      .select('sort_order')
+      .eq('company_id', userProfile.company_id)
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .single();
+
+    const nextOrder = (maxOrderData?.sort_order || 0) + 1;
+
     const { data, error } = await adminClient
-      .from('haccp_training_records')
+      .from('storage_area_settings')
       .insert({
         company_id: userProfile.company_id,
-        created_by: userProfile.id,
-        training_date: body.training_date,
-        training_type: body.training_type,
-        title: body.title,
-        instructor: body.instructor,
-        instructor_company: body.instructor_company,
-        duration_hours: body.duration_hours || 1,
-        location: body.location,
-        materials: body.materials,
-        content_summary: body.content_summary,
-        attendees: body.attendees || [],
-        notes: body.notes,
-        status: body.status || 'SCHEDULED',
+        area_name: body.area_name,
+        area_code: body.area_code,
+        storage_type: body.storage_type,
+        description: body.description,
+        temperature_min: body.temperature_min,
+        temperature_max: body.temperature_max,
+        temperature_unit: body.temperature_unit || 'C',
+        humidity_min: body.humidity_min,
+        humidity_max: body.humidity_max,
+        iot_sensor_id: body.iot_sensor_id,
+        iot_enabled: body.iot_enabled || false,
+        inspection_frequency: body.inspection_frequency || 'DAILY',
+        is_active: body.is_active !== false,
+        sort_order: body.sort_order ?? nextOrder,
       })
       .select()
       .single();
 
     if (error) {
-      console.error('Error creating training record:', error);
+      console.error('Error creating storage area setting:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -134,7 +141,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/haccp/training (update by id in body)
+// PUT /api/haccp/storage-area-settings
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createServerClient();
@@ -148,7 +155,7 @@ export async function PUT(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('company_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -162,17 +169,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    // If marking as verified
-    if (updateData.verified) {
-      updateData.verified_by = userProfile.id;
-      updateData.verified_at = new Date().toISOString();
-      delete updateData.verified;
-    }
-
     updateData.updated_at = new Date().toISOString();
 
     const { data, error } = await adminClient
-      .from('haccp_training_records')
+      .from('storage_area_settings')
       .update(updateData)
       .eq('id', id)
       .eq('company_id', userProfile.company_id)
@@ -180,7 +180,7 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Error updating training record:', error);
+      console.error('Error updating storage area setting:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -191,7 +191,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE /api/haccp/training
+// DELETE /api/haccp/storage-area-settings
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createServerClient();
@@ -210,7 +210,7 @@ export async function DELETE(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('company_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -218,39 +218,18 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 기록 존재 여부 확인
-    const { data: existing } = await adminClient
-      .from('haccp_training_records')
-      .select('id, status, verified_by')
-      .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .single();
-
-    if (!existing) {
-      return NextResponse.json({ error: 'Record not found' }, { status: 404 });
-    }
-
-    // 완료 및 검증된 교육기록은 삭제 불가
-    if (existing.status === 'COMPLETED' && existing.verified_by) {
-      return NextResponse.json(
-        { error: '완료 및 검증된 교육기록은 삭제할 수 없습니다.' },
-        { status: 400 }
-      );
-    }
-
-    // 교육 기록 삭제
     const { error } = await adminClient
-      .from('haccp_training_records')
+      .from('storage_area_settings')
       .delete()
       .eq('id', id)
       .eq('company_id', userProfile.company_id);
 
     if (error) {
-      console.error('Error deleting training record:', error);
+      console.error('Error deleting storage area setting:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: '교육 기록이 삭제되었습니다.' });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

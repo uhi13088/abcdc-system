@@ -204,6 +204,30 @@ export default function PestControlSettingsPage() {
   const pestCategories = ['비래해충', '보행해충', '설치류'] as const;
   const trapTypes = ['페로몬트랩', '끈끈이트랩', '전격살충기', '쥐덫', '기타'];
 
+  // 위치 코드 자동 생성 함수
+  const generateLocationCode = (trapType: string): string => {
+    const prefixMap: Record<string, string> = {
+      '페로몬트랩': 'PT',
+      '끈끈이트랩': 'ST',
+      '전격살충기': 'EZ',
+      '쥐덫': 'MT',
+      '기타': 'ETC',
+    };
+    const prefix = prefixMap[trapType] || 'TRAP';
+
+    // 해당 prefix를 가진 기존 위치들에서 최대 번호 찾기
+    const existingCodes = trapLocations
+      .filter(t => t.location_code.startsWith(prefix + '-'))
+      .map(t => {
+        const match = t.location_code.match(new RegExp(`^${prefix}-(\\d+)$`));
+        return match ? parseInt(match[1], 10) : 0;
+      });
+
+    const maxNum = existingCodes.length > 0 ? Math.max(...existingCodes) : 0;
+    const nextNum = maxNum + 1;
+    return `${prefix}-${String(nextNum).padStart(3, '0')}`;
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -453,10 +477,11 @@ export default function PestControlSettingsPage() {
             </div>
             <button
               onClick={() => {
+                const defaultTrapType = '페로몬트랩';
                 setEditingTrap({
-                  location_code: '',
+                  location_code: generateLocationCode(defaultTrapType),
                   location_name: '',
-                  trap_type: '페로몬트랩',
+                  trap_type: defaultTrapType,
                   sort_order: trapLocations.length,
                   is_active: true,
                 });
@@ -630,17 +655,33 @@ export default function PestControlSettingsPage() {
             </h2>
             <div className="space-y-4">
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">포획기 종류</label>
+                <select
+                  value={editingTrap.trap_type}
+                  onChange={(e) => {
+                    const newType = e.target.value;
+                    // 새 포획기일 경우 종류 변경 시 코드 재생성
+                    const newCode = !editingTrap.id ? generateLocationCode(newType) : editingTrap.location_code;
+                    setEditingTrap({ ...editingTrap, trap_type: newType, location_code: newCode });
+                  }}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  {trapTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">위치 코드</label>
                 <input
                   type="text"
                   value={editingTrap.location_code}
-                  onChange={(e) =>
-                    setEditingTrap({ ...editingTrap, location_code: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="예: TRAP_01"
-                  disabled={!!editingTrap.id}
+                  readOnly
+                  className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-gray-600 font-mono"
                 />
+                <p className="text-xs text-gray-500 mt-1">포획기 종류에 따라 자동 생성됩니다</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">위치명</label>
@@ -667,20 +708,6 @@ export default function PestControlSettingsPage() {
                   {zones.map((zone) => (
                     <option key={zone.id} value={zone.id}>
                       {zone.zone_name} ({zone.zone_grade})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">포획기 종류</label>
-                <select
-                  value={editingTrap.trap_type}
-                  onChange={(e) => setEditingTrap({ ...editingTrap, trap_type: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                >
-                  {trapTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
                     </option>
                   ))}
                 </select>
@@ -734,7 +761,7 @@ export default function PestControlSettingsPage() {
               </button>
               <button
                 onClick={handleSaveTrap}
-                disabled={saving || !editingTrap.location_code || !editingTrap.location_name}
+                disabled={saving || !editingTrap.location_name}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 {saving ? '저장 중...' : '저장'}

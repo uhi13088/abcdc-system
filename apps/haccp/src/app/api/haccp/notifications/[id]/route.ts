@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,13 +11,14 @@ export async function PUT(
   try {
     const { id } = await params;
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('id')
       .eq('auth_id', userData.user.id)
@@ -27,7 +28,7 @@ export async function PUT(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('notifications')
       .update({ read: true, read_at: new Date().toISOString() })
       .eq('id', id)
@@ -55,13 +56,14 @@ export async function DELETE(
   try {
     const { id } = await params;
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('id')
       .eq('auth_id', userData.user.id)
@@ -71,7 +73,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const { error } = await supabase
+    const { error } = await adminClient
       .from('notifications')
       .delete()
       .eq('id', id)

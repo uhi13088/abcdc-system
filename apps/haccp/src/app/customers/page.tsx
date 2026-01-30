@@ -14,7 +14,6 @@ import {
   User,
   FileText,
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 
 declare global {
   interface Window {
@@ -87,7 +86,6 @@ export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [companyId, setCompanyId] = useState<string | null>(null);
   const [detailAddress, setDetailAddress] = useState('');
 
   // Form state
@@ -160,48 +158,26 @@ export default function CustomersPage() {
   };
 
   useEffect(() => {
-    fetchCompanyAndCustomers();
+    fetchCustomers();
   }, []);
 
-  const fetchCompanyAndCustomers = async () => {
-    const supabase = createClient();
-
-    // Get current user's company
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: userData } = await supabase
-      .from('users')
-      .select('company_id')
-      .eq('auth_id', user.id)
-      .single();
-
-    if (userData?.company_id) {
-      setCompanyId(userData.company_id);
-      await fetchCustomers(userData.company_id);
-    }
-    setLoading(false);
-  };
-
-  const fetchCustomers = async (compId: string) => {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from('customers')
-      .select('*')
-      .eq('company_id', compId)
-      .eq('status', 'ACTIVE')
-      .order('name');
-
-    if (!error && data) {
-      setCustomers(data);
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/haccp/customers');
+      if (response.ok) {
+        const data = await response.json();
+        setCustomers(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch customers:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!companyId) return;
-
-    const supabase = createClient();
 
     // 상세 주소가 있으면 기본 주소와 합침
     const fullAddress = detailAddress
@@ -213,48 +189,50 @@ export default function CustomersPage() {
       address: fullAddress,
     };
 
-    if (editingCustomer) {
-      // Update
-      const { error } = await supabase
-        .from('customers')
-        .update({
-          ...submitData,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', editingCustomer.id);
-
-      if (!error) {
-        await fetchCustomers(companyId);
-        closeModal();
-      }
-    } else {
-      // Insert
-      const { error } = await supabase
-        .from('customers')
-        .insert({
-          ...submitData,
-          company_id: companyId,
+    try {
+      if (editingCustomer) {
+        // Update
+        const response = await fetch('/api/haccp/customers', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingCustomer.id, ...submitData }),
         });
 
-      if (!error) {
-        await fetchCustomers(companyId);
-        closeModal();
+        if (response.ok) {
+          await fetchCustomers();
+          closeModal();
+        }
+      } else {
+        // Insert
+        const response = await fetch('/api/haccp/customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(submitData),
+        });
+
+        if (response.ok) {
+          await fetchCustomers();
+          closeModal();
+        }
       }
+    } catch (error) {
+      console.error('Failed to save customer:', error);
     }
   };
 
   const handleDelete = async (customer: Customer) => {
     if (!confirm(`"${customer.name}" 고객을 삭제하시겠습니까?`)) return;
-    if (!companyId) return;
 
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('customers')
-      .update({ status: 'INACTIVE' })
-      .eq('id', customer.id);
+    try {
+      const response = await fetch(`/api/haccp/customers?id=${customer.id}`, {
+        method: 'DELETE',
+      });
 
-    if (!error) {
-      await fetchCustomers(companyId);
+      if (response.ok) {
+        await fetchCustomers();
+      }
+    } catch (error) {
+      console.error('Failed to delete customer:', error);
     }
   };
 

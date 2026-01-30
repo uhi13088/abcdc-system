@@ -8,6 +8,7 @@ interface CompanySettings {
   business_number: string;
   representative: string;
   address: string;
+  address_detail: string;
   phone: string;
   haccp_certification_number: string | null;
   certification_date: string | null;
@@ -78,7 +79,7 @@ export async function GET() {
     // 회사 정보 조회
     const { data: company } = await supabase
       .from('companies')
-      .select('name, business_number, ceo_name, address, phone, haccp_certification_number, haccp_certification_date, haccp_certification_expiry')
+      .select('name, business_number, ceo_name, address, address_detail, phone, haccp_certification_number, haccp_certification_date, haccp_certification_expiry')
       .eq('id', userProfile.company_id)
       .single();
 
@@ -124,6 +125,7 @@ export async function GET() {
       business_number: company?.business_number || '',
       representative: company?.ceo_name || '',
       address: company?.address || '',
+      address_detail: company?.address_detail || '',
       phone: company?.phone || '',
       haccp_certification_number: company?.haccp_certification_number || null,
       certification_date: company?.haccp_certification_date || null,
@@ -207,6 +209,7 @@ export async function PUT(request: NextRequest) {
       if (companySettings.business_number !== undefined) companyUpdate.business_number = companySettings.business_number;
       if (companySettings.representative !== undefined) companyUpdate.ceo_name = companySettings.representative;
       if (companySettings.address !== undefined) companyUpdate.address = companySettings.address;
+      if (companySettings.address_detail !== undefined) companyUpdate.address_detail = companySettings.address_detail;
       if (companySettings.phone !== undefined) companyUpdate.phone = companySettings.phone;
       if (companySettings.haccp_certification_number !== undefined) companyUpdate.haccp_certification_number = companySettings.haccp_certification_number;
       if (companySettings.certification_date !== undefined) companyUpdate.haccp_certification_date = companySettings.certification_date || null;

@@ -1,19 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
+
+// HACCP 관련 알림 카테고리 (이 카테고리들만 HACCP 앱에서 표시)
+const HACCP_CATEGORIES = [
+  'CCP',
+  'HACCP',
+  'TEMPERATURE',
+  'HYGIENE',
+  'PEST_CONTROL',
+  'EQUIPMENT',
+  'PRODUCTION',
+  'SHIPMENT',
+  'MATERIAL',
+  'CALIBRATION',
+  'TRAINING',
+  'AUDIT',
+  'CORRECTIVE_ACTION',
+  'STORAGE',
+  'SYSTEM', // 시스템 알림은 공통으로 표시
+];
 
 // GET /api/haccp/notifications - 알림 목록 조회
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('id, company_id')
       .eq('auth_id', userData.user.id)
@@ -29,10 +49,11 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    let query = supabase
+    let query = adminClient
       .from('notifications')
       .select('*', { count: 'exact' })
       .eq('user_id', userProfile.id)
+      .in('category', HACCP_CATEGORIES) // HACCP 관련 카테고리만 필터링
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -53,11 +74,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // 읽지 않은 알림 수
-    const { count: unreadCount } = await supabase
+    // 읽지 않은 알림 수 (HACCP 관련 카테고리만)
+    const { count: unreadCount } = await adminClient
       .from('notifications')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userProfile.id)
+      .in('category', HACCP_CATEGORIES)
       .eq('read', false);
 
     return NextResponse.json({
@@ -77,6 +99,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -84,7 +107,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('id')
       .eq('auth_id', userData.user.id)
@@ -97,11 +120,12 @@ export async function POST(request: NextRequest) {
     const action = body.action;
 
     if (action === 'mark_all_read') {
-      // 모든 알림 읽음 처리
-      const { error } = await supabase
+      // HACCP 관련 알림만 읽음 처리
+      const { error } = await adminClient
         .from('notifications')
         .update({ read: true, read_at: new Date().toISOString() })
         .eq('user_id', userProfile.id)
+        .in('category', HACCP_CATEGORIES)
         .eq('read', false);
 
       if (error) {
@@ -113,7 +137,7 @@ export async function POST(request: NextRequest) {
 
     if (action === 'mark_read' && body.notification_ids) {
       // 특정 알림들 읽음 처리
-      const { error } = await supabase
+      const { error } = await adminClient
         .from('notifications')
         .update({ read: true, read_at: new Date().toISOString() })
         .eq('user_id', userProfile.id)
@@ -128,7 +152,7 @@ export async function POST(request: NextRequest) {
 
     if (action === 'delete' && body.notification_ids) {
       // 특정 알림들 삭제
-      const { error } = await supabase
+      const { error } = await adminClient
         .from('notifications')
         .delete()
         .eq('user_id', userProfile.id)

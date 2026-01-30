@@ -1,8 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Plus, Warehouse, Thermometer, Droplets, CheckCircle, XCircle, X, Calendar } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Warehouse, Thermometer, Droplets, CheckCircle, XCircle, X, Calendar, Settings, Wifi, RefreshCw } from 'lucide-react';
 import { Label } from '@/components/ui/label';
+import Link from 'next/link';
+
+interface StorageAreaSetting {
+  id: string;
+  area_name: string;
+  area_code?: string;
+  storage_type: 'REFRIGERATOR' | 'FREEZER' | 'DRY_STORAGE' | 'CHEMICAL_STORAGE' | 'PACKAGING_STORAGE' | 'OTHER';
+  temperature_min?: number;
+  temperature_max?: number;
+  humidity_min?: number;
+  humidity_max?: number;
+  iot_sensor_id?: string;
+  iot_enabled: boolean;
+  sensor?: {
+    id: string;
+    name: string;
+    current_temperature?: number;
+    current_humidity?: number;
+    last_reading_at?: string;
+  };
+}
 
 interface StorageInspection {
   id: string;
@@ -31,19 +52,23 @@ interface StorageInspection {
   corrective_action?: string;
   inspected_by_name?: string;
   verified_by_name?: string;
+  storage_area_setting_id?: string;
 }
 
 export default function StorageInspectionsPage() {
   const [inspections, setInspections] = useState<StorageInspection[]>([]);
+  const [areaSettings, setAreaSettings] = useState<StorageAreaSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [filterArea, setFilterArea] = useState('');
+  const [selectedSetting, setSelectedSetting] = useState<StorageAreaSetting | null>(null);
   const [formData, setFormData] = useState({
     inspection_date: new Date().toISOString().split('T')[0],
     inspection_time: new Date().toTimeString().split(' ')[0].slice(0, 5),
     shift: 'morning' as StorageInspection['shift'],
     storage_area: '',
+    storage_area_setting_id: '',
     storage_type: 'REFRIGERATOR' as StorageInspection['storage_type'],
     temperature: '',
     temperature_min: '',
@@ -61,8 +86,21 @@ export default function StorageInspectionsPage() {
     corrective_action: '',
   });
 
+  const fetchAreaSettings = useCallback(async () => {
+    try {
+      const response = await fetch('/api/haccp/storage-area-settings?activeOnly=true');
+      if (response.ok) {
+        const data = await response.json();
+        setAreaSettings(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch area settings:', error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchInspections();
+    fetchAreaSettings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, filterArea]);
 
@@ -93,6 +131,7 @@ export default function StorageInspectionsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+          storage_area_setting_id: formData.storage_area_setting_id || null,
           temperature: formData.temperature ? parseFloat(formData.temperature) : null,
           temperature_min: formData.temperature_min ? parseFloat(formData.temperature_min) : null,
           temperature_max: formData.temperature_max ? parseFloat(formData.temperature_max) : null,
@@ -112,12 +151,54 @@ export default function StorageInspectionsPage() {
     }
   };
 
+  const handleAreaSettingSelect = (settingId: string) => {
+    const setting = areaSettings.find(s => s.id === settingId);
+    if (setting) {
+      setSelectedSetting(setting);
+      setFormData({
+        ...formData,
+        storage_area_setting_id: setting.id,
+        storage_area: setting.area_name,
+        storage_type: setting.storage_type,
+        temperature_min: setting.temperature_min?.toString() || '',
+        temperature_max: setting.temperature_max?.toString() || '',
+        humidity_min: setting.humidity_min?.toString() || '',
+        humidity_max: setting.humidity_max?.toString() || '',
+        // If IoT sensor is connected, auto-fill current readings
+        temperature: setting.sensor?.current_temperature?.toString() || '',
+        humidity: setting.sensor?.current_humidity?.toString() || '',
+      });
+    } else {
+      setSelectedSetting(null);
+      setFormData({
+        ...formData,
+        storage_area_setting_id: '',
+        storage_area: '',
+      });
+    }
+  };
+
+  const refreshSensorData = async () => {
+    if (!selectedSetting?.iot_sensor_id) return;
+    await fetchAreaSettings();
+    const updated = areaSettings.find(s => s.id === selectedSetting.id);
+    if (updated?.sensor) {
+      setFormData(prev => ({
+        ...prev,
+        temperature: updated.sensor?.current_temperature?.toString() || prev.temperature,
+        humidity: updated.sensor?.current_humidity?.toString() || prev.humidity,
+      }));
+    }
+  };
+
   const resetForm = () => {
+    setSelectedSetting(null);
     setFormData({
       inspection_date: new Date().toISOString().split('T')[0],
       inspection_time: new Date().toTimeString().split(' ')[0].slice(0, 5),
       shift: 'morning',
       storage_area: '',
+      storage_area_setting_id: '',
       storage_type: 'REFRIGERATOR',
       temperature: '',
       temperature_min: '',
@@ -228,16 +309,25 @@ export default function StorageInspectionsPage() {
           <h1 className="text-2xl font-bold text-gray-900">보관 창고 점검</h1>
           <p className="mt-1 text-sm text-gray-500">냉장/냉동/상온 창고 온습도 및 위생 점검</p>
         </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          <Plus className="w-4 h-4" />
-          점검 기록
-        </button>
+        <div className="flex gap-2">
+          <Link
+            href="/storage-inspections/settings"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border rounded-lg hover:bg-gray-50"
+          >
+            <Settings className="w-4 h-4" />
+            구역 설정
+          </Link>
+          <button
+            onClick={() => {
+              resetForm();
+              setShowModal(true);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4" />
+            점검 기록
+          </button>
+        </div>
       </div>
 
       {/* Summary Stats */}
@@ -414,6 +504,63 @@ export default function StorageInspectionsPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Pre-configured Area Selection */}
+              {areaSettings.length > 0 && (
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <Label>사전 설정된 구역 선택</Label>
+                  <select
+                    value={formData.storage_area_setting_id}
+                    onChange={(e) => handleAreaSettingSelect(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg bg-white mt-1"
+                  >
+                    <option value="">직접 입력...</option>
+                    {areaSettings.map((setting) => (
+                      <option key={setting.id} value={setting.id}>
+                        {setting.area_name} ({storageTypeText[setting.storage_type]})
+                        {setting.iot_enabled && setting.sensor ? ' [IoT 연동]' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedSetting?.iot_enabled && selectedSetting?.sensor && (
+                    <div className="mt-2 p-2 bg-white rounded border flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1">
+                          <Wifi className="w-4 h-4 text-purple-600" />
+                          <span className="text-sm text-purple-700">{selectedSetting.sensor.name}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm">
+                          {selectedSetting.sensor.current_temperature !== undefined && (
+                            <span className="text-orange-600">
+                              <Thermometer className="w-3 h-3 inline mr-1" />
+                              {selectedSetting.sensor.current_temperature}°C
+                            </span>
+                          )}
+                          {selectedSetting.sensor.current_humidity !== undefined && (
+                            <span className="text-blue-600">
+                              <Droplets className="w-3 h-3 inline mr-1" />
+                              {selectedSetting.sensor.current_humidity}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={refreshSensorData}
+                        className="p-1.5 text-purple-600 hover:bg-purple-100 rounded"
+                        title="센서 데이터 새로고침"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                  {areaSettings.length === 0 && (
+                    <p className="text-sm text-blue-600 mt-2">
+                      <Link href="/storage-inspections/settings" className="underline">구역 설정</Link>에서 점검 구역을 미리 등록하면 편리합니다.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={handleAutoFill}
@@ -464,10 +611,11 @@ export default function StorageInspectionsPage() {
                   <input
                     type="text"
                     value={formData.storage_area}
-                    onChange={(e) => setFormData({ ...formData, storage_area: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, storage_area: e.target.value, storage_area_setting_id: '' })}
                     className="w-full px-3 py-2 border rounded-lg"
                     placeholder="예: 원료창고 A, 냉장실 1"
                     required
+                    disabled={!!formData.storage_area_setting_id}
                   />
                 </div>
                 <div>
@@ -477,6 +625,7 @@ export default function StorageInspectionsPage() {
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onChange={(e) => setTemperaturePreset(e.target.value as any)}
                     className="w-full px-3 py-2 border rounded-lg"
+                    disabled={!!formData.storage_area_setting_id}
                   >
                     {Object.entries(storageTypeText).map(([value, label]) => (
                       <option key={value} value={value}>{label}</option>
