@@ -88,21 +88,7 @@ interface Employee {
   profile_image_url?: string;
 }
 
-const TEAM_TYPES = [
-  { value: 'barista', label: '바리스타팀' },
-  { value: 'kitchen', label: '주방팀' },
-  { value: 'hall', label: '홀팀' },
-  { value: 'production', label: '생산팀' },
-  { value: 'quality', label: '품질관리팀' },
-  { value: 'warehouse', label: '창고팀' },
-  { value: 'delivery', label: '배송팀' },
-  { value: 'cleaning', label: '청소팀' },
-  { value: 'other', label: '기타' },
-];
-
-const getTeamTypeLabel = (type: string) => {
-  return TEAM_TYPES.find((t) => t.value === type)?.label || type;
-};
+// 팀 유형은 자유 입력 (TEXT)
 
 // API fetchers
 const fetchStores = async (): Promise<Store[]> => {
@@ -379,7 +365,7 @@ function TeamsPageContent() {
   const filteredTeams = teams.filter(
     (team) =>
       team.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      getTeamTypeLabel(team.team_type).toLowerCase().includes(searchTerm.toLowerCase())
+      (team.team_type || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Stats
@@ -528,7 +514,7 @@ function TeamsPageContent() {
                     <TableRow key={team.id}>
                       <TableCell className="font-medium">{team.name}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{getTeamTypeLabel(team.team_type)}</Badge>
+                        <Badge variant="secondary">{team.team_type || '-'}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center text-sm">
@@ -625,10 +611,10 @@ function TeamsPageContent() {
             </div>
             <div>
               <Label>팀 유형</Label>
-              <Select
+              <Input
                 value={newTeam.team_type}
                 onChange={(e) => setNewTeam({ ...newTeam, team_type: e.target.value })}
-                options={TEAM_TYPES}
+                placeholder="예: 바리스타, 주방, 홀 (선택)"
                 className="mt-1"
               />
             </div>
@@ -682,10 +668,10 @@ function TeamsPageContent() {
             </div>
             <div>
               <Label>팀 유형</Label>
-              <Select
+              <Input
                 value={editForm.team_type}
                 onChange={(e) => setEditForm({ ...editForm, team_type: e.target.value })}
-                options={TEAM_TYPES}
+                placeholder="예: 바리스타, 주방, 홀 (선택)"
                 className="mt-1"
               />
             </div>

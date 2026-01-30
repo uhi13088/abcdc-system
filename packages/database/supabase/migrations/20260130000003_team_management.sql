@@ -6,25 +6,9 @@
 -- 1. teams 테이블 확장
 -- ============================================
 
--- 팀 유형 ENUM
-DO $$ BEGIN
-  CREATE TYPE team_type AS ENUM (
-    'barista',      -- 바리스타팀
-    'kitchen',      -- 주방팀
-    'hall',         -- 홀팀
-    'production',   -- 생산팀
-    'quality',      -- 품질관리팀
-    'warehouse',    -- 창고팀
-    'delivery',     -- 배송팀
-    'cleaning',     -- 청소팀
-    'other'         -- 기타
-  );
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
--- teams 테이블에 컬럼 추가
+-- teams 테이블에 컬럼 추가 (team_type은 TEXT로 자유 입력)
 ALTER TABLE teams
-  ADD COLUMN IF NOT EXISTS team_type team_type DEFAULT 'other',
+  ADD COLUMN IF NOT EXISTS team_type TEXT DEFAULT 'other',
   ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0,
   ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true,
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
