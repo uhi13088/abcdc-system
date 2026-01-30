@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { generateProductionLotNumber } from '@/lib/utils/lot-number';
 
 export const dynamic = 'force-dynamic';
@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
     const status = searchParams.get('status');
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', userData.user.id)
@@ -28,15 +29,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    let query = supabase
+    // 먼저 조인 없이 기본 데이터 조회
+    let query = adminClient
       .from('production_records')
-      .select(`
-        *,
-        products:product_id (id, name, code, category),
-        supervisor:supervisor_id (id, name),
-        quality_checker:quality_checked_by (name),
-        approver:approved_by (name)
-      `)
+      .select('*')
       .eq('company_id', userProfile.company_id)
       .eq('production_date', date);
 
@@ -59,15 +55,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // 제품 정보 별도 조회
+    const productIds = [...new Set((data || []).map((r: { product_id?: string }) => r.product_id).filter(Boolean))];
+    let productsMap: Record<string, { name: string; code: string; category?: string }> = {};
+
+    if (productIds.length > 0) {
+      const { data: products } = await adminClient
+        .from('products')
+        .select('id, name, code, category')
+        .in('id', productIds);
+
+      productsMap = (products || []).reduce((acc, p) => {
+        acc[p.id] = p;
+        return acc;
+      }, {} as Record<string, { name: string; code: string; category?: string }>);
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = (data || []).map((r: any) => ({
       ...r,
-      product_name: r.products?.name,
-      product_code: r.products?.code,
-      product_category: r.products?.category,
-      supervisor_name: r.supervisor_name || r.supervisor?.name,
-      quality_checked_by_name: r.quality_checked_by_name || r.quality_checker?.name,
-      approved_by_name: r.approved_by_name || r.approver?.name,
+      product_name: r.product_name || productsMap[r.product_id]?.name,
+      product_code: r.product_code || productsMap[r.product_id]?.code,
+      product_category: productsMap[r.product_id]?.category,
     }));
 
     return NextResponse.json(result);
@@ -81,6 +90,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -88,7 +98,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('id, name, company_id')
       .eq('auth_id', userData.user.id)
@@ -153,6 +163,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
     const { id, action, ...updateData } = body;
 
@@ -165,7 +176,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('id, name, company_id')
       .eq('auth_id', userData.user.id)
@@ -561,6 +572,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -573,7 +585,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('id, company_id')
       .eq('auth_id', userData.user.id)

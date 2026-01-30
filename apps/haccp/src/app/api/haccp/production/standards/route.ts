@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
 // 생산 기준 조회 (제품별)
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -25,12 +26,9 @@ export async function GET(request: NextRequest) {
 
     const productId = request.nextUrl.searchParams.get('product_id');
 
-    let query = supabase
+    let query = adminClient
       .from('production_standards')
-      .select(`
-        *,
-        products:product_id (name, code)
-      `)
+      .select('*')
       .eq('company_id', userData.company_id);
 
     if (productId) {
@@ -48,12 +46,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // 제품 정보 별도 조회
+    const productIds = [...new Set((standards || []).map((s: { product_id?: string }) => s.product_id).filter(Boolean))];
+    let productsMap: Record<string, { name: string; code: string }> = {};
+
+    if (productIds.length > 0) {
+      const { data: products } = await adminClient
+        .from('products')
+        .select('id, name, code')
+        .in('id', productIds);
+
+      productsMap = (products || []).reduce((acc: Record<string, { name: string; code: string }>, p: { id: string; name: string; code: string }) => {
+        acc[p.id] = { name: p.name, code: p.code };
+        return acc;
+      }, {});
+    }
+
     // 제품명 추가
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = (standards || []).map((s: any) => ({
       ...s,
-      product_name: s.products?.name,
-      product_code: s.products?.code,
+      product_name: productsMap[s.product_id]?.name,
+      product_code: productsMap[s.product_id]?.code,
     }));
 
     return NextResponse.json(result);
@@ -66,14 +80,15 @@ export async function GET(request: NextRequest) {
 // 생산 기준 생성/수정
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -99,7 +114,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'product_id is required' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('production_standards')
       .upsert({
         company_id: userData.company_id,
@@ -127,6 +142,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
+      // 테이블이 없으면 빈 결과 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json(null);
+      }
       console.error('Failed to save production standard:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -141,14 +160,15 @@ export async function POST(request: NextRequest) {
 // 생산 기준 수정
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -165,7 +185,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('production_standards')
       .update({
         ...updateData,
@@ -191,14 +211,15 @@ export async function PUT(request: NextRequest) {
 // 생산 기준 삭제
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -214,7 +235,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const { error } = await supabase
+    const { error } = await adminClient
       .from('production_standards')
       .delete()
       .eq('id', id)

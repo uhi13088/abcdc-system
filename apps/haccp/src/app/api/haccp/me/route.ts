@@ -20,11 +20,22 @@ export async function GET() {
 
     const { data: userProfile, error } = await adminClient
       .from('users')
-      .select('id, name, email, role, company_id, is_active')
+      .select('id, name, email, role, company_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (error) {
+      // 컬럼 에러인 경우 기본 필드만 조회
+      if (error.message?.includes('column') || error.code === '42703') {
+        const { data: fallback } = await adminClient
+          .from('users')
+          .select('id, name, email, role, company_id')
+          .eq('auth_id', userData.user.id)
+          .single();
+        if (fallback) {
+          return NextResponse.json(fallback);
+        }
+      }
       console.error('Error fetching user profile:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
