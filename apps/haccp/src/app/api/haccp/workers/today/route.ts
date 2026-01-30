@@ -7,7 +7,6 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
-    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
 
@@ -16,18 +15,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await adminClient
+    // 일반 클라이언트로 먼저 시도, 실패하면 admin 클라이언트 사용
+    let dbClient = supabase;
+    let { data: userProfile, error: profileError } = await supabase
       .from('users')
       .select('id, company_id')
       .eq('auth_id', userData.user.id)
       .single();
+
+    // RLS 문제로 실패하면 admin 클라이언트 시도
+    if (profileError && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      dbClient = createAdminClient();
+      const result = await dbClient
+        .from('users')
+        .select('id, company_id')
+        .eq('auth_id', userData.user.id)
+        .single();
+      userProfile = result.data;
+    }
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
     // 오늘 출근 기록이 있는 직원 조회
-    const { data: attendances, error: attendanceError } = await adminClient
+    const { data: attendances, error: attendanceError } = await dbClient
       .from('attendances')
       .select(`
         id,
@@ -45,7 +57,7 @@ export async function GET(request: NextRequest) {
       // 테이블이 없으면 빈 배열 반환
       if (attendanceError.code === '42P01') {
         // attendances 테이블 없으면 users에서 직접 조회
-        const { data: users } = await adminClient
+        const { data: users } = await dbClient
           .from('users')
           .select('id, name, email, role, phone, status')
           .eq('company_id', userProfile.company_id)
@@ -73,7 +85,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 모든 활성 직원 조회
-    const { data: allUsers } = await adminClient
+    const { data: allUsers } = await dbClient
       .from('users')
       .select('id, name, email, role, phone')
       .eq('company_id', userProfile.company_id)
