@@ -395,7 +395,7 @@ export default function EquipmentDashboardPage() {
             </div>
           </Link>
           <Link
-            href="/settings"
+            href="/settings?tab=notification"
             className="flex items-center gap-3 p-4 border rounded-lg hover:bg-gray-50 transition-colors"
           >
             <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">

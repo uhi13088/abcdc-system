@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Save, Building2, Bell, Shield, Users, Clock, Database, RefreshCw, AlertCircle, MapPin, Sun, Plus, Trash2, Edit2, CheckCircle, Lock, Info, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -61,6 +62,7 @@ interface CompanySettings {
 interface NotificationSettings {
   ccp_alert_enabled: boolean;
   ccp_deviation_notification: boolean;
+  equipment_temp_alert_enabled: boolean;
   daily_report_enabled: boolean;
   daily_report_time: string;
   inspection_reminder: boolean;
@@ -133,8 +135,11 @@ interface SeasonConfig {
   하절기: { start_month: number; end_month: number };
 }
 
-export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'company' | 'notification' | 'haccp' | 'verification' | 'zones' | 'seasons' | 'users'>('company');
+// Wrapper component that handles useSearchParams with Suspense
+function SettingsPageContent({ initialTab }: { initialTab: string | null }) {
+  const [activeTab, setActiveTab] = useState<'company' | 'notification' | 'haccp' | 'verification' | 'zones' | 'seasons' | 'users'>(
+    (initialTab as 'company' | 'notification' | 'haccp' | 'verification' | 'zones' | 'seasons' | 'users') || 'company'
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,6 +172,7 @@ export default function SettingsPage() {
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     ccp_alert_enabled: true,
     ccp_deviation_notification: true,
+    equipment_temp_alert_enabled: true,
     daily_report_enabled: true,
     daily_report_time: '18:00',
     inspection_reminder: true,
@@ -268,6 +274,7 @@ export default function SettingsPage() {
         setNotificationSettings({
           ccp_alert_enabled: data.notificationSettings.ccp_alert_enabled ?? true,
           ccp_deviation_notification: data.notificationSettings.ccp_deviation_notification ?? true,
+          equipment_temp_alert_enabled: data.notificationSettings.equipment_temp_alert_enabled ?? true,
           daily_report_enabled: data.notificationSettings.daily_report_enabled ?? true,
           daily_report_time: data.notificationSettings.daily_report_time || '18:00',
           inspection_reminder: data.notificationSettings.inspection_reminder ?? true,
@@ -650,6 +657,22 @@ export default function SettingsPage() {
                   type="checkbox"
                   checked={notificationSettings.ccp_alert_enabled}
                   onChange={(e) => setNotificationSettings({ ...notificationSettings, ccp_alert_enabled: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-between py-3 border-b">
+              <div>
+                <p className="font-medium">장비 온도이탈 알림</p>
+                <p className="text-sm text-gray-500">모니터링 장비(냉장/냉동고)의 온도가 설정 범위를 벗어나면 알림</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notificationSettings.equipment_temp_alert_enabled}
+                  onChange={(e) => setNotificationSettings({ ...notificationSettings, equipment_temp_alert_enabled: e.target.checked })}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -1375,5 +1398,27 @@ export default function SettingsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// useSearchParams를 Suspense로 감싸기 위한 내부 컴포넌트
+function SettingsWithSearchParams() {
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  return <SettingsPageContent initialTab={tabFromUrl} />;
+}
+
+// 메인 export - Suspense로 감싸서 useSearchParams 사용
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    }>
+      <SettingsWithSearchParams />
+    </Suspense>
   );
 }
