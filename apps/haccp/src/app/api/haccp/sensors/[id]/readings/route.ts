@@ -161,6 +161,7 @@ export async function POST(
     // 읽기값 저장
     const readingData = {
       sensor_id: id,
+      company_id: sensor.company_id,
       reading_value: readingValue,
       reading_unit: body.reading_unit || (sensor.sensor_type === 'TEMPERATURE' ? '°C' : null),
       is_within_limit: isWithinLimit,
