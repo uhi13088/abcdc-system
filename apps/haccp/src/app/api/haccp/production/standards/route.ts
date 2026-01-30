@@ -40,6 +40,10 @@ export async function GET(request: NextRequest) {
     const { data: standards, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
+      // 테이블이 없으면 빈 배열 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json([]);
+      }
       console.error('Failed to fetch production standards:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }

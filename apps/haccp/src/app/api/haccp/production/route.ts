@@ -51,6 +51,10 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query.order('start_time', { ascending: true });
 
     if (error) {
+      // 테이블이 없으면 빈 배열 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json([]);
+      }
       console.error('Error fetching production records:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
