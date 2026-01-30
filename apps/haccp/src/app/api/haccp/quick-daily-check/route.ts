@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 interface DailyCheckResult {
   hygiene: {
@@ -54,7 +54,8 @@ const STORAGE_AREAS = [
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
 
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
@@ -63,15 +64,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user profile
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, name, company_id')
+      .select('id, name, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
     if (!userProfile || !userProfile.company_id) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     const body = await request.json();
     const checkDate = body.check_date || new Date().toISOString().split('T')[0];
@@ -100,13 +104,18 @@ export async function POST(request: NextRequest) {
       try {
         // 기존 기록 확인
         if (skipExisting) {
-          const { data: existing } = await supabase
+          let existingQuery = adminClient
             .from('hygiene_checks')
             .select('id')
             .eq('company_id', userProfile.company_id)
             .eq('check_date', checkDate)
-            .eq('check_period', check.period)
-            .limit(1);
+            .eq('check_period', check.period);
+
+          if (currentStoreId) {
+            existingQuery = existingQuery.eq('store_id', currentStoreId);
+          }
+
+          const { data: existing } = await existingQuery.limit(1);
 
           if (existing && existing.length > 0) {
             result.hygiene[check.period === '작업전' ? 'pre_work' : check.period === '작업중' ? 'during_work' : 'post_work'] = true;
@@ -115,10 +124,11 @@ export async function POST(request: NextRequest) {
         }
 
         // 새 기록 생성
-        const { error } = await supabase
+        const { error } = await adminClient
           .from('hygiene_checks')
           .insert({
             company_id: userProfile.company_id,
+            store_id: currentStoreId || null,
             check_date: checkDate,
             check_period: check.period,
             checked_by: userProfile.id,
@@ -148,13 +158,18 @@ export async function POST(request: NextRequest) {
       try {
         // 기존 기록 확인
         if (skipExisting) {
-          const { data: existing } = await supabase
+          let existingQuery = adminClient
             .from('storage_inspections')
             .select('id')
             .eq('company_id', userProfile.company_id)
             .eq('inspection_date', checkDate)
-            .eq('storage_area', area.area)
-            .limit(1);
+            .eq('storage_area', area.area);
+
+          if (currentStoreId) {
+            existingQuery = existingQuery.eq('store_id', currentStoreId);
+          }
+
+          const { data: existing } = await existingQuery.limit(1);
 
           if (existing && existing.length > 0) {
             result.storage_inspections++;
@@ -163,10 +178,11 @@ export async function POST(request: NextRequest) {
         }
 
         // 새 기록 생성
-        const { error } = await supabase
+        const { error } = await adminClient
           .from('storage_inspections')
           .insert({
             company_id: userProfile.company_id,
+            store_id: currentStoreId || null,
             inspection_date: checkDate,
             inspection_time: currentTime,
             storage_area: area.area,
@@ -223,7 +239,8 @@ export async function POST(request: NextRequest) {
 // 오늘의 일일점검 현황 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
 
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
@@ -232,9 +249,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user profile
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -242,22 +259,37 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
 
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
     const { searchParams } = new URL(request.url);
     const checkDate = searchParams.get('date') || new Date().toISOString().split('T')[0];
 
     // 위생점검 현황
-    const { data: hygieneChecks } = await supabase
+    let hygieneQuery = adminClient
       .from('hygiene_checks')
       .select('check_period, overall_status')
       .eq('company_id', userProfile.company_id)
       .eq('check_date', checkDate);
 
+    if (currentStoreId) {
+      hygieneQuery = hygieneQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: hygieneChecks } = await hygieneQuery;
+
     // 저장소 점검 현황
-    const { data: storageChecks } = await supabase
+    let storageQuery = adminClient
       .from('storage_inspections')
       .select('storage_area, overall_result')
       .eq('company_id', userProfile.company_id)
       .eq('inspection_date', checkDate);
+
+    if (currentStoreId) {
+      storageQuery = storageQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: storageChecks } = await storageQuery;
 
     const hygienePeriods = ['작업전', '작업중', '작업후'];
     const hygieneStatus = hygienePeriods.map(period => ({

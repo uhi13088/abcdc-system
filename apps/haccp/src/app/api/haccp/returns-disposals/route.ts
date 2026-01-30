@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +21,7 @@ function generateRecordNumber(): string {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
@@ -32,9 +33,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -42,7 +43,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    let query = supabase
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
+    let query = adminClient
       .from('returns_disposals')
       .select(`
         *,
@@ -54,6 +58,9 @@ export async function GET(request: NextRequest) {
       .eq('company_id', userProfile.company_id)
       .order('record_date', { ascending: false });
 
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
     if (startDate) {
       query = query.gte('record_date', startDate);
     }
@@ -96,6 +103,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -103,9 +111,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -113,10 +121,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const { data, error } = await supabase
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
+    const { data, error } = await adminClient
       .from('returns_disposals')
       .insert({
         company_id: userProfile.company_id,
+        store_id: currentStoreId || null,
         recorded_by: userProfile.id,
         record_date: body.record_date || new Date().toISOString().split('T')[0],
         record_number: body.record_number || generateRecordNumber(),
@@ -161,6 +173,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -168,7 +181,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('id, company_id')
       .eq('auth_id', userData.user.id)
@@ -193,7 +206,7 @@ export async function PUT(request: NextRequest) {
 
     updateData.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('returns_disposals')
       .update(updateData)
       .eq('id', id)

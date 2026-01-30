@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { format, startOfWeek, startOfMonth } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
@@ -41,15 +41,16 @@ interface DashboardStats {
 export async function GET(_request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -58,10 +59,19 @@ export async function GET(_request: NextRequest) {
     }
 
     const companyId = userProfile.company_id;
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
     const today = new Date();
     const todayStr = format(today, 'yyyy-MM-dd');
     const weekStart = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
     const monthStart = format(startOfMonth(today), 'yyyy-MM-dd');
+
+    // 쿼리 빌더 헬퍼 - store_id 조건 추가
+    const addStoreFilter = <T extends { eq: (col: string, val: string) => T }>(query: T) => {
+      if (currentStoreId) {
+        return query.eq('store_id', currentStoreId);
+      }
+      return query;
+    };
 
     // 병렬로 모든 통계 조회
     const [
@@ -77,79 +87,97 @@ export async function GET(_request: NextRequest) {
       alertsResult,
     ] = await Promise.all([
       // 1. 오늘 위생점검 현황
-      supabase
-        .from('daily_hygiene_checks')
-        .select('id, shift')
-        .eq('company_id', companyId)
-        .eq('check_date', todayStr),
+      addStoreFilter(
+        adminClient
+          .from('daily_hygiene_checks')
+          .select('id, shift')
+          .eq('company_id', companyId)
+          .eq('check_date', todayStr)
+      ),
 
       // 2. 오늘 CCP 기록 수
-      supabase
-        .from('ccp_records')
-        .select('id', { count: 'exact' })
-        .eq('company_id', companyId)
-        .eq('record_date', todayStr),
+      addStoreFilter(
+        adminClient
+          .from('ccp_records')
+          .select('id', { count: 'exact' })
+          .eq('company_id', companyId)
+          .eq('record_date', todayStr)
+      ),
 
       // 3. CCP 이탈 (오늘 중 한계기준 이탈)
-      supabase
-        .from('ccp_records')
-        .select('id', { count: 'exact' })
-        .eq('company_id', companyId)
-        .eq('record_date', todayStr)
-        .eq('is_within_limit', false),
+      addStoreFilter(
+        adminClient
+          .from('ccp_records')
+          .select('id', { count: 'exact' })
+          .eq('company_id', companyId)
+          .eq('record_date', todayStr)
+          .eq('is_within_limit', false)
+      ),
 
       // 4. 재고 부족 원료 (안전재고 이하) - 컬럼간 비교는 JS에서 처리
-      supabase
-        .from('material_stocks')
-        .select('id, current_balance, safety_stock')
-        .eq('company_id', companyId),
+      addStoreFilter(
+        adminClient
+          .from('material_stocks')
+          .select('id, current_balance, safety_stock')
+          .eq('company_id', companyId)
+      ),
 
       // 5. 입고검사 대기
-      supabase
-        .from('material_inspections')
-        .select('id', { count: 'exact' })
-        .eq('company_id', companyId)
-        .eq('result', 'HOLD'),
+      addStoreFilter(
+        adminClient
+          .from('material_inspections')
+          .select('id', { count: 'exact' })
+          .eq('company_id', companyId)
+          .eq('result', 'HOLD')
+      ),
 
       // 6. 오늘 생산 기록
-      supabase
-        .from('production_records')
-        .select('id', { count: 'exact' })
-        .eq('company_id', companyId)
-        .eq('production_date', todayStr),
+      addStoreFilter(
+        adminClient
+          .from('production_records')
+          .select('id', { count: 'exact' })
+          .eq('company_id', companyId)
+          .eq('production_date', todayStr)
+      ),
 
       // 7. 금주 방충방서 점검
-      supabase
-        .from('pest_control_checks')
-        .select('id, check_date')
-        .eq('company_id', companyId)
-        .gte('check_date', weekStart)
-        .order('check_date', { ascending: false })
-        .limit(1),
+      addStoreFilter(
+        adminClient
+          .from('pest_control_checks')
+          .select('id, check_date')
+          .eq('company_id', companyId)
+          .gte('check_date', weekStart)
+      ).order('check_date', { ascending: false }).limit(1),
 
       // 8. 이번달 CCP 검증 현황
       Promise.all([
-        supabase
-          .from('ccp_definitions')
-          .select('id', { count: 'exact' })
-          .eq('company_id', companyId)
-          .eq('is_active', true),
-        supabase
-          .from('ccp_verifications')
-          .select('id', { count: 'exact' })
-          .eq('company_id', companyId)
-          .gte('verification_date', monthStart),
+        addStoreFilter(
+          adminClient
+            .from('ccp_definitions')
+            .select('id', { count: 'exact' })
+            .eq('company_id', companyId)
+            .eq('is_active', true)
+        ),
+        addStoreFilter(
+          adminClient
+            .from('ccp_verifications')
+            .select('id', { count: 'exact' })
+            .eq('company_id', companyId)
+            .gte('verification_date', monthStart)
+        ),
       ]),
 
       // 9. IoT 센서 현황
-      supabase
-        .from('iot_sensors')
-        .select('id, status')
-        .eq('company_id', companyId)
-        .eq('is_active', true),
+      addStoreFilter(
+        adminClient
+          .from('iot_sensors')
+          .select('id, status')
+          .eq('company_id', companyId)
+          .eq('is_active', true)
+      ),
 
       // 10. 최근 알림 (24시간 내 중요 알림)
-      supabase
+      adminClient
         .from('notifications')
         .select('id, title, body, priority, created_at, category')
         .eq('category', 'HACCP')
