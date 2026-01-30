@@ -33,16 +33,14 @@ export async function GET(request: NextRequest) {
     const { data: sensors, error } = await (async () => {
       let query = adminClient
         .from('iot_sensors')
-        .select(`
-          *,
-          ccp_definition:ccp_definitions(id, ccp_number, process)
-        `)
+        .select('*')
         .eq('company_id', userProfile.company_id)
         .order('created_at', { ascending: false });
 
-      if (status === 'active') {
+      // status 필터링
+      if (status === 'active' || status === 'ONLINE') {
         query = query.eq('is_active', true);
-      } else if (status === 'inactive') {
+      } else if (status === 'inactive' || status === 'OFFLINE') {
         query = query.eq('is_active', false);
       }
 

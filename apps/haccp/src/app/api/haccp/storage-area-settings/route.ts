@@ -35,19 +35,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 먼저 센서 조인 없이 시도
     let query = adminClient
       .from('storage_area_settings')
-      .select(`
-        *,
-        sensor:iot_sensor_id (
-          id,
-          name,
-          sensor_type,
-          current_temperature,
-          current_humidity,
-          last_reading_at
-        )
-      `)
+      .select('*')
       .eq('company_id', userProfile.company_id)
       .order('sort_order', { ascending: true })
       .order('area_name', { ascending: true });
@@ -63,6 +54,10 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
+      // 테이블이 없으면 빈 배열 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json([]);
+      }
       console.error('Error fetching storage area settings:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }

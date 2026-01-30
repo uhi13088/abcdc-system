@@ -38,11 +38,7 @@ export async function GET(request: NextRequest) {
 
     let query = adminClient
       .from('storage_inspections')
-      .select(`
-        *,
-        inspected_by_user:inspected_by (name),
-        verified_by_user:verified_by (name)
-      `)
+      .select('*')
       .eq('company_id', userProfile.company_id)
       .order('inspection_date', { ascending: false })
       .order('inspection_time', { ascending: false });
@@ -66,18 +62,15 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
+      // 테이블이 없으면 빈 배열 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json([]);
+      }
       console.error('Error fetching storage inspections:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = (data || []).map((record: any) => ({
-      ...record,
-      inspected_by_name: record.inspected_by_user?.name,
-      verified_by_name: record.verified_by_user?.name,
-    }));
-
-    return NextResponse.json(result);
+    return NextResponse.json(data || []);
   } catch (error) {
     console.error('Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
