@@ -301,26 +301,7 @@ CREATE POLICY team_checklist_record_items_modify ON team_checklist_record_items 
     )
   );
 
--- 8. 팀 유형별 기본 라벨 함수
--- ============================================
-CREATE OR REPLACE FUNCTION get_team_type_label(t_type team_type)
-RETURNS TEXT AS $$
-BEGIN
-  RETURN CASE t_type
-    WHEN 'barista' THEN '바리스타팀'
-    WHEN 'kitchen' THEN '주방팀'
-    WHEN 'hall' THEN '홀팀'
-    WHEN 'production' THEN '생산팀'
-    WHEN 'quality' THEN '품질관리팀'
-    WHEN 'warehouse' THEN '창고팀'
-    WHEN 'delivery' THEN '배송팀'
-    WHEN 'cleaning' THEN '청소팀'
-    ELSE '기타'
-  END;
-END;
-$$ LANGUAGE plpgsql IMMUTABLE;
-
--- 9. 업데이트 트리거
+-- 8. 업데이트 트리거
 -- ============================================
 CREATE OR REPLACE FUNCTION update_team_updated_at()
 RETURNS TRIGGER AS $$
@@ -354,7 +335,7 @@ CREATE TRIGGER trigger_team_checklist_records_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_team_updated_at();
 
--- 10. 코멘트
+-- 9. 코멘트
 -- ============================================
 COMMENT ON TABLE team_members IS '팀원 관리 테이블 - 사용자와 팀의 다대다 관계';
 COMMENT ON TABLE team_checklists IS '팀별 체크리스트 템플릿';
