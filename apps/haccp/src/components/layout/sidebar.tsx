@@ -55,7 +55,16 @@ const navigation: NavItem[] = [
     ],
   },
   { name: '위생 점검', href: '/hygiene', icon: Sparkles },
-  { name: '장비 온도 기록', href: '/equipment-temperature', icon: Thermometer },
+  {
+    name: '장비 모니터링',
+    href: '/equipment',
+    icon: Thermometer,
+    children: [
+      { name: '온도 현황', href: '/equipment' },
+      { name: '온도 기록', href: '/equipment/records' },
+      { name: '장비/센서 관리', href: '/equipment/sensors' },
+    ],
+  },
   { name: '방충/방서', href: '/pest-control', icon: Bug },
   {
     name: '원부재료 관리',
@@ -94,15 +103,6 @@ const navigation: NavItem[] = [
   { name: '검교정 관리', href: '/calibration', icon: Gauge },
   { name: '반품/회수/폐기', href: '/returns-disposals', icon: RotateCcw },
   { name: '보관창고 점검', href: '/storage-inspections', icon: Warehouse },
-  {
-    name: 'IoT 관리',
-    href: '/sensors',
-    icon: Cpu,
-    children: [
-      { name: '센서 관리', href: '/sensors' },
-      { name: '기기 관리', href: '/devices' },
-    ],
-  },
   { name: '알림', href: '/notifications', icon: Bell },
   { name: '설정', href: '/settings', icon: Settings },
 ];
@@ -110,7 +110,7 @@ const navigation: NavItem[] = [
 function SidebarComponent() {
   const pathname = usePathname();
   const router = useRouter();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['CCP 관리', '원부재료 관리', '제품 관리', '출하 관리', 'IoT 관리']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['CCP 관리', '원부재료 관리', '제품 관리', '출하 관리', '장비 모니터링']);
   const [isHovered, setIsHovered] = useState(false);
 
   // Mobile sidebar state from context
