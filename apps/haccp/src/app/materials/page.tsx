@@ -244,10 +244,7 @@ export default function MaterialsPage() {
             <LedgerTab materials={materials} />
           )}
           {activeTab === 'settings' && (
-            <SettingsTab
-              storageLocations={storageLocations}
-              onRefresh={fetchData}
-            />
+            <SettingsTab />
           )}
         </>
       )}
@@ -1785,268 +1782,25 @@ function LedgerTab({ materials }: { materials: Material[] }) {
 }
 
 // ============================================
-// Settings Tab (설정 - 보관위치 관리)
+// Settings Tab (설정 - 보관창고 설정 페이지로 이동 안내)
 // ============================================
-function SettingsTab({
-  storageLocations,
-  onRefresh,
-}: {
-  storageLocations: StorageLocation[];
-  onRefresh: () => void;
-}) {
-  const [showModal, setShowModal] = useState(false);
-  const [editingLocation, setEditingLocation] = useState<StorageLocation | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    zone_type: '상온' as '냉장' | '냉동' | '상온',
-    description: '',
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const method = editingLocation ? 'PUT' : 'POST';
-      const body = editingLocation
-        ? { id: editingLocation.id, ...formData }
-        : formData;
-
-      const response = await fetch('/api/haccp/storage-locations', {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      if (response.ok) {
-        toast.success(editingLocation ? '수정되었습니다.' : '등록되었습니다.');
-        setShowModal(false);
-        setEditingLocation(null);
-        resetForm();
-        onRefresh();
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.error || '저장에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('Failed to save location:', error);
-      toast.error('저장에 실패했습니다.');
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('정말 삭제하시겠습니까?')) return;
-    try {
-      const response = await fetch(`/api/haccp/storage-locations?id=${id}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        toast.success('삭제되었습니다.');
-        onRefresh();
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.error || '삭제에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('Failed to delete location:', error);
-      toast.error('삭제에 실패했습니다.');
-    }
-  };
-
-  const handleToggleActive = async (location: StorageLocation) => {
-    try {
-      const response = await fetch('/api/haccp/storage-locations', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: location.id,
-          is_active: !location.is_active,
-        }),
-      });
-      if (response.ok) {
-        toast.success(location.is_active ? '비활성화되었습니다.' : '활성화되었습니다.');
-        onRefresh();
-      }
-    } catch (error) {
-      console.error('Failed to toggle active:', error);
-    }
-  };
-
-  const handleEdit = (location: StorageLocation) => {
-    setEditingLocation(location);
-    setFormData({
-      name: location.name,
-      zone_type: location.zone_type,
-      description: location.description || '',
-    });
-    setShowModal(true);
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      zone_type: '상온',
-      description: '',
-    });
-    setEditingLocation(null);
-  };
-
-  const zoneTypeColors = {
-    '냉장': 'bg-blue-100 text-blue-700',
-    '냉동': 'bg-cyan-100 text-cyan-700',
-    '상온': 'bg-orange-100 text-orange-700',
-  };
-
+function SettingsTab() {
   return (
-    <>
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">보관위치 관리</h3>
-        <p className="text-sm text-gray-500">입고 시 선택할 수 있는 보관위치를 등록합니다.</p>
-      </div>
-
-      {/* Actions */}
-      <div className="mb-4 flex justify-end">
-        <button
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          <Plus className="w-4 h-4" />
-          보관위치 추가
-        </button>
-      </div>
-
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">위치명</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">구역 타입</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">설명</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">관리</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {storageLocations.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                  <Package className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  등록된 보관위치가 없습니다
-                </td>
-              </tr>
-            ) : (
-              storageLocations.map((location) => (
-                <tr key={location.id} className={`hover:bg-gray-50 ${!location.is_active ? 'opacity-50' : ''}`}>
-                  <td className="px-6 py-4 text-sm font-medium">{location.name}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 text-xs rounded-full ${zoneTypeColors[location.zone_type]}`}>
-                      {location.zone_type}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{location.description || '-'}</td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => handleToggleActive(location)}
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        location.is_active
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
-                      {location.is_active ? '활성' : '비활성'}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button onClick={() => handleEdit(location)} className="p-1 hover:bg-gray-100 rounded mr-1">
-                      <Edit className="w-4 h-4 text-gray-500" />
-                    </button>
-                    <button onClick={() => handleDelete(location.id)} className="p-1 hover:bg-red-100 rounded">
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">{editingLocation ? '보관위치 수정' : '보관위치 추가'}</h2>
-              <button onClick={() => { setShowModal(false); resetForm(); }} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label required>위치명</Label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="예: 냉장고-1, 냉동고-A, 창고-1층"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label required>구역 타입</Label>
-                <div className="flex gap-2 mt-2">
-                  {(['냉장', '냉동', '상온'] as const).map((type) => (
-                    <label
-                      key={type}
-                      className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                        formData.zone_type === type
-                          ? type === '냉장' ? 'border-blue-500 bg-blue-50'
-                            : type === '냉동' ? 'border-cyan-500 bg-cyan-50'
-                            : 'border-orange-500 bg-orange-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="zone_type"
-                        value={type}
-                        checked={formData.zone_type === type}
-                        onChange={() => setFormData({ ...formData, zone_type: type })}
-                        className="sr-only"
-                      />
-                      <span className="font-medium">{type}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <Label>설명</Label>
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="예: 유제품 보관용"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => { setShowModal(false); resetForm(); }} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">
-                  취소
-                </button>
-                <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  {editingLocation ? '수정' : '등록'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </>
+    <div className="flex flex-col items-center justify-center py-16">
+      <Package className="w-16 h-16 text-gray-300 mb-6" />
+      <h3 className="text-xl font-semibold text-gray-900 mb-3">보관위치 관리가 통합되었습니다</h3>
+      <p className="text-gray-500 text-center mb-6 max-w-md">
+        보관위치는 이제 &apos;보관창고 점검&apos; 메뉴의 구역 설정에서 통합 관리됩니다.
+        <br />
+        온도/습도 기준값, IoT 센서 연동 등 더 다양한 설정이 가능합니다.
+      </p>
+      <Link
+        href="/storage-inspections/settings"
+        className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+      >
+        <Settings className="w-5 h-5" />
+        보관창고 구역 설정으로 이동
+      </Link>
+    </div>
   );
 }
