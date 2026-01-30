@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +13,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
     const startDate = searchParams.get('startDate');
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', userData.user.id)
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    let query = supabase
+    let query = adminClient
       .from('storage_inspections')
       .select(`
         *,
@@ -87,6 +88,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -94,7 +96,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('id, company_id')
       .eq('auth_id', userData.user.id)
@@ -133,7 +135,7 @@ export async function POST(request: NextRequest) {
     ];
     const overallResult = body.overall_result || (checkItems.every(Boolean) ? 'PASS' : 'FAIL');
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('storage_inspections')
       .insert({
         company_id: userProfile.company_id,
@@ -142,6 +144,7 @@ export async function POST(request: NextRequest) {
         inspection_time: body.inspection_time || new Date().toTimeString().split(' ')[0].slice(0, 5),
         shift: body.shift,
         storage_area: body.storage_area,
+        storage_area_setting_id: body.storage_area_setting_id,
         storage_type: body.storage_type,
         temperature: body.temperature,
         temperature_unit: body.temperature_unit || 'C',
@@ -181,6 +184,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -188,7 +192,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('id, company_id')
       .eq('auth_id', userData.user.id)
@@ -211,7 +215,7 @@ export async function PUT(request: NextRequest) {
       delete updateData.verified;
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('storage_inspections')
       .update(updateData)
       .eq('id', id)
