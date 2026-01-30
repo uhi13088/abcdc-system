@@ -112,7 +112,7 @@ const navigation: NavItem[] = [
 function SidebarComponent() {
   const pathname = usePathname();
   const router = useRouter();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['CCP 관리', '원부재료 관리', '완제품 관리', '제품 관리', '장비 모니터링']);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [isHovered, setIsHovered] = useState(false);
 
   // Mobile sidebar state from context

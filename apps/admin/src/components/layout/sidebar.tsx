@@ -76,7 +76,7 @@ const navigation: NavItem[] = [
 function SidebarComponent() {
   const pathname = usePathname();
   const router = useRouter();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['직원 관리', '조직 관리']);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [isHovered, setIsHovered] = useState(false);
   const [addonAccess, setAddonAccess] = useState({ haccp: false, roasting: false });
 
