@@ -88,6 +88,43 @@ interface Employee {
   profile_image_url?: string;
 }
 
+interface TeamChecklist {
+  id: string;
+  checklist_name: string;
+  checklist_category: string;
+  description?: string;
+  frequency: string;
+  shift_time?: string;
+  is_required: boolean;
+  display_order: number;
+  is_active: boolean;
+  items?: ChecklistItem[];
+}
+
+interface ChecklistItem {
+  id?: string;
+  item_name: string;
+  item_type: string;
+  is_required: boolean;
+  display_order: number;
+  min_value?: number;
+  max_value?: number;
+  unit?: string;
+}
+
+const CHECKLIST_CATEGORIES = [
+  { value: 'hygiene', label: '위생점검' },
+  { value: 'ccp', label: 'CCP 모니터링' },
+  { value: 'equipment', label: '장비 온도' },
+  { value: 'pest_control', label: '방충방서' },
+  { value: 'storage', label: '보관창고' },
+  { value: 'production', label: '생산관리' },
+  { value: 'cleaning', label: '청소' },
+  { value: 'opening', label: '오픈 체크' },
+  { value: 'closing', label: '마감 체크' },
+  { value: 'other', label: '기타' },
+];
+
 // 팀 유형은 자유 입력 (TEXT)
 
 // API fetchers
@@ -128,7 +165,22 @@ function TeamsPageContent() {
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showMembersDialog, setShowMembersDialog] = useState(false);
+  const [showChecklistsDialog, setShowChecklistsDialog] = useState(false);
+  const [showNewChecklistDialog, setShowNewChecklistDialog] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+
+  // Checklist states
+  const [teamChecklists, setTeamChecklists] = useState<TeamChecklist[]>([]);
+  const [checklistsLoading, setChecklistsLoading] = useState(false);
+  const [newChecklist, setNewChecklist] = useState({
+    checklist_name: '',
+    checklist_category: 'other',
+    description: '',
+    frequency: 'daily',
+    is_required: true,
+    items: [] as { item_name: string; item_type: string; is_required: boolean }[],
+  });
+  const [newItemName, setNewItemName] = useState('');
 
   // Form states
   const [newTeam, setNewTeam] = useState({
@@ -354,6 +406,103 @@ function TeamsPageContent() {
     setShowMembersDialog(true);
   };
 
+  // Checklist functions
+  const fetchTeamChecklists = async (teamId: string) => {
+    setChecklistsLoading(true);
+    try {
+      const res = await fetch(`/api/teams/${teamId}/checklists?include_items=true`);
+      if (res.ok) {
+        const data = await res.json();
+        setTeamChecklists(data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch team checklists:', error);
+    } finally {
+      setChecklistsLoading(false);
+    }
+  };
+
+  const openChecklistsDialog = (team: Team) => {
+    setSelectedTeam(team);
+    setShowChecklistsDialog(true);
+    fetchTeamChecklists(team.id);
+  };
+
+  const handleCreateChecklist = async () => {
+    if (!selectedTeam || !newChecklist.checklist_name.trim()) {
+      setError('체크리스트 이름을 입력해주세요');
+      return;
+    }
+    if (newChecklist.items.length === 0) {
+      setError('최소 하나 이상의 항목을 추가해주세요');
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/teams/${selectedTeam.id}/checklists`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newChecklist),
+      });
+
+      if (res.ok) {
+        setShowNewChecklistDialog(false);
+        setNewChecklist({
+          checklist_name: '',
+          checklist_category: 'other',
+          description: '',
+          frequency: 'daily',
+          is_required: true,
+          items: [],
+        });
+        setError('');
+        fetchTeamChecklists(selectedTeam.id);
+      } else {
+        const err = await res.json();
+        setError(err.error || '체크리스트 생성에 실패했습니다');
+      }
+    } catch (error) {
+      console.error('Failed to create checklist:', error);
+      setError('체크리스트 생성에 실패했습니다');
+    }
+  };
+
+  const handleDeleteChecklist = async (checklistId: string) => {
+    if (!selectedTeam) return;
+    if (!confirm('이 체크리스트를 삭제하시겠습니까?')) return;
+
+    try {
+      const res = await fetch(`/api/teams/${selectedTeam.id}/checklists?checklist_id=${checklistId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        fetchTeamChecklists(selectedTeam.id);
+      }
+    } catch (error) {
+      console.error('Failed to delete checklist:', error);
+    }
+  };
+
+  const addChecklistItem = () => {
+    if (!newItemName.trim()) return;
+    setNewChecklist({
+      ...newChecklist,
+      items: [
+        ...newChecklist.items,
+        { item_name: newItemName.trim(), item_type: 'checkbox', is_required: true },
+      ],
+    });
+    setNewItemName('');
+  };
+
+  const removeChecklistItem = (index: number) => {
+    setNewChecklist({
+      ...newChecklist,
+      items: newChecklist.items.filter((_, i) => i !== index),
+    });
+  };
+
   // Get available employees (not already in the selected team)
   const getAvailableEmployees = () => {
     if (!selectedTeam) return employees;
@@ -538,6 +687,14 @@ function TeamsPageContent() {
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openChecklistsDialog(team)}
+                            title="체크리스트 관리"
+                          >
+                            <ClipboardList className="h-4 w-4 text-emerald-600" />
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"
@@ -894,6 +1051,225 @@ function TeamsPageContent() {
           <DialogFooter className="mt-6">
             <Button variant="outline" onClick={() => setShowMembersDialog(false)}>
               닫기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Team Checklists Dialog */}
+      <Dialog open={showChecklistsDialog} onOpenChange={setShowChecklistsDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-emerald-600" />
+              {selectedTeam?.name} - 체크리스트 관리
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-gray-500">
+                이 팀에 할당된 체크리스트를 관리합니다.
+              </p>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setError('');
+                  setShowNewChecklistDialog(true);
+                }}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                체크리스트 추가
+              </Button>
+            </div>
+
+            {checklistsLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto" />
+              </div>
+            ) : teamChecklists.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <ClipboardList className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p>아직 체크리스트가 없습니다.</p>
+                <p className="text-sm mt-1">새 체크리스트를 추가해보세요.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {teamChecklists.map((checklist) => (
+                  <div
+                    key={checklist.id}
+                    className="border rounded-lg p-4 hover:bg-gray-50"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium">{checklist.checklist_name}</h4>
+                          <Badge variant="secondary" className="text-xs">
+                            {CHECKLIST_CATEGORIES.find(c => c.value === checklist.checklist_category)?.label || checklist.checklist_category}
+                          </Badge>
+                        </div>
+                        {checklist.description && (
+                          <p className="text-sm text-gray-500 mt-1">{checklist.description}</p>
+                        )}
+                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
+                          <span>항목 {checklist.items?.length || 0}개</span>
+                          <span>
+                            {checklist.frequency === 'daily' && '매일'}
+                            {checklist.frequency === 'weekly' && '매주'}
+                            {checklist.frequency === 'monthly' && '매월'}
+                            {checklist.frequency === 'per_shift' && '교대마다'}
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteChecklist(checklist.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                    {checklist.items && checklist.items.length > 0 && (
+                      <div className="mt-3 pl-4 border-l-2 border-gray-200">
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          {checklist.items.slice(0, 3).map((item, idx) => (
+                            <li key={idx} className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                              {item.item_name}
+                            </li>
+                          ))}
+                          {checklist.items.length > 3 && (
+                            <li className="text-gray-400">
+                              +{checklist.items.length - 3}개 더
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setShowChecklistsDialog(false)}>
+              닫기
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Checklist Dialog */}
+      <Dialog open={showNewChecklistDialog} onOpenChange={setShowNewChecklistDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>새 체크리스트 추가</DialogTitle>
+          </DialogHeader>
+
+          {error && (
+            <Alert variant="error" className="mb-4">
+              {error}
+            </Alert>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <Label required>체크리스트 이름</Label>
+              <Input
+                value={newChecklist.checklist_name}
+                onChange={(e) => setNewChecklist({ ...newChecklist, checklist_name: e.target.value })}
+                placeholder="예: 오픈 점검 체크리스트"
+                className="mt-1"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>카테고리</Label>
+                <Select
+                  value={newChecklist.checklist_category}
+                  onChange={(e) => setNewChecklist({ ...newChecklist, checklist_category: e.target.value })}
+                  options={CHECKLIST_CATEGORIES}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label>빈도</Label>
+                <Select
+                  value={newChecklist.frequency}
+                  onChange={(e) => setNewChecklist({ ...newChecklist, frequency: e.target.value })}
+                  options={[
+                    { value: 'daily', label: '매일' },
+                    { value: 'weekly', label: '매주' },
+                    { value: 'monthly', label: '매월' },
+                    { value: 'per_shift', label: '교대마다' },
+                  ]}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>설명</Label>
+              <Input
+                value={newChecklist.description}
+                onChange={(e) => setNewChecklist({ ...newChecklist, description: e.target.value })}
+                placeholder="체크리스트에 대한 설명 (선택)"
+                className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label required>체크 항목</Label>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  value={newItemName}
+                  onChange={(e) => setNewItemName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addChecklistItem())}
+                  placeholder="항목명 입력 후 Enter"
+                  className="flex-1"
+                />
+                <Button type="button" variant="outline" onClick={addChecklistItem}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              {newChecklist.items.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {newChecklist.items.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 flex items-center justify-center bg-emerald-100 text-emerald-700 rounded text-sm">
+                          {index + 1}
+                        </span>
+                        <span>{item.item_name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeChecklistItem(index)}
+                        className="p-1 hover:bg-red-100 rounded"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setShowNewChecklistDialog(false)}>
+              취소
+            </Button>
+            <Button
+              onClick={handleCreateChecklist}
+              disabled={!newChecklist.checklist_name || newChecklist.items.length === 0}
+            >
+              추가
             </Button>
           </DialogFooter>
         </DialogContent>

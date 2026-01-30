@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +18,7 @@ interface TemperatureRecordRequest {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
     const location = searchParams.get('location');
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', userData.user.id)
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    let query = supabase
+    let query = adminClient
       .from('equipment_temperature_records')
       .select('*')
       .eq('company_id', userProfile.company_id);
@@ -76,6 +77,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body: TemperatureRecordRequest = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -83,7 +85,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('id, company_id')
       .eq('auth_id', userData.user.id)
@@ -94,7 +96,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 기준 온도 조회 (회사 설정에서)
-    const { data: settings } = await supabase
+    const { data: settings } = await adminClient
       .from('company_hygiene_settings')
       .select('temperature_locations')
       .eq('company_id', userProfile.company_id)
@@ -127,7 +129,7 @@ export async function POST(request: NextRequest) {
 
     const recordTime = body.record_time || new Date().toTimeString().split(' ')[0];
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('equipment_temperature_records')
       .insert({
         company_id: userProfile.company_id,
@@ -161,6 +163,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body: { records: TemperatureRecordRequest[] } = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -168,7 +171,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('id, company_id')
       .eq('auth_id', userData.user.id)
@@ -190,7 +193,7 @@ export async function PATCH(request: NextRequest) {
       recorded_by: userProfile.id,
     }));
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('equipment_temperature_records')
       .insert(records)
       .select();

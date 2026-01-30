@@ -203,12 +203,6 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
     return null;
   }
 
-  // Always show on mobile (iOS/Android), or on desktop if prompt is available
-  const shouldShow = isMobile || deferredPrompt;
-  if (!shouldShow) {
-    return null;
-  }
-
   return (
     <>
       <button
