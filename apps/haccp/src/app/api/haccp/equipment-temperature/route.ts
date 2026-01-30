@@ -62,6 +62,10 @@ export async function GET(request: NextRequest) {
       .order('record_time', { ascending: false });
 
     if (error) {
+      // 테이블이 없으면 빈 배열 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json([]);
+      }
       console.error('Error fetching temperature records:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -148,6 +152,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json({ error: 'equipment_temperature_records 테이블이 없습니다. DB 마이그레이션을 실행해주세요.' }, { status: 503 });
+      }
       console.error('Error creating temperature record:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -199,6 +206,9 @@ export async function PATCH(request: NextRequest) {
       .select();
 
     if (error) {
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json({ error: 'equipment_temperature_records 테이블이 없습니다. DB 마이그레이션을 실행해주세요.' }, { status: 503 });
+      }
       console.error('Error creating bulk temperature records:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
