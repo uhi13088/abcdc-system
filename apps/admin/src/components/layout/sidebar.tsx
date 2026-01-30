@@ -67,6 +67,7 @@ const navigation: NavItem[] = [
     children: [
       { name: '브랜드 관리', href: '/brands' },
       { name: '매장 관리', href: '/stores' },
+      { name: '팀 관리', href: '/teams' },
     ],
   },
   { name: '설정', href: '/settings', icon: Settings },
