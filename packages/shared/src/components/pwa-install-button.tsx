@@ -198,9 +198,131 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
     setShowInstallGuide(true);
   };
 
-  // Don't show if already installed
+  // Install Guide Modal (always rendered to allow showing from any state)
+  const installGuideModal = showInstallGuide && (
+    <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 p-4">
+      <div
+        className="bg-white rounded-t-2xl w-full max-w-md p-6"
+        style={{
+          animation: 'slideUp 0.3s ease-out',
+        }}
+      >
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            @keyframes slideUp {
+              from { transform: translateY(100%); }
+              to { transform: translateY(0); }
+            }
+          `
+        }} />
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">{isInstalled ? '앱 재설치 방법' : '앱 설치 방법'}</h3>
+          <button
+            onClick={() => setShowInstallGuide(false)}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        {isInstalled && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+            기존 앱을 삭제한 후 아래 방법으로 다시 설치하세요.
+          </div>
+        )}
+
+        {isIOS ? (
+          <ol className="space-y-4 text-sm text-gray-600">
+            <li className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">1</span>
+              <span>하단의 <strong>공유 버튼</strong> (□↑)을 탭하세요</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">2</span>
+              <span><strong>&quot;홈 화면에 추가&quot;</strong>를 선택하세요</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">3</span>
+              <span><strong>&quot;추가&quot;</strong>를 탭하면 완료!</span>
+            </li>
+          </ol>
+        ) : isAndroid ? (
+          <ol className="space-y-4 text-sm text-gray-600">
+            <li className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold">1</span>
+              <span>주소창 오른쪽의 <strong>메뉴 버튼</strong> (⋮)을 탭하세요</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold">2</span>
+              <span><strong>&quot;앱 설치&quot;</strong> 또는 <strong>&quot;홈 화면에 추가&quot;</strong>를 선택하세요</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold">3</span>
+              <span><strong>&quot;설치&quot;</strong>를 탭하면 완료!</span>
+            </li>
+          </ol>
+        ) : (
+          <ol className="space-y-4 text-sm text-gray-600">
+            <li className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-xs font-semibold">1</span>
+              <span>브라우저 메뉴에서 <strong>&quot;앱 설치&quot;</strong> 또는 <strong>&quot;바로가기 만들기&quot;</strong>를 찾으세요</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-xs font-semibold">2</span>
+              <span>Chrome: 주소창의 설치 아이콘(⊕) 클릭</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex-shrink-0 w-6 h-6 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-xs font-semibold">3</span>
+              <span><strong>&quot;설치&quot;</strong>를 클릭하면 완료!</span>
+            </li>
+          </ol>
+        )}
+
+        <button
+          onClick={() => setShowInstallGuide(false)}
+          className="w-full mt-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors"
+        >
+          확인
+        </button>
+      </div>
+    </div>
+  );
+
+  // Show different UI if already installed
   if (isInstalled) {
-    return null;
+    return (
+      <>
+        <div className={`flex flex-col items-center gap-2 ${className}`}>
+          <div className="flex items-center gap-2 text-sm text-green-600">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            앱이 이미 설치되어 있습니다
+          </div>
+          <button
+            onClick={() => setShowInstallGuide(true)}
+            className="text-xs text-gray-500 hover:text-gray-700 underline"
+          >
+            다시 설치하려면 여기를 클릭하세요
+          </button>
+        </div>
+        {installGuideModal}
+      </>
+    );
   }
 
   return (
@@ -226,96 +348,7 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
         </svg>
         앱 설치하기
       </button>
-
-      {/* Install Guide Modal */}
-      {showInstallGuide && (
-        <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 p-4">
-          <div
-            className="bg-white rounded-t-2xl w-full max-w-md p-6"
-            style={{
-              animation: 'slideUp 0.3s ease-out',
-            }}
-          >
-            <style dangerouslySetInnerHTML={{
-              __html: `
-                @keyframes slideUp {
-                  from { transform: translateY(100%); }
-                  to { transform: translateY(0); }
-                }
-              `
-            }} />
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">앱 설치 방법</h3>
-              <button
-                onClick={() => setShowInstallGuide(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-
-            {isIOS ? (
-              // iOS 설치 가이드
-              <ol className="space-y-4 text-sm text-gray-600">
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">1</span>
-                  <span>하단의 <strong>공유 버튼</strong> (□↑)을 탭하세요</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">2</span>
-                  <span><strong>&quot;홈 화면에 추가&quot;</strong>를 선택하세요</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-semibold">3</span>
-                  <span><strong>&quot;추가&quot;</strong>를 탭하면 완료!</span>
-                </li>
-              </ol>
-            ) : isAndroid ? (
-              // Android 설치 가이드
-              <ol className="space-y-4 text-sm text-gray-600">
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold">1</span>
-                  <span>주소창 오른쪽의 <strong>메뉴 버튼</strong> (⋮)을 탭하세요</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold">2</span>
-                  <span><strong>&quot;앱 설치&quot;</strong> 또는 <strong>&quot;홈 화면에 추가&quot;</strong>를 선택하세요</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold">3</span>
-                  <span><strong>&quot;설치&quot;</strong>를 탭하면 완료!</span>
-                </li>
-              </ol>
-            ) : (
-              // 일반 브라우저 가이드
-              <ol className="space-y-4 text-sm text-gray-600">
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-xs font-semibold">1</span>
-                  <span>브라우저 메뉴에서 <strong>&quot;앱 설치&quot;</strong> 또는 <strong>&quot;바로가기 만들기&quot;</strong>를 찾으세요</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-xs font-semibold">2</span>
-                  <span>Chrome: 주소창의 설치 아이콘(⊕) 클릭</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="flex-shrink-0 w-6 h-6 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-xs font-semibold">3</span>
-                  <span><strong>&quot;설치&quot;</strong>를 클릭하면 완료!</span>
-                </li>
-              </ol>
-            )}
-
-            <button
-              onClick={() => setShowInstallGuide(false)}
-              className="w-full mt-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors"
-            >
-              확인
-            </button>
-          </div>
-        </div>
-      )}
+      {installGuideModal}
     </>
   );
 }
