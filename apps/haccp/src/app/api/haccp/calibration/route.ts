@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +13,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const equipmentType = searchParams.get('equipmentType');
     const status = searchParams.get('status');
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', userData.user.id)
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    let query = supabase
+    let query = adminClient
       .from('calibration_records')
       .select(`
         *,
@@ -82,6 +83,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('id, company_id')
       .eq('auth_id', userData.user.id)
@@ -107,7 +109,7 @@ export async function POST(request: NextRequest) {
       nextCalibrationDate = calibrationDate.toISOString().split('T')[0];
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('calibration_records')
       .insert({
         company_id: userProfile.company_id,
@@ -154,6 +156,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -161,7 +164,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('id, company_id')
       .eq('auth_id', userData.user.id)
@@ -186,7 +189,7 @@ export async function PUT(request: NextRequest) {
 
     updateData.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('calibration_records')
       .update(updateData)
       .eq('id', id)
