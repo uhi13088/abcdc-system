@@ -50,15 +50,18 @@ interface EquipmentStatus {
   sensorStatus?: 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
 }
 
-const EQUIPMENT_LOCATIONS = [
-  { key: '냉동창고', label: '냉동창고', target: -18, type: 'freezer' as const },
-  { key: '배합실_냉장고', label: '배합실 냉장고', target: 5, type: 'fridge' as const },
-  { key: '내포장실_냉장고', label: '내포장실 냉장고', target: 5, type: 'fridge' as const },
-  { key: '내포장실_냉동고', label: '내포장실 냉동고', target: -18, type: 'freezer' as const },
-];
+interface EquipmentSetting {
+  id: string;
+  key: string;
+  name: string;
+  type: 'freezer' | 'fridge';
+  target_temp: number;
+  enabled: boolean;
+}
 
 export default function EquipmentDashboardPage() {
   const [equipmentStatus, setEquipmentStatus] = useState<EquipmentStatus[]>([]);
+  const [equipmentSettings, setEquipmentSettings] = useState<EquipmentSetting[]>([]);
   const [sensors, setSensors] = useState<IoTSensor[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -67,6 +70,14 @@ export default function EquipmentDashboardPage() {
   const fetchData = useCallback(async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
     try {
+      // Fetch equipment settings
+      const settingsResponse = await fetch('/api/haccp/equipment-settings');
+      const settingsData: EquipmentSetting[] = settingsResponse.ok ? await settingsResponse.json() : [];
+      setEquipmentSettings(settingsData);
+
+      // Filter to only enabled equipment
+      const enabledEquipment = settingsData.filter(eq => eq.enabled);
+
       // Fetch temperature records for today
       const tempResponse = await fetch(`/api/haccp/equipment-temperature?date=${today}`);
       const tempRecords: TemperatureRecord[] = tempResponse.ok ? await tempResponse.json() : [];
@@ -77,7 +88,8 @@ export default function EquipmentDashboardPage() {
       setSensors(sensorData);
 
       // Combine data for equipment status
-      const status: EquipmentStatus[] = EQUIPMENT_LOCATIONS.map((loc) => {
+      const status: EquipmentStatus[] = enabledEquipment.map((eq) => {
+        const loc = { key: eq.key, label: eq.name, target: eq.target_temp, type: eq.type };
         // Find matching sensor by location
         const matchingSensor = sensorData.find(
           (s) => s.location?.includes(loc.label) || s.sensor_name.includes(loc.label)
@@ -345,7 +357,7 @@ export default function EquipmentDashboardPage() {
       {/* Quick Actions */}
       <div className="bg-white rounded-xl shadow-sm border p-6">
         <h2 className="text-lg font-semibold mb-4">빠른 작업</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link
             href="/equipment/records"
             className="flex items-center gap-3 p-4 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -368,6 +380,18 @@ export default function EquipmentDashboardPage() {
             <div>
               <p className="font-medium">장비/센서 관리</p>
               <p className="text-sm text-gray-500">IoT 센서 등록 및 설정</p>
+            </div>
+          </Link>
+          <Link
+            href="/equipment/settings"
+            className="flex items-center gap-3 p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+              <Settings className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="font-medium">모니터링 장비 설정</p>
+              <p className="text-sm text-gray-500">장비 추가/수정/삭제</p>
             </div>
           </Link>
           <Link
