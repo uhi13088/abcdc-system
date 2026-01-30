@@ -31,10 +31,14 @@ export async function GET() {
       .limit(1);
 
     if (!existingTypes || existingTypes.length === 0) {
-      // 초기화 함수 호출
-      await supabase.rpc('initialize_ccp_verification_templates', {
-        p_company_id: userData.company_id
-      });
+      // 초기화 함수 호출 (함수가 없으면 무시)
+      try {
+        await supabase.rpc('initialize_ccp_verification_templates', {
+          p_company_id: userData.company_id
+        });
+      } catch (rpcError) {
+        console.log('RPC function not available, skipping initialization');
+      }
     }
 
     // 공정 유형 조회
