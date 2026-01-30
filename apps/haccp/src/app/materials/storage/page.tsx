@@ -150,6 +150,16 @@ const defaultTemperatureRanges: Record<string, { min: number; max: number }> = {
   OTHER: { min: 0, max: 30 },
 };
 
+// 창고 유형별 코드 접두사
+const storageTypePrefix: Record<string, string> = {
+  REFRIGERATOR: 'REF',
+  FREEZER: 'FRZ',
+  DRY_STORAGE: 'DRY',
+  CHEMICAL_STORAGE: 'CHM',
+  PACKAGING_STORAGE: 'PKG',
+  OTHER: 'ETC',
+};
+
 // ============================================
 // Main Component
 // ============================================
@@ -268,11 +278,29 @@ export default function MaterialsStoragePage() {
   // ============================================
   // Setting Handlers
   // ============================================
+
+  // 창고 코드 자동 생성 함수
+  const generateAreaCode = (type: StorageAreaSetting['storage_type']) => {
+    const prefix = storageTypePrefix[type] || 'ETC';
+    // 같은 유형의 기존 창고들 중 가장 큰 번호 찾기
+    const existingCodes = settings
+      .filter(s => s.storage_type === type)
+      .map(s => {
+        const match = s.area_code?.match(new RegExp(`^${prefix}-(\\d+)$`));
+        return match ? parseInt(match[1], 10) : 0;
+      });
+    const maxNum = existingCodes.length > 0 ? Math.max(...existingCodes) : 0;
+    const nextNum = maxNum + 1;
+    return `${prefix}-${String(nextNum).padStart(3, '0')}`;
+  };
+
   const handleStorageTypeChange = (type: StorageAreaSetting['storage_type']) => {
     const range = defaultTemperatureRanges[type];
+    const autoCode = generateAreaCode(type);
     setSettingFormData({
       ...settingFormData,
       storage_type: type,
+      area_code: autoCode,
       temperature_min: range.min,
       temperature_max: range.max,
     });
@@ -348,10 +376,12 @@ export default function MaterialsStoragePage() {
   };
 
   const resetSettingForm = () => {
+    const defaultType = 'REFRIGERATOR' as StorageAreaSetting['storage_type'];
+    const autoCode = generateAreaCode(defaultType);
     setSettingFormData({
       area_name: '',
-      area_code: '',
-      storage_type: 'REFRIGERATOR',
+      area_code: autoCode,
+      storage_type: defaultType,
       description: '',
       temperature_min: 0,
       temperature_max: 10,
@@ -821,13 +851,12 @@ function ManagementTab({
                   />
                 </div>
                 <div>
-                  <Label>창고 코드</Label>
+                  <Label>창고 코드 <span className="text-xs text-gray-400">(자동생성)</span></Label>
                   <input
                     type="text"
                     value={formData.area_code}
-                    onChange={(e) => setFormData({ ...formData, area_code: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="예: REF-01"
+                    readOnly
+                    className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-gray-600"
                   />
                 </div>
               </div>
