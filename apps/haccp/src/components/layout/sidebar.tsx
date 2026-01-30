@@ -73,6 +73,7 @@ const navigation: NavItem[] = [
     children: [
       { name: '원부재료', href: '/materials' },
       { name: '공급업체', href: '/suppliers' },
+      { name: '원부재료 보관창고', href: '/materials/storage' },
     ],
   },
   {
@@ -102,7 +103,6 @@ const navigation: NavItem[] = [
   { name: '교육 관리', href: '/training', icon: Users },
   { name: '검교정 관리', href: '/calibration', icon: Gauge },
   { name: '반품/회수/폐기', href: '/returns-disposals', icon: RotateCcw },
-  { name: '보관창고 점검', href: '/storage-inspections', icon: Warehouse },
   { name: '알림', href: '/notifications', icon: Bell },
   { name: '설정', href: '/settings', icon: Settings },
 ];

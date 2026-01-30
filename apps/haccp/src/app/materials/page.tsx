@@ -3,14 +3,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Search, Package, Edit, Trash2, X, AlertTriangle,
-  ArrowDownCircle, ArrowUpCircle, RefreshCw, CheckCircle, XCircle, AlertCircle,
-  ClipboardCheck, FileSpreadsheet, Download, Printer, ChevronDown, ChevronRight,
-  Factory, Filter, Settings, Eye
+  ArrowDownCircle, ArrowUpCircle, CheckCircle, XCircle,
+  ClipboardCheck, FileSpreadsheet, Download
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { ALLERGENS, formatAllergens } from '@/lib/constants/allergens';
-import { toBaseUnit, fromBaseUnit, toDisplayUnit, formatQuantity, getUnitType, ALL_UNIT_OPTIONS, type UnitType } from '@/lib/utils/unit-conversion';
-import Link from 'next/link';
+import { toBaseUnit, toDisplayUnit, formatQuantity, getUnitType, ALL_UNIT_OPTIONS, type UnitType } from '@/lib/utils/unit-conversion';
 import toast from 'react-hot-toast';
 
 // ============================================
@@ -111,7 +109,7 @@ interface MaterialLedgerEntry {
 }
 
 // Tab type
-type TabType = 'master' | 'receiving' | 'stock' | 'outgoing' | 'ledger' | 'settings';
+type TabType = 'master' | 'receiving' | 'stock' | 'outgoing' | 'ledger';
 
 // 보관위치 타입
 interface StorageLocation {
@@ -169,7 +167,6 @@ export default function MaterialsPage() {
     { id: 'stock' as TabType, label: '현재고', icon: Package },
     { id: 'outgoing' as TabType, label: '출고', icon: ArrowUpCircle },
     { id: 'ledger' as TabType, label: '수불부', icon: FileSpreadsheet },
-    { id: 'settings' as TabType, label: '설정', icon: Settings },
   ];
 
   return (
@@ -242,9 +239,6 @@ export default function MaterialsPage() {
           )}
           {activeTab === 'ledger' && (
             <LedgerTab materials={materials} />
-          )}
-          {activeTab === 'settings' && (
-            <SettingsTab />
           )}
         </>
       )}
@@ -1778,29 +1772,5 @@ function LedgerTab({ materials }: { materials: Material[] }) {
         </div>
       )}
     </>
-  );
-}
-
-// ============================================
-// Settings Tab (설정 - 보관창고 설정 페이지로 이동 안내)
-// ============================================
-function SettingsTab() {
-  return (
-    <div className="flex flex-col items-center justify-center py-16">
-      <Package className="w-16 h-16 text-gray-300 mb-6" />
-      <h3 className="text-xl font-semibold text-gray-900 mb-3">보관위치 관리가 통합되었습니다</h3>
-      <p className="text-gray-500 text-center mb-6 max-w-md">
-        보관위치는 이제 &apos;보관창고 점검&apos; 메뉴의 구역 설정에서 통합 관리됩니다.
-        <br />
-        온도/습도 기준값, IoT 센서 연동 등 더 다양한 설정이 가능합니다.
-      </p>
-      <Link
-        href="/storage-inspections/settings"
-        className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-      >
-        <Settings className="w-5 h-5" />
-        보관창고 구역 설정으로 이동
-      </Link>
-    </div>
   );
 }
