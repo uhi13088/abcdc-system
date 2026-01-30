@@ -73,7 +73,19 @@ const navigation: NavItem[] = [
     children: [
       { name: '원부재료', href: '/materials' },
       { name: '공급업체', href: '/suppliers' },
-      { name: '원부재료 보관창고', href: '/materials/storage' },
+      { name: '보관창고', href: '/materials/storage' },
+    ],
+  },
+  {
+    name: '완제품 관리',
+    href: '/finished-products',
+    icon: Factory,
+    children: [
+      { name: '생산관리', href: '/finished-products/production' },
+      { name: '보관창고', href: '/finished-products/storage' },
+      { name: '재고관리', href: '/finished-products/inventory' },
+      { name: '출하관리', href: '/finished-products/shipments' },
+      { name: '고객관리', href: '/finished-products/customers' },
     ],
   },
   {
@@ -88,16 +100,6 @@ const navigation: NavItem[] = [
       { name: '한글표시사항', href: '/products/labeling' },
     ],
   },
-  { name: '생산 관리', href: '/production', icon: Factory },
-  {
-    name: '출하 관리',
-    href: '/shipments',
-    icon: Truck,
-    children: [
-      { name: '출하 목록', href: '/shipments' },
-      { name: '고객 관리', href: '/customers' },
-    ],
-  },
   { name: '일일 종합 보고서', href: '/reports/daily', icon: FileText },
   { name: '감사 보고서', href: '/audit-report', icon: FileText },
   { name: '교육 관리', href: '/training', icon: Users },
@@ -110,7 +112,7 @@ const navigation: NavItem[] = [
 function SidebarComponent() {
   const pathname = usePathname();
   const router = useRouter();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['CCP 관리', '원부재료 관리', '제품 관리', '출하 관리', '장비 모니터링']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['CCP 관리', '원부재료 관리', '완제품 관리', '제품 관리', '장비 모니터링']);
   const [isHovered, setIsHovered] = useState(false);
 
   // Mobile sidebar state from context
