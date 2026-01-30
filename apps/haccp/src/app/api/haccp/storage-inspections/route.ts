@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -36,10 +36,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
     let query = adminClient
       .from('storage_inspections')
       .select('*')
-      .eq('company_id', userProfile.company_id)
+      .eq('company_id', userProfile.company_id);
+
+    // store_id 필터링
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    query = query
       .order('inspection_date', { ascending: false })
       .order('inspection_time', { ascending: false });
 
@@ -91,13 +101,16 @@ export async function POST(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id, name')
+      .select('id, company_id, name, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     // 온도 결과 자동 판정
     let temperatureResult = body.temperature_result;
@@ -132,6 +145,7 @@ export async function POST(request: NextRequest) {
       .from('storage_inspections')
       .insert({
         company_id: userProfile.company_id,
+        store_id: currentStoreId || null,
         inspected_by: userProfile.id,
         inspected_by_name: userProfile.name || '미지정',
         inspection_date: body.inspection_date || new Date().toISOString().split('T')[0],
@@ -188,13 +202,16 @@ export async function PUT(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     const { id, ...updateData } = body;
 
@@ -209,13 +226,17 @@ export async function PUT(request: NextRequest) {
       delete updateData.verified;
     }
 
-    const { data, error } = await adminClient
+    let updateQuery = adminClient
       .from('storage_inspections')
       .update(updateData)
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .select()
-      .single();
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      updateQuery = updateQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await updateQuery.select().single();
 
     if (error) {
       console.error('Error updating storage inspection:', error);

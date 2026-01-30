@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,15 +7,16 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -23,15 +24,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 현재 선택된 매장
+    const currentStoreId = userData.current_store_id || userData.store_id;
+
     const equipmentType = request.nextUrl.searchParams.get('equipment_type');
     const checkExpiring = request.nextUrl.searchParams.get('check_expiring') === 'true';
 
-    let query = supabase
+    let query = adminClient
       .from('equipment_calibration_records')
       .select('*')
       .eq('company_id', userData.company_id)
-      .eq('is_active', true)
-      .order('next_calibration_date', { ascending: true });
+      .eq('is_active', true);
+
+    // store_id 필터링
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    query = query.order('next_calibration_date', { ascending: true });
 
     if (equipmentType) {
       query = query.eq('equipment_type', equipmentType);
@@ -47,6 +57,10 @@ export async function GET(request: NextRequest) {
     const { data: records, error } = await query;
 
     if (error) {
+      // 테이블이 없으면 빈 배열 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json({ records: [], summary: { total: 0, expired: 0, expiringSoon: 0, valid: 0 } });
+      }
       console.error('Failed to fetch calibration records:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -79,21 +93,25 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
     if (!userData?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userData.current_store_id || userData.store_id;
 
     const body = await request.json();
     const {
@@ -134,10 +152,11 @@ export async function POST(request: NextRequest) {
       next_calibration_date = lastDate.toISOString().split('T')[0];
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('equipment_calibration_records')
       .insert({
         company_id: userData.company_id,
+        store_id: currentStoreId || null,
         equipment_type,
         equipment_name,
         equipment_code,
@@ -155,6 +174,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
+      // 테이블이 없으면 null 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json(null);
+      }
       console.error('Failed to create calibration record:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -170,21 +193,25 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
     if (!userData?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userData.current_store_id || userData.store_id;
 
     const body = await request.json();
     const { id, action, ...updateData } = body;
@@ -217,7 +244,7 @@ export async function PUT(request: NextRequest) {
         next_calibration_date = lastDate.toISOString().split('T')[0];
       }
 
-      const { data, error } = await supabase
+      let updateQuery = adminClient
         .from('equipment_calibration_records')
         .update({
           last_calibration_date,
@@ -230,9 +257,13 @@ export async function PUT(request: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
-        .eq('company_id', userData.company_id)
-        .select()
-        .single();
+        .eq('company_id', userData.company_id);
+
+      if (currentStoreId) {
+        updateQuery = updateQuery.eq('store_id', currentStoreId);
+      }
+
+      const { data, error } = await updateQuery.select().single();
 
       if (error) {
         console.error('Failed to renew calibration:', error);
@@ -243,16 +274,20 @@ export async function PUT(request: NextRequest) {
     }
 
     // 일반 수정
-    const { data, error } = await supabase
+    let updateQuery = adminClient
       .from('equipment_calibration_records')
       .update({
         ...updateData,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('company_id', userData.company_id)
-      .select()
-      .single();
+      .eq('company_id', userData.company_id);
+
+    if (currentStoreId) {
+      updateQuery = updateQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await updateQuery.select().single();
 
     if (error) {
       console.error('Failed to update calibration record:', error);
@@ -270,15 +305,16 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -286,17 +322,26 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 현재 선택된 매장
+    const currentStoreId = userData.current_store_id || userData.store_id;
+
     const id = request.nextUrl.searchParams.get('id');
 
     if (!id) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const { error } = await supabase
+    let deleteQuery = adminClient
       .from('equipment_calibration_records')
       .delete()
       .eq('id', id)
       .eq('company_id', userData.company_id);
+
+    if (currentStoreId) {
+      deleteQuery = deleteQuery.eq('store_id', currentStoreId);
+    }
+
+    const { error } = await deleteQuery;
 
     if (error) {
       console.error('Failed to delete calibration record:', error);

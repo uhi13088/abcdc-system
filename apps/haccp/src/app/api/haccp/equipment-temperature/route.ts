@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -40,10 +40,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
     let query = adminClient
       .from('equipment_temperature_records')
       .select('*')
       .eq('company_id', userProfile.company_id);
+
+    // store_id 필터링
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
 
     // 날짜 범위 필터
     if (startDate && endDate) {
@@ -91,13 +99,16 @@ export async function POST(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     // 기준 온도 조회 (회사 설정에서)
     const { data: settings } = await adminClient
@@ -137,6 +148,7 @@ export async function POST(request: NextRequest) {
       .from('equipment_temperature_records')
       .insert({
         company_id: userProfile.company_id,
+        store_id: currentStoreId || null,
         record_date: body.record_date,
         record_time: recordTime,
         equipment_location: body.equipment_location,
@@ -180,7 +192,7 @@ export async function PATCH(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -188,8 +200,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
     const records = body.records.map((r) => ({
       company_id: userProfile.company_id,
+      store_id: currentStoreId || null,
       record_date: r.record_date,
       record_time: r.record_time || new Date().toTimeString().split(' ')[0],
       equipment_location: r.equipment_location,
