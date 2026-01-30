@@ -57,8 +57,15 @@ const navigation: NavItem[] = [
   { name: '위생 점검', href: '/hygiene', icon: Sparkles },
   { name: '장비 온도 기록', href: '/equipment-temperature', icon: Thermometer },
   { name: '방충/방서', href: '/pest-control', icon: Bug },
-  { name: '원부재료 관리', href: '/materials', icon: Package },
-  { name: '공급업체 관리', href: '/suppliers', icon: Truck },
+  {
+    name: '원부재료 관리',
+    href: '/materials',
+    icon: Package,
+    children: [
+      { name: '원부재료', href: '/materials' },
+      { name: '공급업체', href: '/suppliers' },
+    ],
+  },
   {
     name: '제품 관리',
     href: '/products',
@@ -68,10 +75,19 @@ const navigation: NavItem[] = [
       { name: '반제품', href: '/semi-products' },
       { name: '레시피 관리', href: '/products/recipes' },
       { name: '패킹 규격', href: '/products/packing-specs' },
+      { name: '한글표시사항', href: '/products/labeling' },
     ],
   },
   { name: '생산 관리', href: '/production', icon: Factory },
-  { name: '출하 관리', href: '/shipments', icon: Truck },
+  {
+    name: '출하 관리',
+    href: '/shipments',
+    icon: Truck,
+    children: [
+      { name: '출하 목록', href: '/shipments' },
+      { name: '고객 관리', href: '/customers' },
+    ],
+  },
   { name: '일일 종합 보고서', href: '/reports/daily', icon: FileText },
   { name: '감사 보고서', href: '/audit-report', icon: FileText },
   { name: '교육 관리', href: '/training', icon: Users },
@@ -94,7 +110,7 @@ const navigation: NavItem[] = [
 function SidebarComponent() {
   const pathname = usePathname();
   const router = useRouter();
-  const [expandedItems, setExpandedItems] = useState<string[]>(['CCP 관리', '제품 관리', 'IoT 관리']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['CCP 관리', '원부재료 관리', '제품 관리', '출하 관리', 'IoT 관리']);
   const [isHovered, setIsHovered] = useState(false);
 
   // Mobile sidebar state from context

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -11,8 +11,57 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
+// Global cache for beforeinstallprompt event (to catch it before component mounts)
+let globalDeferredPrompt: BeforeInstallPromptEvent | null = null;
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e: Event) => {
+    e.preventDefault();
+    globalDeferredPrompt = e as BeforeInstallPromptEvent;
+  });
+}
+
 interface PWAInstallButtonProps {
   className?: string;
+}
+
+// Detect in-app browser
+function isInAppBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || navigator.vendor || '';
+  // Common in-app browsers: KakaoTalk, Line, Facebook, Instagram, Samsung Browser in-app, etc.
+  return /KAKAOTALK|FBAN|FBAV|Instagram|Line|NAVER|DaumApps|SamsungBrowser.*CrossApp/i.test(ua);
+}
+
+// Open URL in external browser (Chrome for Android)
+function openInExternalBrowser(url: string): void {
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  if (isAndroid) {
+    // Try intent:// scheme to open in Chrome
+    const intentUrl = `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
+
+    // Create a hidden link and click it
+    const link = document.createElement('a');
+    link.href = intentUrl;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Fallback: try to open normally after a delay (in case intent didn't work)
+    setTimeout(() => {
+      window.open(url, '_blank');
+    }, 1000);
+  } else if (isIOS) {
+    // iOS: Try to open in Safari using a workaround
+    // Unfortunately, iOS doesn't support intent:// scheme
+    // Copy URL and show instructions
+    navigator.clipboard?.writeText(url);
+    window.open(url, '_blank');
+  } else {
+    window.open(url, '_blank');
+  }
 }
 
 export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
@@ -21,7 +70,24 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
   const [isIOS, setIsIOS] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isInApp, setIsInApp] = useState(false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+
+  // Auto-trigger install prompt
+  const triggerInstallPrompt = useCallback(async () => {
+    if (globalDeferredPrompt) {
+      try {
+        await globalDeferredPrompt.prompt();
+        const { outcome } = await globalDeferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          globalDeferredPrompt = null;
+          setDeferredPrompt(null);
+        }
+      } catch {
+        // Prompt already shown or not available
+      }
+    }
+  }, []);
 
   useEffect(() => {
     // Check if already installed (standalone mode)
@@ -36,6 +102,10 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
       return;
     }
 
+    // Check for auto-install trigger from URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldAutoInstall = urlParams.get('pwa_install') === 'true';
+
     // Detect iOS (including iPad with desktop mode)
     const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -49,32 +119,77 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
     const isMobileDevice = isIOSDevice || isAndroidDevice || /webOS|BlackBerry|Opera Mini|IEMobile/.test(navigator.userAgent);
     setIsMobile(isMobileDevice);
 
+    // Detect in-app browser
+    const inApp = isInAppBrowser();
+    setIsInApp(inApp);
+
+    // Use globally cached prompt if available
+    if (globalDeferredPrompt) {
+      setDeferredPrompt(globalDeferredPrompt);
+
+      // Auto-trigger install if came from in-app browser redirect
+      if (shouldAutoInstall && !inApp) {
+        // Small delay to ensure prompt is ready
+        setTimeout(() => {
+          triggerInstallPrompt();
+          // Clean up URL parameter
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('pwa_install');
+          window.history.replaceState({}, '', newUrl.toString());
+        }, 500);
+      }
+    }
+
     // Listen for beforeinstallprompt event (Android/Chrome)
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
+      globalDeferredPrompt = e as BeforeInstallPromptEvent;
       setDeferredPrompt(e as BeforeInstallPromptEvent);
+
+      // Auto-trigger install if came from in-app browser redirect
+      if (shouldAutoInstall && !inApp) {
+        setTimeout(() => {
+          triggerInstallPrompt();
+          // Clean up URL parameter
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('pwa_install');
+          window.history.replaceState({}, '', newUrl.toString());
+        }, 500);
+      }
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     // Listen for app installed event
-    window.addEventListener('appinstalled', () => {
+    const handleAppInstalled = () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
-    });
+      globalDeferredPrompt = null;
+    };
+    window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
     };
-  }, []);
+  }, [triggerInstallPrompt]);
 
   const handleInstallClick = async () => {
+    // If in-app browser, open in external browser with auto-install flag
+    if (isInApp) {
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.set('pwa_install', 'true');
+      openInExternalBrowser(currentUrl.toString());
+      return;
+    }
+
     // If we have the native prompt, use it
     if (deferredPrompt) {
       await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         setDeferredPrompt(null);
+        globalDeferredPrompt = null;
       }
       return;
     }

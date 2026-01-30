@@ -67,6 +67,17 @@ interface Product {
   code?: string;
 }
 
+interface Customer {
+  id: string;
+  name: string;
+  business_number: string | null;
+  representative: string | null;
+  phone: string | null;
+  address: string | null;
+  contact_person: string | null;
+  contact_phone: string | null;
+}
+
 const PRE_SHIPMENT_CHECK_LABELS: Record<string, string> = {
   product_condition_check: '제품 상태',
   packaging_condition_check: '포장 상태',
@@ -79,6 +90,7 @@ const PRE_SHIPMENT_CHECK_LABELS: Record<string, string> = {
 export default function ShipmentsPage() {
   const [shipments, setShipments] = useState<ShipmentRecord[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -92,6 +104,7 @@ export default function ShipmentsPage() {
 
   const [formData, setFormData] = useState({
     shipment_number: '',
+    customer_id: '',
     customer_name: '',
     customer_address: '',
     customer_contact: '',
@@ -152,12 +165,47 @@ export default function ShipmentsPage() {
     }
   };
 
+  const fetchCustomers = async () => {
+    try {
+      const response = await fetch('/api/haccp/customers');
+      if (response.ok) {
+        const data = await response.json();
+        setCustomers(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch customers:', error);
+    }
+  };
+
+  // 고객 선택 시 자동으로 정보 입력
+  const handleCustomerSelect = (customerId: string) => {
+    const customer = customers.find(c => c.id === customerId);
+    if (customer) {
+      setFormData({
+        ...formData,
+        customer_id: customerId,
+        customer_name: customer.name,
+        customer_address: customer.address || '',
+        customer_contact: customer.phone || customer.contact_phone || '',
+      });
+    } else {
+      setFormData({
+        ...formData,
+        customer_id: '',
+        customer_name: '',
+        customer_address: '',
+        customer_contact: '',
+      });
+    }
+  };
+
   useEffect(() => {
     fetchShipments();
   }, [fetchShipments]);
 
   useEffect(() => {
     fetchProducts();
+    fetchCustomers();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -190,6 +238,7 @@ export default function ShipmentsPage() {
   const resetForm = () => {
     setFormData({
       shipment_number: '',
+      customer_id: '',
       customer_name: '',
       customer_address: '',
       customer_contact: '',
@@ -893,36 +942,52 @@ export default function ShipmentsPage() {
                     <p className="text-xs text-gray-500 mt-1">비워두면 자동 생성 (SHP-날짜-순번)</p>
                   </div>
                   <div>
-                    <Label required>고객명</Label>
-                    <input
-                      type="text"
-                      value={formData.customer_name}
-                      onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                    <Label required>고객 선택</Label>
+                    <select
+                      value={formData.customer_id}
+                      onChange={(e) => handleCustomerSelect(e.target.value)}
                       className="w-full px-3 py-2 border rounded-lg"
                       required
-                    />
+                    >
+                      <option value="">고객을 선택하세요</option>
+                      {customers.map((customer) => (
+                        <option key={customer.id} value={customer.id}>
+                          {customer.name} {customer.business_number && `(${customer.business_number})`}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
+                {formData.customer_id && (
+                  <div className="bg-gray-50 p-3 rounded-lg space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500 w-20">고객명:</span>
+                      <span className="font-medium">{formData.customer_name}</span>
+                    </div>
+                    {formData.customer_address && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 w-20">주소:</span>
+                        <span>{formData.customer_address}</span>
+                      </div>
+                    )}
+                    {formData.customer_contact && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 w-20">연락처:</span>
+                        <span>{formData.customer_contact}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div>
-                  <Label>배송지</Label>
+                  <Label>배송지 (직접 입력)</Label>
                   <input
                     type="text"
                     value={formData.customer_address}
                     onChange={(e) => setFormData({ ...formData, customer_address: e.target.value })}
                     className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="배송지 주소"
-                  />
-                </div>
-
-                <div>
-                  <Label>고객 연락처</Label>
-                  <input
-                    type="text"
-                    value={formData.customer_contact}
-                    onChange={(e) => setFormData({ ...formData, customer_contact: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="010-0000-0000"
+                    placeholder="고객 선택 시 자동 입력됩니다"
                   />
                 </div>
               </div>
