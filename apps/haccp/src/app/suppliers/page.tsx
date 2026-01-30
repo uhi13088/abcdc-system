@@ -45,6 +45,7 @@ interface Supplier {
   phone: string;
   email: string;
   address: string;
+  address_detail: string;
   certifications: string[];
   status: string;
 }
@@ -62,6 +63,7 @@ export default function SuppliersPage() {
     phone: '',
     email: '',
     address: '',
+    address_detail: '',
     certifications: [] as string[],
   });
 
@@ -158,6 +160,7 @@ export default function SuppliersPage() {
       phone: supplier.phone || '',
       email: supplier.email || '',
       address: supplier.address || '',
+      address_detail: supplier.address_detail || '',
       certifications: supplier.certifications || [],
     });
     setShowModal(true);
@@ -174,7 +177,7 @@ export default function SuppliersPage() {
   };
 
   const resetForm = () => {
-    setFormData({ code: '', name: '', contact: '', phone: '', email: '', address: '', certifications: [] });
+    setFormData({ code: '', name: '', contact: '', phone: '', email: '', address: '', address_detail: '', certifications: [] });
     setEditingSupplier(null);
   };
 
@@ -278,10 +281,13 @@ export default function SuppliersPage() {
                     {supplier.email}
                   </p>
                 )}
-                {supplier.address && (
+                {(supplier.address || supplier.address_detail) && (
                   <p className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-gray-400" />
-                    <span className="truncate">{supplier.address}</span>
+                    <span className="truncate">
+                      {supplier.address}
+                      {supplier.address_detail && ` ${supplier.address_detail}`}
+                    </span>
                   </p>
                 )}
               </div>
@@ -391,6 +397,13 @@ export default function SuppliersPage() {
                     검색
                   </button>
                 </div>
+                <input
+                  type="text"
+                  value={formData.address_detail}
+                  onChange={(e) => setFormData({ ...formData, address_detail: e.target.value })}
+                  placeholder="상세주소 (건물명, 동/호수 등)"
+                  className="w-full px-3 py-2 border rounded-lg mt-2"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">인증</label>

@@ -51,6 +51,7 @@ interface CompanySettings {
   business_number: string;
   representative: string;
   address: string;
+  address_detail: string;
   phone: string;
   haccp_certification_number: string;
   certification_date: string;
@@ -156,6 +157,7 @@ export default function SettingsPage() {
     business_number: '',
     representative: '',
     address: '',
+    address_detail: '',
     phone: '',
     haccp_certification_number: '',
     certification_date: '',
@@ -254,6 +256,7 @@ export default function SettingsPage() {
           business_number: data.companySettings.business_number || '',
           representative: data.companySettings.representative || '',
           address: data.companySettings.address || '',
+          address_detail: data.companySettings.address_detail || '',
           phone: data.companySettings.phone || '',
           haccp_certification_number: data.companySettings.haccp_certification_number || '',
           certification_date: data.companySettings.certification_date || '',
@@ -583,6 +586,13 @@ export default function SettingsPage() {
                   주소 검색
                 </button>
               </div>
+              <input
+                type="text"
+                value={companySettings.address_detail}
+                onChange={(e) => setCompanySettings({ ...companySettings, address_detail: e.target.value })}
+                placeholder="상세주소 (건물명, 동/호수 등)"
+                className="w-full px-3 py-2 border rounded-lg mt-2"
+              />
             </div>
           </div>
 
