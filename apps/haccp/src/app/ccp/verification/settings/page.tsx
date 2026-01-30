@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import {
   ArrowLeft, Plus, Save, Trash2, Settings, HelpCircle,
-  ChevronDown, ChevronUp, Edit2, GripVertical, CheckCircle2
+  ChevronDown, ChevronUp, Edit2, GripVertical, CheckCircle2,
+  Bell, Calendar, Clock
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
@@ -64,12 +65,43 @@ const CALIBRATION_FREQUENCIES = {
   WEEKLY: '주 1회',
 };
 
+interface NotificationSettings {
+  monthly_verification_reminder_enabled: boolean;
+  reminder_day: 'last_friday' | 'last_thursday' | 'last_monday';
+  reminder_time: string;
+  target_roles: string[];
+  reminder_message: string;
+}
+
+const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
+  monthly_verification_reminder_enabled: true,
+  reminder_day: 'last_friday',
+  reminder_time: '09:00',
+  target_roles: ['VERIFIER', 'ADMIN', 'MANAGER'],
+  reminder_message: '이번 달 CCP 월간 검증점검표를 작성해주세요.',
+};
+
+const ROLE_OPTIONS = [
+  { value: 'VERIFIER', label: '검증자' },
+  { value: 'MANAGER', label: '관리자' },
+  { value: 'ADMIN', label: '시스템관리자' },
+];
+
+const REMINDER_DAY_OPTIONS = [
+  { value: 'last_friday', label: '매달 마지막주 금요일' },
+  { value: 'last_thursday', label: '매달 마지막주 목요일' },
+  { value: 'last_monday', label: '매달 마지막주 월요일' },
+];
+
 export default function CCPVerificationSettingsPage() {
   const [processTypes, setProcessTypes] = useState<ProcessType[]>([]);
   const [questions, setQuestions] = useState<VerificationQuestion[]>([]);
   const [commonQuestions, setCommonQuestions] = useState<CommonQuestion[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'process' | 'questions' | 'common'>('process');
+  const [activeTab, setActiveTab] = useState<'process' | 'questions' | 'common' | 'notification'>('process');
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(DEFAULT_NOTIFICATION_SETTINGS);
+  const [savingNotification, setSavingNotification] = useState(false);
+  const [notificationSaved, setNotificationSaved] = useState(false);
   const [expandedProcess, setExpandedProcess] = useState<string | null>(null);
   const [showProcessModal, setShowProcessModal] = useState(false);
   const [showQuestionModal, setShowQuestionModal] = useState(false);
@@ -331,6 +363,17 @@ export default function CCPVerificationSettingsPage() {
             }`}
           >
             공통 검증 질문 (장비 검교정)
+          </button>
+          <button
+            onClick={() => setActiveTab('notification')}
+            className={`px-4 py-2 border-b-2 font-medium flex items-center gap-2 ${
+              activeTab === 'notification'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Bell className="w-4 h-4" />
+            알림 설정
           </button>
         </div>
       </div>
@@ -631,6 +674,201 @@ export default function CCPVerificationSettingsPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Notification Settings Tab */}
+          {activeTab === 'notification' && (
+            <div className="max-w-2xl">
+              <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                <div className="p-6 border-b bg-gradient-to-r from-blue-50 to-purple-50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                      <Bell className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">월간 검증 알림 설정</h3>
+                      <p className="text-sm text-gray-600">검증 담당자에게 월간 검증점검표 작성 알림을 보냅니다</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  {/* Enable Toggle */}
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-gray-900">알림 활성화</p>
+                      <p className="text-sm text-gray-500">매달 정해진 날짜에 알림을 발송합니다</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNotificationSettings({
+                        ...notificationSettings,
+                        monthly_verification_reminder_enabled: !notificationSettings.monthly_verification_reminder_enabled
+                      })}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        notificationSettings.monthly_verification_reminder_enabled ? 'bg-blue-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          notificationSettings.monthly_verification_reminder_enabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {notificationSettings.monthly_verification_reminder_enabled && (
+                    <>
+                      {/* Reminder Day */}
+                      <div>
+                        <Label className="flex items-center gap-2 mb-2">
+                          <Calendar className="w-4 h-4 text-gray-500" />
+                          알림 발송일
+                        </Label>
+                        <select
+                          value={notificationSettings.reminder_day}
+                          onChange={(e) => setNotificationSettings({
+                            ...notificationSettings,
+                            reminder_day: e.target.value as NotificationSettings['reminder_day']
+                          })}
+                          className="w-full px-3 py-2 border rounded-lg"
+                        >
+                          {REMINDER_DAY_OPTIONS.map(option => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          선택한 날짜에 검증 담당자에게 알림이 발송됩니다
+                        </p>
+                      </div>
+
+                      {/* Reminder Time */}
+                      <div>
+                        <Label className="flex items-center gap-2 mb-2">
+                          <Clock className="w-4 h-4 text-gray-500" />
+                          알림 발송 시간
+                        </Label>
+                        <input
+                          type="time"
+                          value={notificationSettings.reminder_time}
+                          onChange={(e) => setNotificationSettings({
+                            ...notificationSettings,
+                            reminder_time: e.target.value
+                          })}
+                          className="w-full px-3 py-2 border rounded-lg"
+                        />
+                      </div>
+
+                      {/* Target Roles */}
+                      <div>
+                        <Label className="mb-2">알림 대상</Label>
+                        <div className="space-y-2">
+                          {ROLE_OPTIONS.map(role => (
+                            <label key={role.value} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={notificationSettings.target_roles.includes(role.value)}
+                                onChange={(e) => {
+                                  const newRoles = e.target.checked
+                                    ? [...notificationSettings.target_roles, role.value]
+                                    : notificationSettings.target_roles.filter(r => r !== role.value);
+                                  setNotificationSettings({
+                                    ...notificationSettings,
+                                    target_roles: newRoles
+                                  });
+                                }}
+                                className="w-4 h-4 text-blue-600 rounded"
+                              />
+                              <span className="font-medium">{role.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Reminder Message */}
+                      <div>
+                        <Label className="mb-2">알림 메시지</Label>
+                        <textarea
+                          value={notificationSettings.reminder_message}
+                          onChange={(e) => setNotificationSettings({
+                            ...notificationSettings,
+                            reminder_message: e.target.value
+                          })}
+                          className="w-full px-3 py-2 border rounded-lg"
+                          rows={3}
+                          placeholder="알림 메시지를 입력하세요"
+                        />
+                      </div>
+
+                      {/* Preview */}
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm font-medium text-blue-800 mb-2">알림 미리보기</p>
+                        <div className="bg-white rounded-lg p-3 shadow-sm">
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Bell className="w-4 h-4 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">CCP 월간 검증</p>
+                              <p className="text-sm text-gray-600">{notificationSettings.reminder_message}</p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                {REMINDER_DAY_OPTIONS.find(o => o.value === notificationSettings.reminder_day)?.label} {notificationSettings.reminder_time}에 발송
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Save Button */}
+                  <div className="pt-4 border-t">
+                    <button
+                      onClick={async () => {
+                        setSavingNotification(true);
+                        try {
+                          const response = await fetch('/api/haccp/settings/notification', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              category: 'ccp_verification',
+                              settings: notificationSettings,
+                            }),
+                          });
+                          if (response.ok) {
+                            setNotificationSaved(true);
+                            setTimeout(() => setNotificationSaved(false), 3000);
+                          }
+                        } catch (error) {
+                          console.error('Failed to save notification settings:', error);
+                        } finally {
+                          setSavingNotification(false);
+                        }
+                      }}
+                      disabled={savingNotification}
+                      className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {savingNotification ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          저장 중...
+                        </>
+                      ) : notificationSaved ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          저장 완료!
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          설정 저장
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
