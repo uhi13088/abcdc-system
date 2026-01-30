@@ -513,6 +513,7 @@ export default function ShipmentsPage() {
 
     setFormData({
       shipment_number: '', // 자동 생성
+      customer_id: '',
       customer_name: randomCustomer.name,
       customer_address: randomCustomer.address,
       customer_contact: randomCustomer.contact,
