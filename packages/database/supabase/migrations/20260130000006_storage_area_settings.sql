@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS storage_area_settings (
   humidity_min DECIMAL(5,2),
   humidity_max DECIMAL(5,2),
 
-  -- IoT 센서 연동
-  iot_sensor_id UUID REFERENCES equipment_sensors(id) ON DELETE SET NULL,
+  -- IoT 센서 연동 (나중에 equipment_sensors 테이블 생성 시 FK 추가 가능)
+  iot_sensor_id UUID,
   iot_enabled BOOLEAN DEFAULT false,
 
   -- 점검 주기
@@ -42,7 +42,6 @@ CREATE TABLE IF NOT EXISTS storage_area_settings (
 -- 인덱스
 CREATE INDEX IF NOT EXISTS idx_storage_area_settings_company ON storage_area_settings(company_id);
 CREATE INDEX IF NOT EXISTS idx_storage_area_settings_active ON storage_area_settings(company_id, is_active);
-CREATE INDEX IF NOT EXISTS idx_storage_area_settings_sensor ON storage_area_settings(iot_sensor_id);
 
 -- RLS 정책
 ALTER TABLE storage_area_settings ENABLE ROW LEVEL SECURITY;
@@ -58,7 +57,7 @@ ALTER TABLE storage_inspections ADD COLUMN IF NOT EXISTS storage_area_setting_id
 -- 코멘트
 COMMENT ON TABLE storage_area_settings IS '보관창고 구역별 점검 설정';
 COMMENT ON COLUMN storage_area_settings.storage_type IS '창고 유형: REFRIGERATOR(냉장), FREEZER(냉동), DRY_STORAGE(상온), CHEMICAL_STORAGE(화학물질), PACKAGING_STORAGE(포장재), OTHER(기타)';
-COMMENT ON COLUMN storage_area_settings.iot_sensor_id IS '연동된 IoT 온습도 센서';
+COMMENT ON COLUMN storage_area_settings.iot_sensor_id IS '연동된 IoT 온습도 센서 ID (향후 equipment_sensors 테이블 연동)';
 COMMENT ON COLUMN storage_area_settings.inspection_frequency IS '점검 주기: HOURLY, TWICE_DAILY, DAILY, WEEKLY';
 
 -- 기본 데이터 시드 함수
