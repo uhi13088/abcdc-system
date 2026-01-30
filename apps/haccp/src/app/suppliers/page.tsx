@@ -1,7 +1,41 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, Building2, Edit, Trash2, X, Phone, Mail, MapPin } from 'lucide-react';
+
+declare global {
+  interface Window {
+    daum: {
+      Postcode: new (config: {
+        oncomplete: (data: DaumPostcodeData) => void;
+      }) => { open: () => void };
+    };
+  }
+}
+
+interface DaumPostcodeData {
+  zonecode: string;
+  roadAddress: string;
+  jibunAddress: string;
+  userSelectedType: string;
+  bname: string;
+  buildingName: string;
+  apartment: string;
+}
+
+// 전화번호 포맷팅
+const formatPhoneNumber = (value: string): string => {
+  const numbers = value.replace(/[^0-9]/g, '').slice(0, 11);
+  if (numbers.length <= 3) return numbers;
+  if (numbers.startsWith('02')) {
+    if (numbers.length <= 5) return `${numbers.slice(0, 2)}-${numbers.slice(2)}`;
+    if (numbers.length <= 9) return `${numbers.slice(0, 2)}-${numbers.slice(2, 5)}-${numbers.slice(5)}`;
+    return `${numbers.slice(0, 2)}-${numbers.slice(2, 6)}-${numbers.slice(6)}`;
+  }
+  if (numbers.length <= 6) return `${numbers.slice(0, 3)}-${numbers.slice(3)}`;
+  if (numbers.length <= 10) return `${numbers.slice(0, 3)}-${numbers.slice(3, 6)}-${numbers.slice(6)}`;
+  return `${numbers.slice(0, 3)}-${numbers.slice(3, 7)}-${numbers.slice(7)}`;
+};
 
 interface Supplier {
   id: string;
@@ -31,9 +65,49 @@ export default function SuppliersPage() {
     certifications: [] as string[],
   });
 
+  // 다음 우편번호 스크립트 로드
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = '//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+    script.async = true;
+    document.head.appendChild(script);
+    return () => {
+      if (document.head.contains(script)) {
+        document.head.removeChild(script);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     fetchSuppliers();
   }, []);
+
+  // 주소 검색 핸들러
+  const handleAddressSearch = useCallback(() => {
+    if (typeof window !== 'undefined' && window.daum?.Postcode) {
+      new window.daum.Postcode({
+        oncomplete: (data: DaumPostcodeData) => {
+          const roadAddr = data.roadAddress;
+          let extraAddr = '';
+          if (data.userSelectedType === 'R') {
+            if (data.bname !== '' && /[동|로|가]$/g.test(data.bname)) {
+              extraAddr += data.bname;
+            }
+            if (data.buildingName !== '' && data.apartment === 'Y') {
+              extraAddr += extraAddr !== '' ? ', ' + data.buildingName : data.buildingName;
+            }
+          }
+          const fullAddress = extraAddr !== '' ? `${roadAddr} (${extraAddr})` : roadAddr;
+          setFormData(prev => ({ ...prev, address: fullAddress }));
+        },
+      }).open();
+    }
+  }, []);
+
+  // 전화번호 변경 핸들러
+  const handlePhoneChange = (value: string) => {
+    setFormData({ ...formData, phone: formatPhoneNumber(value) });
+  };
 
   const fetchSuppliers = async () => {
     try {
@@ -283,7 +357,8 @@ export default function SuppliersPage() {
                   <input
                     type="tel"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) => handlePhoneChange(e.target.value)}
+                    placeholder="000-0000-0000"
                     className="w-full px-3 py-2 border rounded-lg"
                   />
                 </div>
@@ -299,12 +374,23 @@ export default function SuppliersPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">주소</label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formData.address}
+                    readOnly
+                    placeholder="주소 검색 버튼을 클릭하세요"
+                    className="flex-1 px-3 py-2 border rounded-lg bg-gray-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddressSearch}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
+                  >
+                    <Search className="w-4 h-4" />
+                    검색
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">인증</label>

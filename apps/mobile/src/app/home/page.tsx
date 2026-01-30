@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Clock, Calendar, Bell, ChevronRight, FileText, Send, MessageCircle } from 'lucide-react';
+import { Clock, Calendar, Bell, ChevronRight, FileText, Send, MessageCircle, ShieldCheck, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BottomNav } from '@/components/bottom-nav';
@@ -14,7 +14,7 @@ interface UserProfile {
   company_id: string | null;
   brand_id: string | null;
   store_id: string | null;
-  stores: { id: string; name: string } | null;
+  stores: { id: string; name: string; haccp_enabled?: boolean } | null;
 }
 
 interface TodaySchedule {
@@ -241,6 +241,27 @@ export default function HomePage() {
               근무신청
             </Link>
           </div>
+
+          {/* HACCP App Shortcut - Only show for HACCP enabled stores */}
+          {user?.stores?.haccp_enabled && (
+            <a
+              href={process.env.NEXT_PUBLIC_HACCP_URL || 'https://haccp.abcstaff.com'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between mt-3 p-4 bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl text-white"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-bold">HACCP 시스템</p>
+                  <p className="text-xs text-white/80">위생관리 체크리스트 및 점검</p>
+                </div>
+              </div>
+              <ExternalLink className="w-5 h-5" />
+            </a>
+          )}
         </div>
       </div>
 

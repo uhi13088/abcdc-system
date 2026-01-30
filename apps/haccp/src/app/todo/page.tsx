@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Clock,
   Trash2,
+  Filter,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -55,6 +56,48 @@ interface UserInfo {
   role: string;
 }
 
+// Team Checklist Types
+interface TeamChecklistItem {
+  id: string;
+  item_name: string;
+  item_type: string;
+  is_required: boolean;
+  display_order: number;
+  min_value?: number;
+  max_value?: number;
+  unit?: string;
+}
+
+interface TeamChecklistRecordItem {
+  item_id: string;
+  is_checked: boolean;
+  value_text?: string | null;
+  value_number?: number | null;
+}
+
+interface TeamChecklist {
+  id: string;
+  checklist_name: string;
+  checklist_category: string;
+  description?: string;
+  frequency: string;
+  team_id: string;
+  teams?: { id: string; name: string; team_type: string };
+  items: TeamChecklistItem[];
+  today_record?: { id: string; status: string };
+  record_items: TeamChecklistRecordItem[];
+  total_items: number;
+  completed_items: number;
+  progress: number;
+}
+
+interface UserTeam {
+  id: string;
+  name: string;
+  team_type: string;
+  role: string;
+}
+
 const ROLE_LABELS: Record<string, string> = {
   super_admin: '슈퍼관리자',
   company_admin: '관리자',
@@ -71,6 +114,12 @@ export default function TodoPage() {
   const [loading, setLoading] = useState(true);
   const [expandedTodos, setExpandedTodos] = useState<Set<string>>(new Set());
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+
+  // Team checklists state
+  const [userTeams, setUserTeams] = useState<UserTeam[]>([]);
+  const [teamChecklists, setTeamChecklists] = useState<TeamChecklist[]>([]);
+  const [selectedTeamFilter, setSelectedTeamFilter] = useState<string>('all');
+  const [expandedTeamChecklists, setExpandedTeamChecklists] = useState<Set<string>>(new Set());
 
   // 모달
   const [showModal, setShowModal] = useState(false);
@@ -119,6 +168,19 @@ export default function TodoPage() {
       if (suggestionsRes.ok) {
         const suggestionsData = await suggestionsRes.json();
         setSuggestions(suggestionsData);
+      }
+
+      // Fetch team checklists
+      const teamChecklistsRes = await fetch('/api/haccp/team-checklists');
+      if (teamChecklistsRes.ok) {
+        const teamData = await teamChecklistsRes.json();
+        setUserTeams(teamData.teams || []);
+        setTeamChecklists(teamData.checklists || []);
+        // Auto-expand in-progress checklists
+        const inProgressIds = (teamData.checklists || [])
+          .filter((c: TeamChecklist) => c.progress > 0 && c.progress < 100)
+          .map((c: TeamChecklist) => c.id);
+        setExpandedTeamChecklists(new Set(inProgressIds));
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -265,6 +327,91 @@ export default function TodoPage() {
       : `content=${encodeURIComponent(suggestion.content)}`;
     fetch(`/api/haccp/todo/suggestions?${params}`, { method: 'DELETE' })
       .catch(error => console.error('Failed to delete suggestion:', error));
+  };
+
+  // Team checklist handlers
+  const toggleTeamChecklist = (checklistId: string) => {
+    setExpandedTeamChecklists(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(checklistId)) {
+        newSet.delete(checklistId);
+      } else {
+        newSet.add(checklistId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleTeamChecklistItemToggle = async (
+    checklist: TeamChecklist,
+    item: TeamChecklistItem,
+    isChecked: boolean
+  ) => {
+    try {
+      // Find current item status
+      const currentItemRecord = checklist.record_items.find(ri => ri.item_id === item.id);
+
+      const response = await fetch('/api/haccp/team-checklists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          checklist_id: checklist.id,
+          team_id: checklist.team_id,
+          items: [{
+            item_id: item.id,
+            is_checked: isChecked,
+            value_text: currentItemRecord?.value_text,
+            value_number: currentItemRecord?.value_number,
+          }],
+        }),
+      });
+
+      if (response.ok) {
+        // Optimistic update
+        setTeamChecklists(prev => prev.map(c => {
+          if (c.id !== checklist.id) return c;
+
+          const newRecordItems = c.record_items.some(ri => ri.item_id === item.id)
+            ? c.record_items.map(ri => ri.item_id === item.id ? { ...ri, is_checked: isChecked } : ri)
+            : [...c.record_items, { item_id: item.id, is_checked: isChecked }];
+
+          const completedItems = newRecordItems.filter(ri => ri.is_checked).length;
+
+          return {
+            ...c,
+            record_items: newRecordItems,
+            completed_items: completedItems,
+            progress: c.total_items > 0 ? Math.round((completedItems / c.total_items) * 100) : 0,
+          };
+        }));
+
+        if (isChecked) {
+          toast.success('완료');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle team checklist item:', error);
+      toast.error('저장 실패');
+    }
+  };
+
+  // Filter team checklists by selected team
+  const filteredTeamChecklists = selectedTeamFilter === 'all'
+    ? teamChecklists
+    : teamChecklists.filter(c => c.team_id === selectedTeamFilter);
+
+  // Category labels
+  const CATEGORY_LABELS: Record<string, string> = {
+    hygiene: '위생점검',
+    ccp: 'CCP 모니터링',
+    equipment: '장비 온도',
+    pest_control: '방충방서',
+    storage: '보관창고',
+    production: '생산관리',
+    cleaning: '청소',
+    opening: '오픈 체크',
+    closing: '마감 체크',
+    other: '기타',
   };
 
   if (loading) {
@@ -423,6 +570,147 @@ export default function TodoPage() {
           ))
         )}
       </div>
+
+      {/* Team Checklists */}
+      {userTeams.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-emerald-600" />
+              <h2 className="text-lg font-semibold">팀 체크리스트</h2>
+            </div>
+            {userTeams.length > 1 && (
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-400" />
+                <select
+                  value={selectedTeamFilter}
+                  onChange={(e) => setSelectedTeamFilter(e.target.value)}
+                  className="px-3 py-1.5 text-sm border rounded-lg bg-white"
+                >
+                  <option value="all">모든 팀</option>
+                  {userTeams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {filteredTeamChecklists.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
+              <ClipboardList className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p className="text-gray-500">
+                {selectedTeamFilter === 'all'
+                  ? '할당된 팀 체크리스트가 없습니다'
+                  : '선택한 팀에 할당된 체크리스트가 없습니다'}
+              </p>
+            </div>
+          ) : (
+            filteredTeamChecklists.map((checklist) => {
+              const isExpanded = expandedTeamChecklists.has(checklist.id);
+
+              return (
+                <div key={checklist.id} className="bg-white rounded-xl shadow-sm border overflow-hidden">
+                  <div
+                    className="p-4 cursor-pointer hover:bg-gray-50"
+                    onClick={() => toggleTeamChecklist(checklist.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {isExpanded ? (
+                          <ChevronDown className="w-5 h-5 text-gray-400" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5 text-gray-400" />
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-gray-900">{checklist.checklist_name}</h3>
+                            <span className="px-2 py-0.5 text-xs bg-emerald-100 text-emerald-700 rounded-full">
+                              {checklist.teams?.name}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            {CATEGORY_LABELS[checklist.checklist_category] || checklist.checklist_category}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className={`text-2xl font-bold ${
+                            checklist.progress === 100 ? 'text-green-600' : 'text-emerald-600'
+                          }`}>
+                            {checklist.progress}%
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {checklist.completed_items}/{checklist.total_items}
+                          </div>
+                        </div>
+                        <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${checklist.progress === 100 ? 'bg-green-500' : 'bg-emerald-500'}`}
+                            style={{ width: `${checklist.progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="border-t divide-y">
+                      {checklist.items.map((item) => {
+                        const recordItem = checklist.record_items.find(ri => ri.item_id === item.id);
+                        const isChecked = recordItem?.is_checked || false;
+
+                        return (
+                          <div
+                            key={item.id}
+                            className={`p-4 flex items-center gap-4 ${isChecked ? 'bg-green-50' : ''}`}
+                          >
+                            <button
+                              onClick={() => handleTeamChecklistItemToggle(checklist, item, !isChecked)}
+                              className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                isChecked
+                                  ? 'bg-green-500 border-green-500 text-white'
+                                  : 'border-gray-300 hover:border-green-500'
+                              }`}
+                            >
+                              {isChecked && <Check className="w-5 h-5" />}
+                            </button>
+                            <div className="flex-1">
+                              <p className={isChecked ? 'line-through text-gray-400' : ''}>
+                                {item.item_name}
+                              </p>
+                              {item.item_type !== 'checkbox' && (
+                                <div className="flex items-center gap-2 mt-1">
+                                  {item.item_type === 'temperature' && (
+                                    <span className="text-xs text-gray-500">
+                                      {item.min_value}°C ~ {item.max_value}°C
+                                    </span>
+                                  )}
+                                  {item.item_type === 'number' && item.unit && (
+                                    <span className="text-xs text-gray-500">
+                                      단위: {item.unit}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            {item.is_required && !isChecked && (
+                              <span className="text-xs text-red-500">필수</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
 
       {/* 모달 */}
       {showModal && (
