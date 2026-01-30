@@ -17,11 +17,14 @@ export async function GET(request: NextRequest) {
 
     // 일반 클라이언트로 먼저 시도, 실패하면 admin 클라이언트 사용
     let dbClient = supabase;
-    let { data: userProfile, error: profileError } = await supabase
+    let userProfile: { id: string; company_id: string } | null = null;
+    const { data: initialProfile, error: profileError } = await supabase
       .from('users')
       .select('id, company_id')
       .eq('auth_id', userData.user.id)
       .single();
+
+    userProfile = initialProfile;
 
     // RLS 문제로 실패하면 admin 클라이언트 시도
     if (profileError && process.env.SUPABASE_SERVICE_ROLE_KEY) {

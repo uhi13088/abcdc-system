@@ -284,6 +284,7 @@ export default function StorageInspectionsPage() {
       inspection_time: new Date().toTimeString().split(' ')[0].slice(0, 5),
       shift: selectedShift,
       storage_area: selectedArea,
+      storage_area_setting_id: '',
       storage_type: selectedType,
       temperature: temp.value,
       temperature_min: temp.min,
