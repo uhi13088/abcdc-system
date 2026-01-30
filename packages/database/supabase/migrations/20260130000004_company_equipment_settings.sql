@@ -1,69 +1,76 @@
--- Company Equipment Settings Table
--- For configuring monitoring equipment locations/targets
+-- ============================================
+-- Company Equipment Settings Table - Schema Update
+-- 기존 테이블에 누락된 컬럼 추가
+-- ============================================
 
+-- 테이블이 없으면 생성 (sensor_id FK 제거 - iot_sensors 없을 수 있음)
 CREATE TABLE IF NOT EXISTS company_equipment_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   key TEXT NOT NULL,
   name TEXT NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('freezer', 'fridge')),
+  type TEXT NOT NULL,
   target_temp DECIMAL(5,2) NOT NULL,
   enabled BOOLEAN DEFAULT true,
   location TEXT,
-  sensor_id UUID REFERENCES iot_sensors(id) ON DELETE SET NULL,
+  sensor_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(company_id, key)
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Create index for faster lookups
+-- unique constraint 추가 (이미 있으면 무시)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'company_equipment_settings_company_id_key_key'
+  ) THEN
+    ALTER TABLE company_equipment_settings ADD CONSTRAINT company_equipment_settings_company_id_key_key UNIQUE(company_id, key);
+  END IF;
+EXCEPTION WHEN duplicate_object THEN
+  NULL;
+END $$;
+
+-- 인덱스 (이미 있으면 무시)
 CREATE INDEX IF NOT EXISTS idx_company_equipment_settings_company_id ON company_equipment_settings(company_id);
 
--- Add RLS policies
+-- RLS
 ALTER TABLE company_equipment_settings ENABLE ROW LEVEL SECURITY;
 
--- Policy for authenticated users to read their company's equipment settings
+-- 정책 (이미 있으면 삭제 후 재생성)
+DROP POLICY IF EXISTS company_equipment_settings_select ON company_equipment_settings;
+DROP POLICY IF EXISTS company_equipment_settings_insert ON company_equipment_settings;
+DROP POLICY IF EXISTS company_equipment_settings_update ON company_equipment_settings;
+DROP POLICY IF EXISTS company_equipment_settings_delete ON company_equipment_settings;
+
 CREATE POLICY company_equipment_settings_select ON company_equipment_settings
   FOR SELECT TO authenticated
   USING (
-    company_id IN (
-      SELECT company_id FROM users WHERE auth_id = auth.uid()
-    )
+    company_id IN (SELECT company_id FROM users WHERE auth_id = auth.uid())
   );
 
--- Policy for authenticated users to insert equipment settings for their company
 CREATE POLICY company_equipment_settings_insert ON company_equipment_settings
   FOR INSERT TO authenticated
   WITH CHECK (
-    company_id IN (
-      SELECT company_id FROM users WHERE auth_id = auth.uid()
-    )
+    company_id IN (SELECT company_id FROM users WHERE auth_id = auth.uid())
   );
 
--- Policy for authenticated users to update their company's equipment settings
 CREATE POLICY company_equipment_settings_update ON company_equipment_settings
   FOR UPDATE TO authenticated
   USING (
-    company_id IN (
-      SELECT company_id FROM users WHERE auth_id = auth.uid()
-    )
+    company_id IN (SELECT company_id FROM users WHERE auth_id = auth.uid())
   )
   WITH CHECK (
-    company_id IN (
-      SELECT company_id FROM users WHERE auth_id = auth.uid()
-    )
+    company_id IN (SELECT company_id FROM users WHERE auth_id = auth.uid())
   );
 
--- Policy for authenticated users to delete their company's equipment settings
 CREATE POLICY company_equipment_settings_delete ON company_equipment_settings
   FOR DELETE TO authenticated
   USING (
-    company_id IN (
-      SELECT company_id FROM users WHERE auth_id = auth.uid()
-    )
+    company_id IN (SELECT company_id FROM users WHERE auth_id = auth.uid())
   );
 
--- Trigger to update updated_at
+-- 트리거
+DROP TRIGGER IF EXISTS update_company_equipment_settings_updated_at ON company_equipment_settings;
 CREATE OR REPLACE FUNCTION update_company_equipment_settings_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -77,9 +84,4 @@ CREATE TRIGGER update_company_equipment_settings_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_company_equipment_settings_updated_at();
 
--- Comments
-COMMENT ON TABLE company_equipment_settings IS 'Company-specific temperature monitoring equipment settings';
-COMMENT ON COLUMN company_equipment_settings.key IS 'Unique key identifier for the equipment within a company';
-COMMENT ON COLUMN company_equipment_settings.type IS 'Equipment type: freezer or fridge';
-COMMENT ON COLUMN company_equipment_settings.target_temp IS 'Target temperature in Celsius';
-COMMENT ON COLUMN company_equipment_settings.sensor_id IS 'Optional linked IoT sensor';
+SELECT 'Company equipment settings table updated successfully!' as result;

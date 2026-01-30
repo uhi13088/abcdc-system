@@ -1,47 +1,66 @@
 -- ============================================
--- Sensor Readings Table
--- For storing IoT sensor reading history
+-- Sensor Readings Table - Schema Update
+-- 기존 테이블에 누락된 컬럼 추가
 -- ============================================
 
+-- 테이블이 없으면 생성
 CREATE TABLE IF NOT EXISTS sensor_readings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   sensor_id UUID NOT NULL REFERENCES iot_sensors(id) ON DELETE CASCADE,
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-
-  -- 측정값
   reading_value DECIMAL(10,4) NOT NULL,
-  reading_unit VARCHAR(20),
-
-  -- 한계 기준 확인
-  is_within_limit BOOLEAN,
-  limit_min DECIMAL(10,2),
-  limit_max DECIMAL(10,2),
-
-  -- 기록 시간
-  recorded_at TIMESTAMPTZ DEFAULT NOW(),
-
-  -- 메타데이터
-  raw_data JSONB,
-  source VARCHAR(50) DEFAULT 'IOT'
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 인덱스 (시계열 데이터 최적화)
+-- 누락된 컬럼들 추가 (이미 있으면 무시)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'sensor_readings' AND column_name = 'reading_unit') THEN
+    ALTER TABLE sensor_readings ADD COLUMN reading_unit VARCHAR(20);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'sensor_readings' AND column_name = 'is_within_limit') THEN
+    ALTER TABLE sensor_readings ADD COLUMN is_within_limit BOOLEAN;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'sensor_readings' AND column_name = 'limit_min') THEN
+    ALTER TABLE sensor_readings ADD COLUMN limit_min DECIMAL(10,2);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'sensor_readings' AND column_name = 'limit_max') THEN
+    ALTER TABLE sensor_readings ADD COLUMN limit_max DECIMAL(10,2);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'sensor_readings' AND column_name = 'recorded_at') THEN
+    ALTER TABLE sensor_readings ADD COLUMN recorded_at TIMESTAMPTZ DEFAULT NOW();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'sensor_readings' AND column_name = 'raw_data') THEN
+    ALTER TABLE sensor_readings ADD COLUMN raw_data JSONB;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'sensor_readings' AND column_name = 'source') THEN
+    ALTER TABLE sensor_readings ADD COLUMN source VARCHAR(50) DEFAULT 'IOT';
+  END IF;
+END $$;
+
+-- 인덱스 (이미 있으면 무시)
 CREATE INDEX IF NOT EXISTS idx_sensor_readings_sensor_time ON sensor_readings(sensor_id, recorded_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sensor_readings_company_time ON sensor_readings(company_id, recorded_at DESC);
-CREATE INDEX IF NOT EXISTS idx_sensor_readings_limit ON sensor_readings(sensor_id, is_within_limit) WHERE is_within_limit = false;
-
--- 파티셔닝을 위한 시간 인덱스
 CREATE INDEX IF NOT EXISTS idx_sensor_readings_recorded_at ON sensor_readings(recorded_at);
 
--- RLS 정책
+-- RLS
 ALTER TABLE sensor_readings ENABLE ROW LEVEL SECURITY;
 
+-- 정책 (이미 있으면 삭제 후 재생성)
+DROP POLICY IF EXISTS sensor_readings_policy ON sensor_readings;
 CREATE POLICY sensor_readings_policy ON sensor_readings FOR ALL USING (
   company_id IN (SELECT company_id FROM users WHERE auth_id = auth.uid())
   OR EXISTS (SELECT 1 FROM users WHERE auth_id = auth.uid() AND role = 'super_admin')
 );
 
 -- 센서 최신 값 업데이트 트리거
+DROP TRIGGER IF EXISTS update_sensor_last_reading ON sensor_readings;
 CREATE OR REPLACE FUNCTION update_sensor_last_reading()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -61,9 +80,4 @@ CREATE TRIGGER update_sensor_last_reading
   FOR EACH ROW
   EXECUTE FUNCTION update_sensor_last_reading();
 
--- 코멘트
-COMMENT ON TABLE sensor_readings IS 'IoT 센서 측정값 기록';
-COMMENT ON COLUMN sensor_readings.is_within_limit IS '한계 기준 이내 여부';
-COMMENT ON COLUMN sensor_readings.source IS '데이터 소스: IOT, MANUAL, IMPORT';
-
-SELECT 'Sensor readings table created successfully!' as result;
+SELECT 'Sensor readings table updated successfully!' as result;
