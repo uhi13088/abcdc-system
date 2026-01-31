@@ -188,3 +188,19 @@ BEGIN
         END IF;
     END IF;
 END $$;
+
+-- =====================================================
+-- 8. Add store_id to audit_reports if missing
+-- =====================================================
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'audit_reports') THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'audit_reports' AND column_name = 'store_id'
+        ) THEN
+            ALTER TABLE audit_reports ADD COLUMN store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+            CREATE INDEX IF NOT EXISTS idx_audit_reports_store ON audit_reports(store_id);
+        END IF;
+    END IF;
+END $$;
