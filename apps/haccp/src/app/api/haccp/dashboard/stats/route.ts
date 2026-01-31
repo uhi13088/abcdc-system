@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { format, startOfWeek, startOfMonth } from 'date-fns';
+import { format, startOfWeek } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,7 +63,6 @@ export async function GET(_request: NextRequest) {
     const today = new Date();
     const todayStr = format(today, 'yyyy-MM-dd');
     const weekStart = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const monthStart = format(startOfMonth(today), 'yyyy-MM-dd');
 
     // 쿼리 빌더 헬퍼 - store_id 조건 추가
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,21 +114,22 @@ export async function GET(_request: NextRequest) {
           .eq('is_within_limit', false)
       ),
 
-      // 4. 재고 부족 원료 (안전재고 이하) - 컬럼간 비교는 JS에서 처리
+      // 4. 재고 부족 원료 (재고가 0 이하인 것)
       addStoreFilter(
         adminClient
           .from('material_stocks')
-          .select('id, current_balance, safety_stock')
+          .select('id, quantity')
           .eq('company_id', companyId)
+          .eq('status', 'AVAILABLE')
       ),
 
-      // 5. 입고검사 대기
+      // 5. 입고검사 대기 (CONDITIONAL 상태)
       addStoreFilter(
         adminClient
           .from('material_inspections')
           .select('id', { count: 'exact' })
           .eq('company_id', companyId)
-          .eq('result', 'HOLD')
+          .eq('overall_result', 'CONDITIONAL')
       ),
 
       // 6. 오늘 생산 기록
@@ -157,14 +157,15 @@ export async function GET(_request: NextRequest) {
             .from('ccp_definitions')
             .select('id', { count: 'exact' })
             .eq('company_id', companyId)
-            .eq('is_active', true)
+            .eq('status', 'ACTIVE')
         ),
         addStoreFilter(
           adminClient
             .from('ccp_verifications')
             .select('id', { count: 'exact' })
             .eq('company_id', companyId)
-            .gte('verification_date', monthStart)
+            .eq('verification_year', today.getFullYear())
+            .eq('verification_month', today.getMonth() + 1)
         ),
       ]),
 
@@ -212,10 +213,9 @@ export async function GET(_request: NextRequest) {
       createdAt: alert.created_at,
     }));
 
-    // 재고 부족 계산 (current_balance <= safety_stock)
+    // 재고 부족 계산 (quantity <= 0)
     const lowStockCount = (lowStockResult.data || []).filter(
-      (s: { current_balance: number; safety_stock: number }) =>
-        s.current_balance <= (s.safety_stock || 0)
+      (s: { quantity: number }) => s.quantity <= 0
     ).length;
 
     const stats: DashboardStats = {
