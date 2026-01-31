@@ -5,12 +5,39 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Clock, Download, CheckCircle } from 'lucide-react';
 
+// Detect in-app browser
+function isInAppBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /KAKAOTALK|FBAN|FBAV|Instagram|Line|NAVER|DaumApps|SamsungBrowser.*CrossApp/i.test(ua);
+}
+
+// Open URL in external browser
+function openInExternalBrowser(url: string): void {
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  if (isAndroid) {
+    const intentUrl = `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
+    const link = document.createElement('a');
+    link.href = intentUrl;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => window.open(url, '_blank'), 1000);
+  } else {
+    window.open(url, '_blank');
+  }
+}
+
 // Inline PWA Install Button for mobile app (more reliable than shared component)
 function MobilePWAInstallButton() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showSuccessNotification, setShowSuccessNotification] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
+  const [isInApp, setIsInApp] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
 
   useEffect(() => {
@@ -23,21 +50,69 @@ function MobilePWAInstallButton() {
     const ua = navigator.userAgent;
     setIsIOS(/iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
     setIsAndroid(/Android/.test(ua));
+    setIsInApp(isInAppBrowser());
+
+    // Check for auto-install trigger from URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldAutoInstall = urlParams.get('pwa_install') === 'true';
 
     // Listen for install prompt
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
+
+      // Auto-trigger install if came from in-app browser redirect
+      if (shouldAutoInstall && !isInAppBrowser()) {
+        setTimeout(async () => {
+          if ('prompt' in e) {
+            (e as { prompt: () => Promise<void> }).prompt();
+          }
+          // Clean up URL parameter
+          const newUrl = new URL(window.location.href);
+          newUrl.searchParams.delete('pwa_install');
+          window.history.replaceState({}, '', newUrl.toString());
+        }, 500);
+      }
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
 
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+    // Listen for app installed
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
+      setShowSuccessNotification(true);
+      setTimeout(() => setShowSuccessNotification(false), 3000);
+    };
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
   }, []);
 
-  const handleInstall = async () => {
+  const handleInstallClick = () => {
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmInstall = async () => {
+    setShowConfirmDialog(false);
+
+    // If in-app browser, open in external browser with auto-install flag
+    if (isInApp) {
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.set('pwa_install', 'true');
+      openInExternalBrowser(currentUrl.toString());
+      return;
+    }
+
     if (deferredPrompt && 'prompt' in deferredPrompt) {
-      (deferredPrompt as { prompt: () => Promise<void> }).prompt();
-      setDeferredPrompt(null);
+      await (deferredPrompt as { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }).prompt();
+      const { outcome } = await (deferredPrompt as { userChoice: Promise<{ outcome: string }> }).userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+        setShowSuccessNotification(true);
+        setTimeout(() => setShowSuccessNotification(false), 3000);
+      }
     } else {
       setShowGuide(true);
     }
@@ -60,12 +135,61 @@ function MobilePWAInstallButton() {
         </div>
       ) : (
         <button
-          onClick={handleInstall}
+          onClick={handleInstallClick}
           className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors"
         >
           <Download className="w-4 h-4" />
           앱 설치하기
         </button>
+      )}
+
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowConfirmDialog(false)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Download className="w-8 h-8 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">앱을 설치하시겠습니까?</h3>
+              <p className="text-sm text-gray-500">
+                {isInApp
+                  ? '외부 브라우저에서 앱을 설치합니다.'
+                  : '홈 화면에 앱 아이콘이 추가됩니다.'}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowConfirmDialog(false)}
+                className="flex-1 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+              >
+                아니오
+              </button>
+              <button
+                onClick={handleConfirmInstall}
+                className="flex-1 py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
+              >
+                예
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Notification */}
+      {showSuccessNotification && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
+          <div className="bg-green-500 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2 animate-slide-down">
+            <CheckCircle className="w-5 h-5" />
+            <span className="font-medium">앱이 설치되었습니다!</span>
+          </div>
+        </div>
       )}
 
       {/* Install Guide Modal */}
@@ -148,8 +272,22 @@ function MobilePWAInstallButton() {
           from { transform: translateY(100%); }
           to { transform: translateY(0); }
         }
+        @keyframes fade-in {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes slide-down {
+          from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
         .animate-slide-up {
           animation: slide-up 0.3s ease-out;
+        }
+        .animate-fade-in {
+          animation: fade-in 0.2s ease-out;
+        }
+        .animate-slide-down {
+          animation: slide-down 0.3s ease-out;
         }
       `}</style>
     </>
