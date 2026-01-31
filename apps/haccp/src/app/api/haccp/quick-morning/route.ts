@@ -428,7 +428,7 @@ export async function GET(request: NextRequest) {
       .from('ccp_definitions')
       .select('id', { count: 'exact', head: true })
       .eq('company_id', userProfile.company_id)
-      .eq('is_active', true);
+      .eq('status', 'ACTIVE');
 
     if (currentStoreId) {
       ccpCountQuery = ccpCountQuery.eq('store_id', currentStoreId);
