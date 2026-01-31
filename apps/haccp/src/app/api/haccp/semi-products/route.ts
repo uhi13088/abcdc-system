@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     // 사용자 회사 정보 조회
     const { data: userData } = await adminClient
       .from('users')
-      .select('company_id, store_id, current_store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
     // Get user info
     const { data: userData } = await adminClient
       .from('users')
-      .select('id, company_id, store_id, current_store_id, role')
+      .select('id, company_id, store_id, current_store_id, current_haccp_store_id, role')
       .eq('auth_id', user.id)
       .single();
 

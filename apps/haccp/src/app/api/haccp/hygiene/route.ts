@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, store_id, current_store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -40,8 +40,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 현재 선택된 매장
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     let query = adminClient
       .from('daily_hygiene_checks')
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id, name, store_id, current_store_id')
+      .select('id, company_id, name, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 현재 선택된 매장
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     // 온도 기록이 있으면 equipment_temperature_records에도 저장
     if (body.temperature_records) {
@@ -205,7 +205,7 @@ export async function PUT(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id, name, role, store_id, current_store_id')
+      .select('id, company_id, name, role, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -214,7 +214,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // 현재 선택된 매장
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     interface UpdateData {
       verified_by?: string;
@@ -318,7 +318,7 @@ export async function DELETE(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id, store_id, current_store_id')
+      .select('id, company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -327,7 +327,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 현재 선택된 매장
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     // 기록 존재 여부 확인 (store_id 필터링 포함)
     let existingQuery = adminClient

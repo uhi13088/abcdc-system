@@ -16,7 +16,7 @@ export async function GET(_request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, store_id, current_store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -25,7 +25,7 @@ export async function GET(_request: NextRequest) {
     }
 
     // 현재 선택된 매장
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     let query = adminClient
       .from('material_stocks')

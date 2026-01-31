@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, store_id, current_store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
     }
 
     const companyId = userProfile.company_id;
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     // 1. CCP 기록
     let ccpQuery = adminClient
@@ -350,7 +350,7 @@ export async function POST(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, name, company_id, role, store_id, current_store_id')
+      .select('id, name, company_id, role, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -358,7 +358,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     // 검증 권한 확인 (manager 이상)
     const allowedRoles = ['super_admin', 'company_admin', 'manager', 'store_manager', 'team_leader'];

@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('company_id, store_id, current_store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
 
     const { data: profile } = await adminClient
       .from('users')
-      .select('id, company_id, store_id, current_store_id')
+      .select('id, company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
 
-    const currentStoreId = profile.current_store_id || profile.store_id;
+    const currentStoreId = profile.current_haccp_store_id || profile.current_store_id || profile.store_id;
 
     const {
       process_type_id,
@@ -346,7 +346,7 @@ export async function PUT(request: NextRequest) {
 
     const { data: profile } = await adminClient
       .from('users')
-      .select('id, company_id, store_id, current_store_id')
+      .select('id, company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -354,7 +354,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
 
-    const currentStoreId = profile.current_store_id || profile.store_id;
+    const currentStoreId = profile.current_haccp_store_id || profile.current_store_id || profile.store_id;
 
     const { id, action, responses, ...updateData } = body;
 
@@ -534,7 +534,7 @@ export async function DELETE(request: NextRequest) {
 
     const { data: profile } = await adminClient
       .from('users')
-      .select('company_id, store_id, current_store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -542,7 +542,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
 
-    const currentStoreId = profile.current_store_id || profile.store_id;
+    const currentStoreId = profile.current_haccp_store_id || profile.current_store_id || profile.store_id;
 
     if (!id) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     // 사용자 정보 및 매장 정보 조회
     const { data: profile } = await adminClient
       .from('users')
-      .select('id, company_id, store_id, current_store_id')
+      .select('id, company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -37,8 +37,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 현재 선택된 매장 (current_store_id 우선, 없으면 store_id)
-    const currentStoreId = profile.current_store_id || profile.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const currentStoreId = profile.current_haccp_store_id || profile.current_haccp_store_id || profile.current_store_id || profile.store_id;
 
     // 기본 쿼리 (FK 조인 최소화)
     let query = adminClient
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
     // Get user's company_id and store_id
     const { data: profile } = await adminClient
       .from('users')
-      .select('id, company_id, store_id, current_store_id')
+      .select('id, company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 현재 선택된 매장
-    const currentStoreId = profile.current_store_id || profile.store_id;
+    const currentStoreId = profile.current_haccp_store_id || profile.current_store_id || profile.store_id;
 
     // CCP 정보 조회 (이탈 시 개선조치 생성용)
     const { data: ccpDef } = await adminClient
@@ -278,7 +278,7 @@ export async function DELETE(request: NextRequest) {
 
     const { data: profile } = await adminClient
       .from('users')
-      .select('id, company_id, store_id, current_store_id')
+      .select('id, company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -287,7 +287,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 현재 선택된 매장
-    const currentStoreId = profile.current_store_id || profile.store_id;
+    const currentStoreId = profile.current_haccp_store_id || profile.current_store_id || profile.store_id;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
