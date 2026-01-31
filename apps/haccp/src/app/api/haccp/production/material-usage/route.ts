@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -43,11 +43,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    const currentStoreId = userData.current_store_id || userData.store_id;
     const productionRecordId = request.nextUrl.searchParams.get('production_record_id');
 
     if (productionRecordId) {
       // 특정 생산 기록의 원료 사용 내역 조회
-      const { data: transactions, error } = await adminClient
+      let query = adminClient
         .from('material_transactions')
         .select(`
           *,
@@ -56,6 +57,12 @@ export async function GET(request: NextRequest) {
         .eq('company_id', userData.company_id)
         .eq('production_lot', productionRecordId)
         .eq('transaction_type', 'OUT');
+
+      if (currentStoreId) {
+        query = query.eq('store_id', currentStoreId);
+      }
+
+      const { data: transactions, error } = await query;
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -84,13 +91,15 @@ export async function POST(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
     if (!userData?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    const currentStoreId = userData.current_store_id || userData.store_id;
 
     const body = await request.json();
     const {
@@ -208,13 +217,19 @@ export async function POST(request: NextRequest) {
       }
 
       // 3. FIFO로 재고에서 출고 (유통기한 빠른 순)
-      const { data: stocks } = await adminClient
+      let stocksQuery = adminClient
         .from('material_stocks')
         .select('*')
         .eq('company_id', userData.company_id)
         .eq('material_id', materialId)
         .eq('status', 'AVAILABLE')
-        .gt('quantity', 0)
+        .gt('quantity', 0);
+
+      if (currentStoreId) {
+        stocksQuery = stocksQuery.eq('store_id', currentStoreId);
+      }
+
+      const { data: stocks } = await stocksQuery
         .order('expiry_date', { ascending: true, nullsFirst: false })
         .order('received_date', { ascending: true });
 
@@ -230,6 +245,7 @@ export async function POST(request: NextRequest) {
           .from('material_transactions')
           .insert({
             company_id: userData.company_id,
+            store_id: currentStoreId || null,
             transaction_date: production_date || new Date().toISOString().split('T')[0],
             transaction_type: 'OUT',
             material_id: materialId,
@@ -320,7 +336,7 @@ export async function DELETE(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -328,6 +344,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    const currentStoreId = userData.current_store_id || userData.store_id;
     const productionRecordId = request.nextUrl.searchParams.get('production_record_id');
 
     if (!productionRecordId) {
@@ -335,12 +352,18 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 해당 생산 기록의 출고 트랜잭션 조회
-    const { data: transactions } = await adminClient
+    let txQuery = adminClient
       .from('material_transactions')
       .select('*')
       .eq('company_id', userData.company_id)
       .eq('production_lot', productionRecordId)
       .eq('transaction_type', 'OUT');
+
+    if (currentStoreId) {
+      txQuery = txQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: transactions } = await txQuery;
 
     if (!transactions || transactions.length === 0) {
       return NextResponse.json({ message: 'No material transactions to reverse' });
@@ -349,13 +372,18 @@ export async function DELETE(request: NextRequest) {
     // 각 트랜잭션 복원
     for (const tx of transactions) {
       // 재고 복원
-      const { data: stock } = await adminClient
+      let stockQuery = adminClient
         .from('material_stocks')
         .select('id, quantity, status')
         .eq('company_id', userData.company_id)
         .eq('material_id', tx.material_id)
-        .eq('lot_number', tx.lot_number)
-        .single();
+        .eq('lot_number', tx.lot_number);
+
+      if (currentStoreId) {
+        stockQuery = stockQuery.eq('store_id', currentStoreId);
+      }
+
+      const { data: stock } = await stockQuery.single();
 
       if (stock) {
         await adminClient

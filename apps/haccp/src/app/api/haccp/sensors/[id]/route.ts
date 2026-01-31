@@ -20,7 +20,7 @@ export async function GET(
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -28,15 +28,22 @@ export async function GET(
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const { data: sensor, error } = await adminClient
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
+    let sensorQuery = adminClient
       .from('iot_sensors')
       .select(`
         *,
         ccp_definition:ccp_definitions(id, ccp_number, process, hazard, critical_limit)
       `)
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .single();
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      sensorQuery = sensorQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: sensor, error } = await sensorQuery.single();
 
     if (error || !sensor) {
       return NextResponse.json({ error: 'Sensor not found' }, { status: 404 });
@@ -80,7 +87,7 @@ export async function PUT(
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -88,13 +95,20 @@ export async function PUT(
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 권한 확인 (같은 회사 소속 센서인지)
-    const { data: existingSensor } = await adminClient
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
+    // 권한 확인 (같은 회사/매장 소속 센서인지)
+    let existingQuery = adminClient
       .from('iot_sensors')
       .select('id')
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .single();
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      existingQuery = existingQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: existingSensor } = await existingQuery.single();
 
     if (!existingSensor) {
       return NextResponse.json({ error: 'Sensor not found' }, { status: 404 });
@@ -135,11 +149,17 @@ export async function PUT(
       }
     }
 
-    const { data, error } = await adminClient
+    let updateQuery = adminClient
       .from('iot_sensors')
       .update(updateData)
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      updateQuery = updateQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await updateQuery
       .select(`
         *,
         ccp_definition:ccp_definitions(id, ccp_number, process)
@@ -175,7 +195,7 @@ export async function DELETE(
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -183,13 +203,21 @@ export async function DELETE(
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
     // 센서 삭제 (연관 readings는 CASCADE로 자동 삭제)
-    // company_id 조건 추가로 defense-in-depth 적용
-    const { error } = await adminClient
+    // company_id + store_id 조건 추가로 defense-in-depth 적용
+    let deleteQuery = adminClient
       .from('iot_sensors')
       .delete()
       .eq('id', id)
       .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      deleteQuery = deleteQuery.eq('store_id', currentStoreId);
+    }
+
+    const { error } = await deleteQuery;
 
     if (error) {
       console.error('Error deleting sensor:', error);

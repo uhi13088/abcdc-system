@@ -19,7 +19,7 @@ export async function GET(
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -27,15 +27,22 @@ export async function GET(
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const { data, error } = await adminClient
+    const currentStoreId = userData.current_store_id || userData.store_id;
+
+    let query = adminClient
       .from('shipment_records')
       .select(`
         *,
         shipped_by_user:shipped_by (full_name)
       `)
       .eq('id', params.id)
-      .eq('company_id', userData.company_id)
-      .single();
+      .eq('company_id', userData.company_id);
+
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await query.single();
 
     if (error) {
       console.error('Error fetching shipment:', error);

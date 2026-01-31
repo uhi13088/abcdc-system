@@ -21,7 +21,7 @@ export async function GET(
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -29,13 +29,20 @@ export async function GET(
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
     // 센서 존재 및 권한 확인
-    const { data: sensor } = await adminClient
+    let sensorQuery = adminClient
       .from('iot_sensors')
       .select('id, company_id')
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .single();
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      sensorQuery = sensorQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: sensor } = await sensorQuery.single();
 
     if (!sensor) {
       return NextResponse.json({ error: 'Sensor not found' }, { status: 404 });

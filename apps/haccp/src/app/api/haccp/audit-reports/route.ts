@@ -27,13 +27,15 @@ export async function GET(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     let query = adminClient
       .from('audit_reports')
@@ -42,7 +44,13 @@ export async function GET(request: NextRequest) {
         created_by_user:created_by (name),
         approved_by_user:approved_by (name)
       `)
-      .eq('company_id', userProfile.company_id)
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    query = query
       .order('report_date', { ascending: false });
 
     if (startDate) {
@@ -93,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -101,10 +109,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
     const { data, error } = await adminClient
       .from('audit_reports')
       .insert({
         company_id: userProfile.company_id,
+        store_id: currentStoreId || null,
         created_by: userProfile.id,
         report_date: body.report_date || new Date().toISOString().split('T')[0],
         report_type: body.report_type,
@@ -151,13 +162,15 @@ export async function PUT(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     const { id, ...updateData } = body;
 
@@ -175,11 +188,17 @@ export async function PUT(request: NextRequest) {
 
     updateData.updated_at = new Date().toISOString();
 
-    const { data, error } = await adminClient
+    let query = adminClient
       .from('audit_reports')
       .update(updateData)
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await query
       .select()
       .single();
 

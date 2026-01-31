@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -24,12 +24,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    const currentStoreId = userData.current_store_id || userData.store_id;
     const productId = request.nextUrl.searchParams.get('product_id');
 
     let query = adminClient
       .from('production_standards')
       .select('*')
       .eq('company_id', userData.company_id);
+
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
 
     if (productId) {
       query = query.eq('product_id', productId);
@@ -90,13 +95,15 @@ export async function POST(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
     if (!userData?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    const currentStoreId = userData.current_store_id || userData.store_id;
 
     const body = await request.json();
     const {
@@ -118,6 +125,7 @@ export async function POST(request: NextRequest) {
       .from('production_standards')
       .upsert({
         company_id: userData.company_id,
+        store_id: currentStoreId || null,
         product_id,
         temp_min: temp_min ?? 15,
         temp_max: temp_max ?? 25,
@@ -170,13 +178,15 @@ export async function PUT(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
     if (!userData?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    const currentStoreId = userData.current_store_id || userData.store_id;
 
     const body = await request.json();
     const { id, ...updateData } = body;
@@ -185,16 +195,20 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const { data, error } = await adminClient
+    let query = adminClient
       .from('production_standards')
       .update({
         ...updateData,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('company_id', userData.company_id)
-      .select()
-      .single();
+      .eq('company_id', userData.company_id);
+
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await query.select().single();
 
     if (error) {
       console.error('Failed to update production standard:', error);
@@ -221,7 +235,7 @@ export async function DELETE(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -229,17 +243,24 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    const currentStoreId = userData.current_store_id || userData.store_id;
     const id = request.nextUrl.searchParams.get('id');
 
     if (!id) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const { error } = await adminClient
+    let query = adminClient
       .from('production_standards')
       .delete()
       .eq('id', id)
       .eq('company_id', userData.company_id);
+
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    const { error } = await query;
 
     if (error) {
       console.error('Failed to delete production standard:', error);

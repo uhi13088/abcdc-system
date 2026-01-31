@@ -313,13 +313,15 @@ export async function PUT(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, name, company_id')
+      .select('id, name, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     // 검증 처리
     if (updateData.verify) {
@@ -329,13 +331,17 @@ export async function PUT(request: NextRequest) {
       delete updateData.verify;
     }
 
-    const { data, error } = await adminClient
+    let query = adminClient
       .from('material_inspections')
       .update(updateData)
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .select()
-      .single();
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await query.select().single();
 
     if (error) {
       console.error('Error updating inspection:', error);
