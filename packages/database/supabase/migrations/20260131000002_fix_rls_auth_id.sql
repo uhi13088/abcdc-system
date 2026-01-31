@@ -140,3 +140,20 @@ BEGIN
             )';
     END IF;
 END $$;
+
+-- =====================================================
+-- 5. Add store_id to haccp_training_records if missing
+-- =====================================================
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'haccp_training_records') THEN
+        -- Add store_id column if it doesn't exist
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'haccp_training_records' AND column_name = 'store_id'
+        ) THEN
+            ALTER TABLE haccp_training_records ADD COLUMN store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+            CREATE INDEX IF NOT EXISTS idx_haccp_training_records_store ON haccp_training_records(store_id);
+        END IF;
+    END IF;
+END $$;

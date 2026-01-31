@@ -13,6 +13,7 @@
 CREATE TABLE IF NOT EXISTS haccp_training_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  store_id UUID REFERENCES stores(id) ON DELETE CASCADE,
   training_date DATE NOT NULL,
   training_type VARCHAR(30) NOT NULL CHECK (training_type IN ('HACCP_BASIC', 'HACCP_ADVANCED', 'HYGIENE', 'SAFETY', 'CCP', 'OTHER')),
   title VARCHAR(255) NOT NULL,
@@ -224,6 +225,7 @@ CREATE TABLE IF NOT EXISTS storage_inspections (
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_haccp_training_company_date ON haccp_training_records(company_id, training_date);
 CREATE INDEX IF NOT EXISTS idx_haccp_training_type ON haccp_training_records(training_type);
+CREATE INDEX IF NOT EXISTS idx_haccp_training_store ON haccp_training_records(store_id);
 
 CREATE INDEX IF NOT EXISTS idx_audit_reports_company_date ON audit_reports(company_id, report_date);
 CREATE INDEX IF NOT EXISTS idx_audit_reports_type ON audit_reports(report_type);
