@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('company_id, store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -26,7 +26,8 @@ export async function GET(request: NextRequest) {
 
     const category = request.nextUrl.searchParams.get('category') || 'ccp_verification';
     const storeIdParam = request.nextUrl.searchParams.get('store_id');
-    const storeId = storeIdParam || userData.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const storeId = storeIdParam || userData.current_haccp_store_id || userData.current_store_id || userData.store_id;
 
     if (!storeId) {
       return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('company_id, store_id, role')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id, role')
       .eq('auth_id', user.id)
       .single();
 
@@ -105,7 +106,8 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { category, settings, store_id: bodyStoreId } = body;
-    const storeId = bodyStoreId || userData.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const storeId = bodyStoreId || userData.current_haccp_store_id || userData.current_store_id || userData.store_id;
 
     if (!storeId) {
       return NextResponse.json({ error: 'Store not specified' }, { status: 400 });

@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -36,9 +36,10 @@ export async function GET(request: NextRequest) {
     }
 
     // store_id를 쿼리 파라미터에서 가져오거나, 사용자의 store_id 사용
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
     const url = new URL(request.url);
     const storeIdParam = url.searchParams.get('store_id');
-    const storeId = storeIdParam || userProfile.store_id;
+    const storeId = storeIdParam || userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     if (!storeId) {
       return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -108,7 +109,8 @@ export async function POST(request: NextRequest) {
     }
 
     // store_id 확인 (body에서 가져오거나 사용자의 store_id 사용)
-    const storeId = body.store_id || userProfile.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const storeId = body.store_id || userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
     if (!storeId) {
       return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
     }
@@ -184,7 +186,7 @@ export async function PUT(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -193,7 +195,8 @@ export async function PUT(request: NextRequest) {
     }
 
     // store_id 확인 (body에서 가져오거나 사용자의 store_id 사용)
-    const storeId = body.store_id || userProfile.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const storeId = body.store_id || userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
     if (!storeId) {
       return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
     }

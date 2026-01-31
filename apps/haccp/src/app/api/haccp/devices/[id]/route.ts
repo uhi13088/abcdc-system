@@ -20,7 +20,7 @@ export async function GET(
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
