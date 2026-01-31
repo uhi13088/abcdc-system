@@ -1,12 +1,14 @@
 /**
  * HACCP 유저 정보 API
  * GET /api/haccp/user-info - 현재 로그인한 유저 정보 조회
+ * @version 1.0.1
  */
 
 import { NextResponse } from 'next/server';
 import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function GET() {
   try {
