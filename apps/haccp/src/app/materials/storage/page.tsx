@@ -537,7 +537,7 @@ export default function MaterialsStoragePage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 lg:p-6">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">원부재료 보관창고</h1>
@@ -671,7 +671,7 @@ function ManagementTab({
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
             <Warehouse className="w-4 h-4 text-blue-500" />
@@ -712,7 +712,7 @@ function ManagementTab({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {settings.map((setting) => (
             <div
               key={setting.id}
@@ -1121,7 +1121,7 @@ function InspectionTab({
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
             <Warehouse className="w-4 h-4 text-blue-500" />
@@ -1182,7 +1182,7 @@ function InspectionTab({
           <p className="text-gray-500">선택한 날짜에 점검 기록이 없습니다</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {inspections.map((inspection) => (
             <div key={inspection.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden ${inspection.overall_result === 'FAIL' ? 'border-red-300' : ''}`}>
               <div className="p-4 border-b bg-gray-50 flex items-center justify-between">

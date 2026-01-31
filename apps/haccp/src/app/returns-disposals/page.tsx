@@ -328,10 +328,10 @@ export default function ReturnsDisposalsPage() {
   };
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-4 lg:p-6">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">반품/회수/폐기 관리</h1>
+          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">반품/회수/폐기 관리</h1>
           <p className="mt-1 text-sm text-gray-500">제품 및 원재료의 반품, 회수, 폐기 기록을 관리합니다</p>
         </div>
         <button
@@ -339,40 +339,40 @@ export default function ReturnsDisposalsPage() {
             resetForm();
             setShowModal(true);
           }}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm whitespace-nowrap"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4 flex-shrink-0" />
           기록 등록
         </button>
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
-            <Package className="w-4 h-4 text-gray-500" />
-            <p className="text-sm text-gray-500">전체</p>
+            <Package className="w-4 h-4 text-gray-500 flex-shrink-0" />
+            <p className="text-sm text-gray-500 whitespace-nowrap">전체</p>
           </div>
           <p className="text-2xl font-bold">{records.length}건</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
-            <RotateCcw className="w-4 h-4 text-blue-500" />
-            <p className="text-sm text-gray-500">반품</p>
+            <RotateCcw className="w-4 h-4 text-blue-500 flex-shrink-0" />
+            <p className="text-sm text-gray-500 whitespace-nowrap">반품</p>
           </div>
           <p className="text-2xl font-bold">{records.filter(r => r.record_type === 'RETURN').length}건</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-4 h-4 text-red-500" />
-            <p className="text-sm text-gray-500">회수</p>
+            <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
+            <p className="text-sm text-gray-500 whitespace-nowrap">회수</p>
           </div>
           <p className="text-2xl font-bold text-red-600">{records.filter(r => r.record_type === 'RECALL').length}건</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
-            <Trash2 className="w-4 h-4 text-gray-500" />
-            <p className="text-sm text-gray-500">폐기</p>
+            <Trash2 className="w-4 h-4 text-gray-500 flex-shrink-0" />
+            <p className="text-sm text-gray-500 whitespace-nowrap">폐기</p>
           </div>
           <p className="text-2xl font-bold">{records.filter(r => r.record_type === 'DISPOSAL').length}건</p>
         </div>

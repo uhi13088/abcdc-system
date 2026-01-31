@@ -375,10 +375,10 @@ export default function AuditReportPage() {
   };
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-4 lg:p-6">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">감사 보고서</h1>
+          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">감사 보고서</h1>
           <p className="mt-1 text-sm text-gray-500">HACCP 내부/외부 감사 보고서를 관리합니다</p>
         </div>
         <button
@@ -386,31 +386,31 @@ export default function AuditReportPage() {
             resetForm();
             setShowModal(true);
           }}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm whitespace-nowrap"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4 flex-shrink-0" />
           감사 보고서 작성
         </button>
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <p className="text-sm text-gray-500">전체 감사</p>
+          <p className="text-sm text-gray-500 whitespace-nowrap">전체 감사</p>
           <p className="text-2xl font-bold">{reports.length}</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <p className="text-sm text-gray-500">내부 감사</p>
+          <p className="text-sm text-gray-500 whitespace-nowrap">내부 감사</p>
           <p className="text-2xl font-bold">{reports.filter(r => r.report_type === 'INTERNAL').length}</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <p className="text-sm text-gray-500">미결 사항</p>
+          <p className="text-sm text-gray-500 whitespace-nowrap">미결 사항</p>
           <p className="text-2xl font-bold text-orange-600">
             {reports.reduce((acc, r) => acc + (r.findings || []).filter(f => f.status !== 'CLOSED').length, 0)}
           </p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
-          <p className="text-sm text-gray-500">평균 점수</p>
+          <p className="text-sm text-gray-500 whitespace-nowrap">평균 점수</p>
           <p className="text-2xl font-bold text-green-600">
             {reports.filter(r => r.overall_score).length > 0
               ? Math.round(reports.reduce((acc, r) => acc + (r.overall_score || 0), 0) / reports.filter(r => r.overall_score).length)

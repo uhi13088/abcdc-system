@@ -241,8 +241,8 @@ export default function CalibrationPage() {
   const expiredCount = records.filter(r => isExpired(r.next_calibration_date)).length;
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-4 lg:p-6">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">검교정 관리</h1>
           <p className="mt-1 text-sm text-gray-500">측정장비 검교정 기록을 관리합니다</p>
@@ -253,7 +253,7 @@ export default function CalibrationPage() {
             setFormData(prev => ({ ...prev, equipment_code: generateEquipmentCode() }));
             setShowModal(true);
           }}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap flex-shrink-0 text-sm"
         >
           <Plus className="w-4 h-4" />
           검교정 등록
@@ -261,7 +261,7 @@ export default function CalibrationPage() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
             <Settings className="w-4 h-4 text-blue-500" />

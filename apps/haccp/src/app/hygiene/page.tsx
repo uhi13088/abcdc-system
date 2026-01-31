@@ -356,8 +356,8 @@ export default function HygienePage() {
   };
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-4 lg:p-6">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">일반위생 공정관리 점검표</h1>
           <p className="mt-1 text-sm text-gray-500">일일점검 (작업전/작업중/작업후)</p>

@@ -254,19 +254,19 @@ export default function SensorsPage() {
     : sensors;
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-4 lg:p-6">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">IoT 센서 관리</h1>
+          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">IoT 센서 관리</h1>
           <p className="mt-1 text-sm text-gray-500">실시간 센서 모니터링 및 관리</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => fetchSensors(true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white border rounded-lg hover:bg-gray-50"
+            className="inline-flex items-center gap-2 px-3 py-2 bg-white border rounded-lg hover:bg-gray-50 text-sm whitespace-nowrap"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 flex-shrink-0 ${refreshing ? 'animate-spin' : ''}`} />
             새로고침
           </button>
           <button
@@ -274,9 +274,9 @@ export default function SensorsPage() {
               resetForm();
               setShowModal(true);
             }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm whitespace-nowrap"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 flex-shrink-0" />
             센서 등록
           </button>
         </div>
@@ -288,32 +288,32 @@ export default function SensorsPage() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
-            <Settings className="w-4 h-4 text-blue-500" />
-            <p className="text-sm text-gray-500">전체 센서</p>
+            <Settings className="w-4 h-4 text-blue-500 flex-shrink-0" />
+            <p className="text-sm text-gray-500 whitespace-nowrap">전체 센서</p>
           </div>
           <p className="text-2xl font-bold">{sensors.length}개</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
-            <Wifi className="w-4 h-4 text-green-500" />
-            <p className="text-sm text-gray-500">온라인</p>
+            <Wifi className="w-4 h-4 text-green-500 flex-shrink-0" />
+            <p className="text-sm text-gray-500 whitespace-nowrap">온라인</p>
           </div>
           <p className="text-2xl font-bold text-green-600">{onlineCount}개</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
-            <WifiOff className="w-4 h-4 text-red-500" />
-            <p className="text-sm text-gray-500">오프라인</p>
+            <WifiOff className="w-4 h-4 text-red-500 flex-shrink-0" />
+            <p className="text-sm text-gray-500 whitespace-nowrap">오프라인</p>
           </div>
           <p className="text-2xl font-bold text-red-600">{offlineCount}개</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-4 h-4 text-yellow-500" />
-            <p className="text-sm text-gray-500">알림 활성화</p>
+            <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+            <p className="text-sm text-gray-500 whitespace-nowrap">알림 활성화</p>
           </div>
           <p className="text-2xl font-bold">{alertEnabledCount}개</p>
         </div>

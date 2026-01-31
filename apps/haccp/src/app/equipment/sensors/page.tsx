@@ -277,9 +277,9 @@ export default function EquipmentSensorsPage() {
     : sensors;
 
   return (
-    <div className="p-6">
+    <div className="p-4 lg:p-6">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link href="/equipment" className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <ArrowLeft className="w-5 h-5" />
@@ -289,11 +289,11 @@ export default function EquipmentSensorsPage() {
             <p className="mt-1 text-sm text-gray-500">IoT 센서 등록 및 관리</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => fetchSensors(true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white border rounded-lg hover:bg-gray-50"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border rounded-lg hover:bg-gray-50 whitespace-nowrap text-sm"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             새로고침
@@ -303,7 +303,7 @@ export default function EquipmentSensorsPage() {
               resetForm();
               setShowModal(true);
             }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap text-sm"
           >
             <Plus className="w-4 h-4" />
             센서 등록
@@ -317,7 +317,7 @@ export default function EquipmentSensorsPage() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
             <Cpu className="w-4 h-4 text-blue-500" />
