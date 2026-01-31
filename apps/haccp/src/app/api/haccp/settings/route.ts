@@ -105,13 +105,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // 회사 정보도 조회 (fallback용)
-    const { data: company } = await adminClient
-      .from('companies')
-      .select('business_number, ceo_name')
-      .eq('id', userProfile.company_id)
-      .single();
-
     // HACCP 설정 조회 (매장별)
     const { data: haccpSettings } = await adminClient
       .from('haccp_company_settings')
@@ -150,12 +143,12 @@ export async function GET(request: NextRequest) {
       verification_roles_by_type: {},
     };
 
-    // 매장 정보 (회사 정보를 fallback으로 사용)
+    // 매장 정보
     const storeSettings: StoreSettings = {
       store_id: store.id,
       store_name: store.name || '',
-      business_number: store.business_number || company?.business_number || '',
-      representative: store.representative || company?.ceo_name || '',
+      business_number: store.business_number || '',
+      representative: store.representative || '',
       address: store.address || '',
       address_detail: store.address_detail || '',
       phone: store.phone || '',

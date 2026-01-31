@@ -56,19 +56,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // 회사 정보도 조회 (fallback용)
-    const { data: company } = await adminClient
-      .from('companies')
-      .select('business_number, ceo_name')
-      .eq('id', userData.company_id)
-      .single();
-
-    // Map to expected format for invoice (매장 정보 우선, 없으면 회사 정보 fallback)
+    // Map to expected format for invoice (매장별 정보)
     return NextResponse.json({
       store_id: store.id,
       name: store.name,
-      business_number: store.business_number || company?.business_number,
-      representative: store.representative || company?.ceo_name,
+      business_number: store.business_number || null,
+      representative: store.representative || null,
       address: store.address,
       address_detail: store.address_detail || null,
       phone: store.phone,

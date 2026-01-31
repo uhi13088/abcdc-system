@@ -13,6 +13,7 @@ ALTER TABLE stores ADD COLUMN IF NOT EXISTS business_number VARCHAR(20);
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS representative VARCHAR(100);
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS fax VARCHAR(20);
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS address_detail TEXT;
 
 COMMENT ON COLUMN stores.haccp_certification_number IS 'HACCP 인증번호 (매장별)';
 COMMENT ON COLUMN stores.haccp_certification_date IS 'HACCP 인증일 (매장별)';
@@ -21,6 +22,7 @@ COMMENT ON COLUMN stores.business_number IS '사업자등록번호 (매장별, �
 COMMENT ON COLUMN stores.representative IS '대표자명 (매장별)';
 COMMENT ON COLUMN stores.fax IS '팩스번호';
 COMMENT ON COLUMN stores.email IS '이메일';
+COMMENT ON COLUMN stores.address_detail IS '상세주소 (건물명, 층, 호수 등)';
 
 -- ============================================
 -- 2. Add store_id to haccp_company_settings
@@ -79,17 +81,3 @@ CREATE POLICY haccp_company_settings_delete ON haccp_company_settings
     company_id = (SELECT company_id FROM users WHERE auth_id = auth.uid())
     AND (SELECT role FROM users WHERE auth_id = auth.uid()) IN ('super_admin', 'company_admin')
   );
-
--- ============================================
--- 4. Migrate existing data (copy company HACCP info to stores)
--- ============================================
--- For existing stores without HACCP info, copy from parent company
-UPDATE stores s
-SET
-  haccp_certification_number = c.haccp_certification_number,
-  haccp_certification_date = c.haccp_certification_date,
-  haccp_certification_expiry = c.haccp_certification_expiry
-FROM companies c
-WHERE s.company_id = c.id
-  AND s.haccp_certification_number IS NULL
-  AND c.haccp_certification_number IS NOT NULL;
