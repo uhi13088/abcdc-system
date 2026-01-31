@@ -3,7 +3,7 @@ import { createClient as createServerClient, createAdminClient } from '@/lib/sup
 
 export const dynamic = 'force-dynamic';
 
-// PUT /api/haccp/equipment-settings/[id] - 개별 장비 수정
+// PUT /api/haccp/equipment-settings/[id] - 개별 장비 수정 (매장별)
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -21,12 +21,29 @@ export async function PUT(
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+    }
+
+    // store_id 확인 (body에서 가져오거나 사용자의 store_id 사용)
+    const storeId = body.store_id || userProfile.store_id;
+    if (!storeId) {
+      return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
+    }
+
+    // 보안: store가 사용자의 company에 속하는지 확인
+    const { data: store } = await adminClient
+      .from('stores')
+      .select('id, company_id')
+      .eq('id', storeId)
+      .single();
+
+    if (!store || store.company_id !== userProfile.company_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     const updateData: Record<string, unknown> = {};
@@ -43,6 +60,7 @@ export async function PUT(
       .update(updateData)
       .eq('id', id)
       .eq('company_id', userProfile.company_id)
+      .eq('store_id', storeId)
       .select()
       .single();
 
@@ -62,7 +80,7 @@ export async function PUT(
   }
 }
 
-// DELETE /api/haccp/equipment-settings/[id] - 장비 삭제
+// DELETE /api/haccp/equipment-settings/[id] - 장비 삭제 (매장별)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -79,7 +97,7 @@ export async function DELETE(
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -87,11 +105,35 @@ export async function DELETE(
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 삭제 대상 장비의 store_id 확인
+    const { data: equipment } = await adminClient
+      .from('company_equipment_settings')
+      .select('store_id')
+      .eq('id', id)
+      .eq('company_id', userProfile.company_id)
+      .single();
+
+    if (!equipment) {
+      return NextResponse.json({ error: 'Equipment not found' }, { status: 404 });
+    }
+
+    // 보안: store가 사용자의 company에 속하는지 확인
+    const { data: store } = await adminClient
+      .from('stores')
+      .select('id, company_id')
+      .eq('id', equipment.store_id)
+      .single();
+
+    if (!store || store.company_id !== userProfile.company_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
     const { error } = await adminClient
       .from('company_equipment_settings')
       .delete()
       .eq('id', id)
-      .eq('company_id', userProfile.company_id);
+      .eq('company_id', userProfile.company_id)
+      .eq('store_id', equipment.store_id);
 
     if (error) {
       console.error('Error deleting equipment:', error);

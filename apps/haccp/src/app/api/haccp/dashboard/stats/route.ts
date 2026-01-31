@@ -66,7 +66,8 @@ export async function GET(_request: NextRequest) {
     const monthStart = format(startOfMonth(today), 'yyyy-MM-dd');
 
     // 쿼리 빌더 헬퍼 - store_id 조건 추가
-    const addStoreFilter = <T extends { eq: (col: string, val: string) => T }>(query: T) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const addStoreFilter = (query: any) => {
       if (currentStoreId) {
         return query.eq('store_id', currentStoreId);
       }
@@ -188,7 +189,7 @@ export async function GET(_request: NextRequest) {
     ]);
 
     // 위생점검 완료 수 계산 (3교대 기준)
-    const completedShifts = new Set(hygieneResult.data?.map(h => h.shift) || []);
+    const completedShifts = new Set(hygieneResult.data?.map((h: { shift: string }) => h.shift) || []);
     const totalShifts = 3; // 오전, 오후, 야간
 
     // CCP 정의 수와 검증 수
@@ -198,11 +199,12 @@ export async function GET(_request: NextRequest) {
 
     // 센서 상태 계산
     const sensors = sensorResult.data || [];
-    const onlineSensors = sensors.filter(s => s.status === 'ONLINE').length;
-    const offlineSensors = sensors.filter(s => s.status === 'OFFLINE').length;
+    const onlineSensors = sensors.filter((s: { status: string }) => s.status === 'ONLINE').length;
+    const offlineSensors = sensors.filter((s: { status: string }) => s.status === 'OFFLINE').length;
 
     // 최근 알림 포맷팅
-    const recentAlerts = (alertsResult.data || []).map(alert => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const recentAlerts = (alertsResult.data || []).map((alert: any) => ({
       id: alert.id,
       type: alert.category,
       message: alert.title,

@@ -3,7 +3,7 @@ import { createClient as createServerClient, createAdminClient } from '@/lib/sup
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/haccp/devices/[id] - 기기 상세 조회
+// GET /api/haccp/devices/[id] - 기기 상세 조회 (매장별)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,9 +18,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -28,6 +28,7 @@ export async function GET(
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 기기 조회 (company_id 필터링)
     const { data: device, error } = await adminClient
       .from('esp32_devices')
       .select(`
@@ -52,6 +53,19 @@ export async function GET(
 
     if (error || !device) {
       return NextResponse.json({ error: '기기를 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    // 보안: device의 store가 사용자의 company에 속하는지 확인
+    if (device.store_id) {
+      const { data: store } = await adminClient
+        .from('stores')
+        .select('id, company_id')
+        .eq('id', device.store_id)
+        .single();
+
+      if (!store || store.company_id !== userProfile.company_id) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
     }
 
     // 최근 이벤트 조회
@@ -88,7 +102,7 @@ export async function GET(
   }
 }
 
-// PUT /api/haccp/devices/[id] - 기기 설정 수정
+// PUT /api/haccp/devices/[id] - 기기 설정 수정 (매장별)
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -103,9 +117,9 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, role')
+      .select('company_id, store_id, role')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -122,13 +136,26 @@ export async function PUT(
     // 기기 소유권 확인
     const { data: device } = await adminClient
       .from('esp32_devices')
-      .select('id, sensor_id')
+      .select('id, sensor_id, store_id')
       .eq('id', id)
       .eq('company_id', userProfile.company_id)
       .single();
 
     if (!device) {
       return NextResponse.json({ error: '기기를 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    // 보안: device의 store가 사용자의 company에 속하는지 확인
+    if (device.store_id) {
+      const { data: store } = await adminClient
+        .from('stores')
+        .select('id, company_id')
+        .eq('id', device.store_id)
+        .single();
+
+      if (!store || store.company_id !== userProfile.company_id) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
     }
 
     const body = await request.json();
@@ -193,7 +220,7 @@ export async function PUT(
   }
 }
 
-// DELETE /api/haccp/devices/[id] - 기기 등록 해제
+// DELETE /api/haccp/devices/[id] - 기기 등록 해제 (매장별)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -208,9 +235,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, role, id')
+      .select('company_id, store_id, role, id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -227,13 +254,26 @@ export async function DELETE(
     // 기기 소유권 확인
     const { data: device } = await adminClient
       .from('esp32_devices')
-      .select('id, sensor_id, device_serial')
+      .select('id, sensor_id, device_serial, store_id')
       .eq('id', id)
       .eq('company_id', userProfile.company_id)
       .single();
 
     if (!device) {
       return NextResponse.json({ error: '기기를 찾을 수 없습니다.' }, { status: 404 });
+    }
+
+    // 보안: device의 store가 사용자의 company에 속하는지 확인
+    if (device.store_id) {
+      const { data: store } = await adminClient
+        .from('stores')
+        .select('id, company_id')
+        .eq('id', device.store_id)
+        .single();
+
+      if (!store || store.company_id !== userProfile.company_id) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
     }
 
     // 연결된 센서 삭제
