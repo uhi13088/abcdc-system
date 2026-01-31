@@ -174,7 +174,7 @@ async function getDailyHygieneStats(
     totalRequired,
     totalCompleted: completed,
     completionRate: totalRequired > 0 ? (completed / totalRequired) * 100 : 0,
-    missedDates: [...new Set(missedDates)],
+    missedDates: [...new Set(missedDates)] as string[],
   };
 }
 
@@ -349,7 +349,7 @@ async function getTrainingStats(adminClient: any, companyId: string, startDate: 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const totalAttendees = (trainings || []).reduce((sum: number, t: any) => sum + (t.attendee_count || 0), 0);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const topics = [...new Set((trainings || []).map((t: any) => t.title))];
+  const topics = [...new Set((trainings || []).map((t: any) => t.title))] as string[];
 
   return {
     totalSessions,

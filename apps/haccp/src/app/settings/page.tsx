@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Save, Building2, Bell, Shield, Users, Clock, Database, RefreshCw, AlertCircle, MapPin, Sun, Plus, Trash2, Edit2, CheckCircle, Lock, Info, Search } from 'lucide-react';
+import { Save, Building2, Bell, Shield, Users, Clock, Database, RefreshCw, AlertCircle, MapPin, Sun, Plus, Trash2, Edit2, CheckCircle, Lock, Info, Search, Copy } from 'lucide-react';
+import StoreCopyModal from '@/components/settings/StoreCopyModal';
 import toast from 'react-hot-toast';
 
 declare global {
@@ -149,6 +150,9 @@ function SettingsPageContent({ initialTab }: { initialTab: string | null }) {
   const [zones, setZones] = useState<Zone[]>([]);
   const [editingZone, setEditingZone] = useState<Zone | null>(null);
   const [showZoneModal, setShowZoneModal] = useState(false);
+
+  // Store copy modal
+  const [showCopyModal, setShowCopyModal] = useState(false);
 
   // Season settings
   const [seasonConfig, setSeasonConfig] = useState<SeasonConfig>({
@@ -478,6 +482,13 @@ function SettingsPageContent({ initialTab }: { initialTab: string | null }) {
           <p className="mt-1 text-sm text-gray-500">HACCP 시스템 설정을 관리합니다</p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowCopyModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border-2 border-purple-200 text-purple-700 rounded-lg hover:bg-purple-50 hover:border-purple-300 transition-colors"
+          >
+            <Copy className="w-4 h-4" />
+            다른 매장에서 복사
+          </button>
           <button
             onClick={fetchSettings}
             disabled={loading}
@@ -1397,6 +1408,16 @@ function SettingsPageContent({ initialTab }: { initialTab: string | null }) {
           </div>
         </div>
       )}
+
+      {/* Store Copy Modal */}
+      <StoreCopyModal
+        isOpen={showCopyModal}
+        onClose={() => setShowCopyModal(false)}
+        onSuccess={() => {
+          // 복사 성공 후 설정 새로고침
+          fetchSettings();
+        }}
+      />
     </div>
   );
 }
