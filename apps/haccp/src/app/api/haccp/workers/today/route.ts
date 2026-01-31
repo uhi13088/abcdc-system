@@ -46,15 +46,15 @@ export async function GET(request: NextRequest) {
       .from('attendances')
       .select(`
         id,
-        check_in,
-        check_out,
+        actual_check_in,
+        actual_check_out,
         status,
-        user_id
+        staff_id
       `)
       .eq('company_id', userProfile.company_id)
-      .gte('check_in', `${date}T00:00:00`)
-      .lt('check_in', `${date}T23:59:59`)
-      .order('check_in');
+      .gte('actual_check_in', `${date}T00:00:00`)
+      .lt('actual_check_in', `${date}T23:59:59`)
+      .order('actual_check_in');
 
     if (attendanceError) {
       // 테이블이 없으면 빈 배열 반환
@@ -99,15 +99,15 @@ export async function GET(request: NextRequest) {
 
     // 출근한 직원 목록 정리
     const workers = (attendances || []).map(attendance => {
-      const user = userMap.get(attendance.user_id);
+      const user = userMap.get(attendance.staff_id);
       return {
-        id: user?.id || attendance.user_id,
+        id: user?.id || attendance.staff_id,
         name: user?.name || 'Unknown',
         email: user?.email || '',
         role: user?.role || '',
         phone: user?.phone || '',
-        check_in: attendance.check_in,
-        check_out: attendance.check_out,
+        check_in: attendance.actual_check_in,
+        check_out: attendance.actual_check_out,
         attendance_status: attendance.status,
         attendance_id: attendance.id,
       };
