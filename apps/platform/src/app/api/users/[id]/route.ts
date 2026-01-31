@@ -91,7 +91,7 @@ export async function GET(
       .from('users')
       .select(`
         *,
-        stores(id, name, address),
+        stores!users_store_id_fkey(id, name, address),
         brands(id, name),
         companies(id, name),
         teams(id, name)
