@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS materials (
 CREATE TABLE IF NOT EXISTS ccp_definitions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  store_id UUID REFERENCES stores(id) ON DELETE CASCADE, -- 매장별 CCP 정의
   ccp_number VARCHAR(20) NOT NULL, -- CCP-1, CCP-2 등
   process VARCHAR(100) NOT NULL, -- 공정명
   hazard TEXT NOT NULL, -- 위해요소
@@ -82,7 +83,7 @@ CREATE TABLE IF NOT EXISTS ccp_definitions (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-  UNIQUE(company_id, ccp_number)
+  UNIQUE(company_id, store_id, ccp_number)
 );
 
 -- ============================================
@@ -91,6 +92,7 @@ CREATE TABLE IF NOT EXISTS ccp_definitions (
 CREATE TABLE IF NOT EXISTS ccp_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  store_id UUID REFERENCES stores(id) ON DELETE CASCADE, -- 매장별 CCP 기록
   ccp_id UUID NOT NULL REFERENCES ccp_definitions(id) ON DELETE CASCADE,
   record_date DATE NOT NULL,
   record_time TIME NOT NULL,
@@ -108,7 +110,7 @@ CREATE TABLE IF NOT EXISTS ccp_records (
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-  INDEX idx_ccp_records_date (company_id, record_date)
+  INDEX idx_ccp_records_date (company_id, store_id, record_date)
 );
 
 -- ============================================
@@ -117,6 +119,7 @@ CREATE TABLE IF NOT EXISTS ccp_records (
 CREATE TABLE IF NOT EXISTS daily_hygiene_checks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  store_id UUID REFERENCES stores(id) ON DELETE CASCADE, -- 매장별 위생점검
   check_date DATE NOT NULL,
   shift VARCHAR(20) NOT NULL CHECK (shift IN ('오전', '오후', '야간')),
   checked_by UUID REFERENCES users(id),
@@ -133,7 +136,7 @@ CREATE TABLE IF NOT EXISTS daily_hygiene_checks (
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-  UNIQUE(company_id, check_date, shift)
+  UNIQUE(company_id, store_id, check_date, shift)
 );
 
 -- ============================================

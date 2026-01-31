@@ -11,10 +11,11 @@ COMMENT ON COLUMN companies.haccp_certification_number IS 'HACCP 인증번호';
 COMMENT ON COLUMN companies.haccp_certification_date IS 'HACCP 인증일';
 COMMENT ON COLUMN companies.haccp_certification_expiry IS 'HACCP 인증 만료일';
 
--- Create HACCP company settings table for operational settings
+-- Create HACCP company settings table for operational settings (매장별)
 CREATE TABLE IF NOT EXISTS haccp_company_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE UNIQUE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  store_id UUID REFERENCES stores(id) ON DELETE CASCADE, -- 매장별 설정
 
   -- Notification settings
   ccp_alert_enabled BOOLEAN DEFAULT true,
@@ -38,11 +39,14 @@ CREATE TABLE IF NOT EXISTS haccp_company_settings (
   record_retention_years INTEGER DEFAULT 3,
 
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE(company_id, store_id)
 );
 
 -- Create indexes
 CREATE INDEX IF NOT EXISTS idx_haccp_company_settings_company ON haccp_company_settings(company_id);
+CREATE INDEX IF NOT EXISTS idx_haccp_company_settings_store ON haccp_company_settings(store_id);
 
 -- Enable RLS
 ALTER TABLE haccp_company_settings ENABLE ROW LEVEL SECURITY;
