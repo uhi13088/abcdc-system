@@ -172,3 +172,19 @@ BEGIN
         END IF;
     END IF;
 END $$;
+
+-- =====================================================
+-- 7. Add store_id to returns_disposals if missing
+-- =====================================================
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'returns_disposals') THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'returns_disposals' AND column_name = 'store_id'
+        ) THEN
+            ALTER TABLE returns_disposals ADD COLUMN store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+            CREATE INDEX IF NOT EXISTS idx_returns_disposals_store ON returns_disposals(store_id);
+        END IF;
+    END IF;
+END $$;
