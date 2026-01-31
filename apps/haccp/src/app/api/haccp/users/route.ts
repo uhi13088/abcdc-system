@@ -1,6 +1,6 @@
 /**
  * HACCP 사용자 목록 API
- * GET /api/haccp/users - 같은 회사의 사용자 목록 조회
+ * GET /api/haccp/users - 같은 매장의 사용자 목록 조회 (매장별)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get('activeOnly') !== 'false';
     const role = searchParams.get('role');
+    const storeIdParam = searchParams.get('store_id');
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -32,10 +33,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // store_id를 쿼리 파라미터에서 가져오거나, 사용자의 store_id 사용
+    const storeId = storeIdParam || userProfile.store_id;
+
+    if (!storeId) {
+      return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
+    }
+
+    // 보안: store가 사용자의 company에 속하는지 확인
+    const { data: store } = await adminClient
+      .from('stores')
+      .select('id, company_id')
+      .eq('id', storeId)
+      .single();
+
+    if (!store || store.company_id !== userProfile.company_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
     let query = adminClient
       .from('users')
       .select('id, name, email, role, is_active')
       .eq('company_id', userProfile.company_id)
+      .eq('store_id', storeId)
       .order('name', { ascending: true });
 
     if (activeOnly) {

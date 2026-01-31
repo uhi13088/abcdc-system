@@ -3,7 +3,7 @@ import { createClient as createServerClient, createAdminClient } from '@/lib/sup
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/haccp/devices - 회사의 등록된 기기 목록 조회
+// GET /api/haccp/devices - 매장의 등록된 기기 목록 조회 (매장별)
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
@@ -14,9 +14,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, role')
+      .select('company_id, store_id, role')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -27,6 +27,23 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status');
     const deviceType = searchParams.get('device_type');
+    const storeIdParam = searchParams.get('store_id');
+    const storeId = storeIdParam || userProfile.store_id;
+
+    if (!storeId) {
+      return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
+    }
+
+    // 보안: store가 사용자의 company에 속하는지 확인
+    const { data: store } = await adminClient
+      .from('stores')
+      .select('id, company_id')
+      .eq('id', storeId)
+      .single();
+
+    if (!store || store.company_id !== userProfile.company_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
 
     let query = adminClient
       .from('esp32_devices')
@@ -53,6 +70,7 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('company_id', userProfile.company_id)
+      .eq('store_id', storeId)
       .order('registered_at', { ascending: false });
 
     if (status) {

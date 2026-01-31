@@ -1,21 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-// 알림 설정 조회
+// 알림 설정 조회 (매장별)
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -24,11 +25,29 @@ export async function GET(request: NextRequest) {
     }
 
     const category = request.nextUrl.searchParams.get('category') || 'ccp_verification';
+    const storeIdParam = request.nextUrl.searchParams.get('store_id');
+    const storeId = storeIdParam || userData.store_id;
 
-    const { data: settings, error } = await supabase
+    if (!storeId) {
+      return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
+    }
+
+    // 보안: store가 사용자의 company에 속하는지 확인
+    const { data: store } = await adminClient
+      .from('stores')
+      .select('id, company_id')
+      .eq('id', storeId)
+      .single();
+
+    if (!store || store.company_id !== userData.company_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    const { data: settings, error } = await adminClient
       .from('notification_settings')
       .select('*')
       .eq('company_id', userData.company_id)
+      .eq('store_id', storeId)
       .eq('category', category)
       .single();
 
@@ -58,19 +77,20 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 알림 설정 저장
+// 알림 설정 저장 (매장별)
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
-      .select('company_id, role')
+      .select('company_id, store_id, role')
       .eq('auth_id', user.id)
       .single();
 
@@ -79,29 +99,46 @@ export async function POST(request: NextRequest) {
     }
 
     // Only allow admin/manager to change settings
-    if (!['ADMIN', 'MANAGER', 'VERIFIER'].includes(userData.role || '')) {
+    if (!['super_admin', 'company_admin', 'manager', 'ADMIN', 'MANAGER', 'VERIFIER'].includes(userData.role || '')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
-    const { category, settings } = body;
+    const { category, settings, store_id: bodyStoreId } = body;
+    const storeId = bodyStoreId || userData.store_id;
+
+    if (!storeId) {
+      return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
+    }
+
+    // 보안: store가 사용자의 company에 속하는지 확인
+    const { data: store } = await adminClient
+      .from('stores')
+      .select('id, company_id')
+      .eq('id', storeId)
+      .single();
+
+    if (!store || store.company_id !== userData.company_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
 
     if (!category || !settings) {
       return NextResponse.json({ error: 'category and settings are required' }, { status: 400 });
     }
 
-    // Check if settings already exist
-    const { data: existing } = await supabase
+    // Check if settings already exist for this store
+    const { data: existing } = await adminClient
       .from('notification_settings')
       .select('id')
       .eq('company_id', userData.company_id)
+      .eq('store_id', storeId)
       .eq('category', category)
       .single();
 
     let result;
     if (existing) {
       // Update existing
-      result = await supabase
+      result = await adminClient
         .from('notification_settings')
         .update({
           settings,
@@ -113,10 +150,11 @@ export async function POST(request: NextRequest) {
         .single();
     } else {
       // Insert new
-      result = await supabase
+      result = await adminClient
         .from('notification_settings')
         .insert({
           company_id: userData.company_id,
+          store_id: storeId,
           category,
           settings,
           created_by: user.id,

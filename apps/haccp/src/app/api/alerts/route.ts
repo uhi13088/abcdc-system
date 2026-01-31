@@ -1,7 +1,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
-// GET /api/alerts - 알림 목록 조회
+// GET /api/alerts - 알림 목록 조회 (매장별)
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('id, company_id, role')
+      .select('id, company_id, store_id, role')
       .eq('auth_id', user.id)
       .single();
 
@@ -30,6 +30,23 @@ export async function GET(request: NextRequest) {
     const severity = searchParams.get('severity'); // 'INFO', 'WARNING', 'CRITICAL'
     const sensorId = searchParams.get('sensor_id');
     const alertType = searchParams.get('alert_type');
+    const storeIdParam = searchParams.get('store_id');
+    const storeId = storeIdParam || userData.store_id;
+
+    if (!storeId) {
+      return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
+    }
+
+    // 보안: store가 사용자의 company에 속하는지 확인
+    const { data: store } = await adminClient
+      .from('stores')
+      .select('id, company_id')
+      .eq('id', storeId)
+      .single();
+
+    if (!store || store.company_id !== userData.company_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
 
     let query = adminClient
       .from('iot_sensor_alerts')
@@ -47,6 +64,7 @@ export async function GET(request: NextRequest) {
         )
       `, { count: 'exact' })
       .eq('company_id', userData.company_id)
+      .eq('store_id', storeId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -85,7 +103,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/alerts/resolve - 알림 해결 처리
+// POST /api/alerts/resolve - 알림 해결 처리 (매장별)
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -98,7 +116,7 @@ export async function POST(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('id, company_id, role')
+      .select('id, company_id, store_id, role')
       .eq('auth_id', user.id)
       .single();
 
@@ -107,18 +125,35 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { alert_ids, resolution_notes, create_corrective_action } = body;
+    const { alert_ids, resolution_notes, create_corrective_action, store_id: bodyStoreId } = body;
+    const storeId = bodyStoreId || userData.store_id;
+
+    if (!storeId) {
+      return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
+    }
+
+    // 보안: store가 사용자의 company에 속하는지 확인
+    const { data: store } = await adminClient
+      .from('stores')
+      .select('id, company_id')
+      .eq('id', storeId)
+      .single();
+
+    if (!store || store.company_id !== userData.company_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
 
     if (!alert_ids || !Array.isArray(alert_ids) || alert_ids.length === 0) {
       return NextResponse.json({ error: 'alert_ids is required' }, { status: 400 });
     }
 
-    // Verify alerts belong to user's company
+    // Verify alerts belong to user's company and store
     const { data: alerts } = await adminClient
       .from('iot_sensor_alerts')
-      .select('id, company_id')
+      .select('id, company_id, store_id')
       .in('id', alert_ids)
-      .eq('company_id', userData.company_id);
+      .eq('company_id', userData.company_id)
+      .eq('store_id', storeId);
 
     if (!alerts || alerts.length !== alert_ids.length) {
       return NextResponse.json({ error: 'Some alerts not found or access denied' }, { status: 403 });
@@ -148,6 +183,7 @@ export async function POST(request: NextRequest) {
         .from('corrective_actions')
         .insert({
           company_id: userData.company_id,
+          store_id: storeId,
           action_number: `CA-${Date.now()}`,
           action_date: new Date().toISOString().split('T')[0],
           source_type: 'CCP',

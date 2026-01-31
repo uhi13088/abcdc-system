@@ -14,8 +14,8 @@ interface MonitoringEquipment {
   sensor_id?: string;
 }
 
-// GET /api/haccp/equipment-settings - 모니터링 장비 목록 조회
-export async function GET() {
+// GET /api/haccp/equipment-settings - 모니터링 장비 목록 조회 (매장별)
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
     const adminClient = createAdminClient();
@@ -27,7 +27,7 @@ export async function GET() {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -35,11 +35,32 @@ export async function GET() {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 회사의 장비 설정 조회
+    // store_id를 쿼리 파라미터에서 가져오거나, 사용자의 store_id 사용
+    const url = new URL(request.url);
+    const storeIdParam = url.searchParams.get('store_id');
+    const storeId = storeIdParam || userProfile.store_id;
+
+    if (!storeId) {
+      return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
+    }
+
+    // 보안: store가 사용자의 company에 속하는지 확인
+    const { data: store } = await adminClient
+      .from('stores')
+      .select('id, company_id')
+      .eq('id', storeId)
+      .single();
+
+    if (!store || store.company_id !== userProfile.company_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    // 매장의 장비 설정 조회
     const { data: settings, error } = await adminClient
       .from('company_equipment_settings')
       .select('*')
       .eq('company_id', userProfile.company_id)
+      .eq('store_id', storeId)
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -64,7 +85,7 @@ export async function GET() {
   }
 }
 
-// POST /api/haccp/equipment-settings - 모니터링 장비 추가
+// POST /api/haccp/equipment-settings - 모니터링 장비 추가 (매장별)
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
@@ -78,12 +99,29 @@ export async function POST(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+    }
+
+    // store_id 확인 (body에서 가져오거나 사용자의 store_id 사용)
+    const storeId = body.store_id || userProfile.store_id;
+    if (!storeId) {
+      return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
+    }
+
+    // 보안: store가 사용자의 company에 속하는지 확인
+    const { data: store } = await adminClient
+      .from('stores')
+      .select('id, company_id')
+      .eq('id', storeId)
+      .single();
+
+    if (!store || store.company_id !== userProfile.company_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     // 필수 필드 검증
@@ -99,6 +137,7 @@ export async function POST(request: NextRequest) {
 
     const equipmentData = {
       company_id: userProfile.company_id,
+      store_id: storeId,
       key,
       name: body.name,
       type: body.type,
@@ -131,12 +170,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/haccp/equipment-settings - 모니터링 장비 일괄 업데이트
+// PUT /api/haccp/equipment-settings - 모니터링 장비 일괄 업데이트 (매장별)
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createServerClient();
     const adminClient = createAdminClient();
-    const body: { equipment: MonitoringEquipment[] } = await request.json();
+    const body: { equipment: MonitoringEquipment[]; store_id?: string } = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
@@ -145,7 +184,7 @@ export async function PUT(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -153,15 +192,34 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 기존 설정 삭제
+    // store_id 확인 (body에서 가져오거나 사용자의 store_id 사용)
+    const storeId = body.store_id || userProfile.store_id;
+    if (!storeId) {
+      return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
+    }
+
+    // 보안: store가 사용자의 company에 속하는지 확인
+    const { data: store } = await adminClient
+      .from('stores')
+      .select('id, company_id')
+      .eq('id', storeId)
+      .single();
+
+    if (!store || store.company_id !== userProfile.company_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    // 기존 매장 설정 삭제
     await adminClient
       .from('company_equipment_settings')
       .delete()
-      .eq('company_id', userProfile.company_id);
+      .eq('company_id', userProfile.company_id)
+      .eq('store_id', storeId);
 
     // 새 설정 삽입
     const equipmentData = body.equipment.map((eq) => ({
       company_id: userProfile.company_id,
+      store_id: storeId,
       key: eq.key || eq.name.replace(/\s+/g, '_'),
       name: eq.name,
       type: eq.type,
