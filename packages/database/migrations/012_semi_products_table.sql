@@ -63,7 +63,7 @@ CREATE POLICY "Semi-products visible to company members" ON semi_products
     FOR SELECT USING (
         company_id IS NULL OR
         company_id IN (
-            SELECT company_id FROM users WHERE id = auth.uid()
+            SELECT company_id FROM users WHERE auth_id = auth.uid()
         )
     );
 
@@ -71,7 +71,7 @@ CREATE POLICY "Semi-products manageable by authorized users" ON semi_products
     FOR ALL USING (
         EXISTS (
             SELECT 1 FROM users
-            WHERE id = auth.uid()
+            WHERE auth_id = auth.uid()
             AND role IN ('super_admin', 'company_admin', 'manager', 'store_manager')
         )
     );
