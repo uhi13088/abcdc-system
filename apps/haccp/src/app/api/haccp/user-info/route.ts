@@ -33,7 +33,7 @@ export async function GET() {
         current_store_id,
         current_haccp_store_id,
         company:companies(name),
-        store:stores(name)
+        store:stores!users_store_id_fkey(name)
       `)
       .eq('auth_id', userData.user.id)
       .single();
@@ -52,7 +52,7 @@ export async function GET() {
           current_store_id,
           current_haccp_store_id,
           company:companies(name),
-          store:stores(name)
+          store:stores!users_store_id_fkey(name)
         `)
         .eq('auth_id', userData.user.id)
         .single();
