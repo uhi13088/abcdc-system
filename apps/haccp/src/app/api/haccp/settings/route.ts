@@ -3,13 +3,16 @@ import { createClient as createServerClient, createAdminClient } from '@/lib/sup
 
 export const dynamic = 'force-dynamic';
 
-interface CompanySettings {
-  company_name: string;
+interface StoreSettings {
+  store_id: string;
+  store_name: string;
   business_number: string;
   representative: string;
   address: string;
   address_detail: string;
   phone: string;
+  fax: string | null;
+  email: string | null;
   haccp_certification_number: string | null;
   certification_date: string | null;
   certification_expiry: string | null;
@@ -56,8 +59,8 @@ interface VerificationSettings {
   verification_roles_by_type: Record<string, UserRole>;
 }
 
-// GET /api/haccp/settings - 설정 조회
-export async function GET() {
+// GET /api/haccp/settings - 설정 조회 (매장별)
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
     const adminClient = createAdminClient();
@@ -69,7 +72,7 @@ export async function GET() {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, role')
+      .select('company_id, store_id, role')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -77,18 +80,44 @@ export async function GET() {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 회사 정보 조회
+    // store_id를 쿼리 파라미터에서 가져오거나, 사용자의 store_id 사용
+    const url = new URL(request.url);
+    const storeIdParam = url.searchParams.get('store_id');
+    const storeId = storeIdParam || userProfile.store_id;
+
+    if (!storeId) {
+      return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
+    }
+
+    // 매장 정보 조회 (HACCP 인증 정보 포함)
+    const { data: store } = await adminClient
+      .from('stores')
+      .select('id, name, address, address_detail, phone, fax, email, business_number, representative, haccp_certification_number, haccp_certification_date, haccp_certification_expiry, company_id')
+      .eq('id', storeId)
+      .single();
+
+    if (!store) {
+      return NextResponse.json({ error: 'Store not found' }, { status: 404 });
+    }
+
+    // 보안: 요청한 store가 사용자의 company에 속하는지 확인
+    if (store.company_id !== userProfile.company_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    // 회사 정보도 조회 (fallback용)
     const { data: company } = await adminClient
       .from('companies')
-      .select('name, business_number, ceo_name, address, address_detail, phone, haccp_certification_number, haccp_certification_date, haccp_certification_expiry')
+      .select('business_number, ceo_name')
       .eq('id', userProfile.company_id)
       .single();
 
-    // HACCP 설정 조회
+    // HACCP 설정 조회 (매장별)
     const { data: haccpSettings } = await adminClient
       .from('haccp_company_settings')
       .select('*')
       .eq('company_id', userProfile.company_id)
+      .eq('store_id', storeId)
       .single();
 
     // 기본값 설정
@@ -121,16 +150,20 @@ export async function GET() {
       verification_roles_by_type: {},
     };
 
-    const companySettings: CompanySettings = {
-      company_name: company?.name || '',
-      business_number: company?.business_number || '',
-      representative: company?.ceo_name || '',
-      address: company?.address || '',
-      address_detail: company?.address_detail || '',
-      phone: company?.phone || '',
-      haccp_certification_number: company?.haccp_certification_number || null,
-      certification_date: company?.haccp_certification_date || null,
-      certification_expiry: company?.haccp_certification_expiry || null,
+    // 매장 정보 (회사 정보를 fallback으로 사용)
+    const storeSettings: StoreSettings = {
+      store_id: store.id,
+      store_name: store.name || '',
+      business_number: store.business_number || company?.business_number || '',
+      representative: store.representative || company?.ceo_name || '',
+      address: store.address || '',
+      address_detail: store.address_detail || '',
+      phone: store.phone || '',
+      fax: store.fax || null,
+      email: store.email || null,
+      haccp_certification_number: store.haccp_certification_number || null,
+      certification_date: store.haccp_certification_date || null,
+      certification_expiry: store.haccp_certification_expiry || null,
     };
 
     const notificationSettings: NotificationSettings = haccpSettings ? {
@@ -163,7 +196,7 @@ export async function GET() {
     } : defaultVerificationSettings;
 
     return NextResponse.json({
-      companySettings,
+      storeSettings,
       notificationSettings,
       haccpSettings: operationalSettings,
       verificationSettings,
@@ -175,7 +208,7 @@ export async function GET() {
   }
 }
 
-// PUT /api/haccp/settings - 설정 수정
+// PUT /api/haccp/settings - 설정 수정 (매장별)
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createServerClient();
@@ -189,7 +222,7 @@ export async function PUT(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, role')
+      .select('company_id, store_id, role')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -202,38 +235,58 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    const { companySettings, notificationSettings, haccpSettings, verificationSettings } = body;
+    const { storeSettings, notificationSettings, haccpSettings, verificationSettings } = body;
 
-    // 회사 정보 업데이트
-    if (companySettings) {
-      const companyUpdate: Record<string, unknown> = {};
-      if (companySettings.company_name !== undefined) companyUpdate.name = companySettings.company_name;
-      if (companySettings.business_number !== undefined) companyUpdate.business_number = companySettings.business_number;
-      if (companySettings.representative !== undefined) companyUpdate.ceo_name = companySettings.representative;
-      if (companySettings.address !== undefined) companyUpdate.address = companySettings.address;
-      if (companySettings.address_detail !== undefined) companyUpdate.address_detail = companySettings.address_detail;
-      if (companySettings.phone !== undefined) companyUpdate.phone = companySettings.phone;
-      if (companySettings.haccp_certification_number !== undefined) companyUpdate.haccp_certification_number = companySettings.haccp_certification_number;
-      if (companySettings.certification_date !== undefined) companyUpdate.haccp_certification_date = companySettings.certification_date || null;
-      if (companySettings.certification_expiry !== undefined) companyUpdate.haccp_certification_expiry = companySettings.certification_expiry || null;
+    // store_id 확인 (body에서 가져오거나 사용자의 store_id 사용)
+    const storeId = storeSettings?.store_id || userProfile.store_id;
+    if (!storeId) {
+      return NextResponse.json({ error: 'Store not specified' }, { status: 400 });
+    }
 
-      if (Object.keys(companyUpdate).length > 0) {
-        const { error: companyError } = await adminClient
-          .from('companies')
-          .update(companyUpdate)
-          .eq('id', userProfile.company_id);
+    // 보안: store가 사용자의 company에 속하는지 확인
+    const { data: store } = await adminClient
+      .from('stores')
+      .select('id, company_id')
+      .eq('id', storeId)
+      .single();
 
-        if (companyError) {
-          console.error('Error updating company:', companyError);
-          return NextResponse.json({ error: companyError.message }, { status: 500 });
+    if (!store || store.company_id !== userProfile.company_id) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    // 매장 정보 업데이트 (HACCP 인증 정보 포함)
+    if (storeSettings) {
+      const storeUpdate: Record<string, unknown> = {};
+      if (storeSettings.store_name !== undefined) storeUpdate.name = storeSettings.store_name;
+      if (storeSettings.business_number !== undefined) storeUpdate.business_number = storeSettings.business_number;
+      if (storeSettings.representative !== undefined) storeUpdate.representative = storeSettings.representative;
+      if (storeSettings.address !== undefined) storeUpdate.address = storeSettings.address;
+      if (storeSettings.address_detail !== undefined) storeUpdate.address_detail = storeSettings.address_detail;
+      if (storeSettings.phone !== undefined) storeUpdate.phone = storeSettings.phone;
+      if (storeSettings.fax !== undefined) storeUpdate.fax = storeSettings.fax;
+      if (storeSettings.email !== undefined) storeUpdate.email = storeSettings.email;
+      if (storeSettings.haccp_certification_number !== undefined) storeUpdate.haccp_certification_number = storeSettings.haccp_certification_number;
+      if (storeSettings.certification_date !== undefined) storeUpdate.haccp_certification_date = storeSettings.certification_date || null;
+      if (storeSettings.certification_expiry !== undefined) storeUpdate.haccp_certification_expiry = storeSettings.certification_expiry || null;
+
+      if (Object.keys(storeUpdate).length > 0) {
+        const { error: storeError } = await adminClient
+          .from('stores')
+          .update(storeUpdate)
+          .eq('id', storeId);
+
+        if (storeError) {
+          console.error('Error updating store:', storeError);
+          return NextResponse.json({ error: storeError.message }, { status: 500 });
         }
       }
     }
 
-    // HACCP 설정 업데이트 (알림, 운영, 검증 설정)
+    // HACCP 설정 업데이트 (알림, 운영, 검증 설정) - 매장별
     if (notificationSettings || haccpSettings || verificationSettings) {
       const haccpSettingsData: Record<string, unknown> = {
         company_id: userProfile.company_id,
+        store_id: storeId,
       };
 
       // 알림 설정
@@ -268,11 +321,12 @@ export async function PUT(request: NextRequest) {
         if (verificationSettings.verification_roles_by_type !== undefined) haccpSettingsData.verification_roles_by_type = verificationSettings.verification_roles_by_type;
       }
 
-      // 기존 설정 확인
+      // 기존 설정 확인 (매장별)
       const { data: existingSettings } = await adminClient
         .from('haccp_company_settings')
         .select('id')
         .eq('company_id', userProfile.company_id)
+        .eq('store_id', storeId)
         .single();
 
       if (existingSettings) {
@@ -280,7 +334,8 @@ export async function PUT(request: NextRequest) {
         const { error: updateError } = await adminClient
           .from('haccp_company_settings')
           .update(haccpSettingsData)
-          .eq('company_id', userProfile.company_id);
+          .eq('company_id', userProfile.company_id)
+          .eq('store_id', storeId);
 
         if (updateError) {
           console.error('Error updating HACCP settings:', updateError);
