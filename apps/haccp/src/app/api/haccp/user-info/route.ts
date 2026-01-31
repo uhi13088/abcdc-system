@@ -49,13 +49,18 @@ export async function GET() {
         .single();
       currentStoreName = storeData?.name;
     } else if (userProfile.store) {
-      currentStoreName = (userProfile.store as { name: string }).name;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const storeData = userProfile.store as any;
+      currentStoreName = storeData?.name || null;
     }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const companyData = userProfile.company as any;
 
     return NextResponse.json({
       name: userProfile.name,
       role: userProfile.role,
-      companyName: (userProfile.company as { name: string } | null)?.name || null,
+      companyName: companyData?.name || null,
       storeName: currentStoreName,
     });
   } catch (error) {

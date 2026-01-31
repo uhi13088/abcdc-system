@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
     const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     // store_id 포함하여 먼저 시도
-    let insertData: Record<string, unknown> = {
+    const insertData: Record<string, unknown> = {
       company_id: userProfile.company_id,
       store_id: currentStoreId || null,
       created_by: userProfile.id,
