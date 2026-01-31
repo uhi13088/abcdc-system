@@ -407,8 +407,8 @@ export default function InventoryPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-lg mx-4 p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-xl w-full max-w-lg mx-4 p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold flex items-center gap-2">
                 {modalType === 'IN' ? (
@@ -554,8 +554,8 @@ export default function InventoryPage() {
 
       {/* Delete Confirmation Modal */}
       {deleteTarget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setDeleteTarget(null)}>
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-900 mb-2">트랜잭션 삭제</h3>
             <p className="text-gray-600 mb-4">
               정말로 이 트랜잭션을 삭제하시겠습니까?<br/>

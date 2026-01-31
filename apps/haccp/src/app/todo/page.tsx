@@ -714,8 +714,8 @@ export default function TodoPage() {
 
       {/* 모달 */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
             {/* 헤더 */}
             <div className="p-4 border-b flex items-center justify-between">
               <h2 className="text-xl font-bold">새 체크리스트</h2>

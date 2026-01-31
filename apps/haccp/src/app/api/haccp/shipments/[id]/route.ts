@@ -27,7 +27,8 @@ export async function GET(
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const currentStoreId = userData.current_store_id || userData.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const currentStoreId = userData.current_haccp_store_id || userData.current_store_id || userData.store_id;
 
     let query = adminClient
       .from('shipment_records')

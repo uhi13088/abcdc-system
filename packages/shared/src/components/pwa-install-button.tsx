@@ -22,6 +22,7 @@ if (typeof window !== 'undefined') {
 
 interface PWAInstallButtonProps {
   className?: string;
+  onInstallSuccess?: () => void;
 }
 
 // Detect in-app browser
@@ -64,7 +65,7 @@ function openInExternalBrowser(url: string): void {
   }
 }
 
-export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
+export function PWAInstallButton({ className = '', onInstallSuccess }: PWAInstallButtonProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -72,6 +73,8 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [isInApp, setIsInApp] = useState(false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showSuccessNotification, setShowSuccessNotification] = useState(false);
 
   // Auto-trigger install prompt
   const triggerInstallPrompt = useCallback(async () => {
@@ -82,12 +85,16 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
         if (outcome === 'accepted') {
           globalDeferredPrompt = null;
           setDeferredPrompt(null);
+          setShowSuccessNotification(true);
+          onInstallSuccess?.();
+          // Auto-hide success notification after 3 seconds
+          setTimeout(() => setShowSuccessNotification(false), 3000);
         }
       } catch {
         // Prompt already shown or not available
       }
     }
-  }, []);
+  }, [onInstallSuccess]);
 
   useEffect(() => {
     // Check if already installed (standalone mode)
@@ -174,7 +181,10 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
     };
   }, [triggerInstallPrompt]);
 
-  const handleInstallClick = async () => {
+  // Handle confirmation and proceed with install
+  const handleConfirmInstall = async () => {
+    setShowConfirmDialog(false);
+
     // If in-app browser, open in external browser with auto-install flag
     if (isInApp) {
       const currentUrl = new URL(window.location.href);
@@ -190,12 +200,20 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
       if (outcome === 'accepted') {
         setDeferredPrompt(null);
         globalDeferredPrompt = null;
+        setShowSuccessNotification(true);
+        onInstallSuccess?.();
+        setTimeout(() => setShowSuccessNotification(false), 3000);
       }
       return;
     }
 
     // Otherwise show manual installation guide
     setShowInstallGuide(true);
+  };
+
+  const handleInstallClick = async () => {
+    // Show confirmation dialog first
+    setShowConfirmDialog(true);
   };
 
   // Install Guide Modal (always rendered to allow showing from any state)
@@ -291,6 +309,106 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
     </div>
   );
 
+  // Confirmation Dialog
+  const confirmDialog = showConfirmDialog && (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={() => setShowConfirmDialog(false)}
+    >
+      <div
+        className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          animation: 'fadeIn 0.2s ease-out',
+        }}
+      >
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            @keyframes fadeIn {
+              from { opacity: 0; transform: scale(0.95); }
+              to { opacity: 1; transform: scale(1); }
+            }
+          `
+        }} />
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#3b82f6"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">앱을 설치하시겠습니까?</h3>
+          <p className="text-sm text-gray-500">
+            {isInApp
+              ? '외부 브라우저에서 앱을 설치합니다.'
+              : '홈 화면에 앱 아이콘이 추가됩니다.'}
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowConfirmDialog(false)}
+            className="flex-1 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+          >
+            아니오
+          </button>
+          <button
+            onClick={handleConfirmInstall}
+            className="flex-1 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors"
+          >
+            예
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Success Notification
+  const successNotification = showSuccessNotification && (
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
+      <div
+        className="bg-green-500 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2"
+        style={{
+          animation: 'slideDown 0.3s ease-out',
+        }}
+      >
+        <style dangerouslySetInnerHTML={{
+          __html: `
+            @keyframes slideDown {
+              from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+              to { opacity: 1; transform: translateX(-50%) translateY(0); }
+            }
+          `
+        }} />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+        <span className="font-medium">앱이 설치되었습니다!</span>
+      </div>
+    </div>
+  );
+
   // Show different UI if already installed
   if (isInstalled) {
     return (
@@ -321,6 +439,7 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
           </button>
         </div>
         {installGuideModal}
+        {successNotification}
       </>
     );
   }
@@ -348,7 +467,9 @@ export function PWAInstallButton({ className = '' }: PWAInstallButtonProps) {
         </svg>
         앱 설치하기
       </button>
+      {confirmDialog}
       {installGuideModal}
+      {successNotification}
     </>
   );
 }

@@ -43,7 +43,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const currentStoreId = userData.current_store_id || userData.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const currentStoreId = userData.current_haccp_store_id || userData.current_store_id || userData.store_id;
     const productionRecordId = request.nextUrl.searchParams.get('production_record_id');
 
     if (productionRecordId) {
@@ -99,7 +100,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const currentStoreId = userData.current_store_id || userData.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const currentStoreId = userData.current_haccp_store_id || userData.current_store_id || userData.store_id;
 
     const body = await request.json();
     const {
@@ -344,7 +346,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const currentStoreId = userData.current_store_id || userData.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const currentStoreId = userData.current_haccp_store_id || userData.current_store_id || userData.store_id;
     const productionRecordId = request.nextUrl.searchParams.get('production_record_id');
 
     if (!productionRecordId) {

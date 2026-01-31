@@ -655,8 +655,8 @@ export default function DailyReportPage() {
 
       {/* Signature Modal */}
       {showSignatureModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 print:hidden">
-          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 print:hidden" onClick={() => setShowSignatureModal(false)}>
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl font-bold mb-4">검증 서명</h2>
 
             <div className="mb-4">

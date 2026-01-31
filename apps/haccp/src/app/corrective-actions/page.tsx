@@ -413,8 +413,8 @@ export default function CorrectiveActionsPage() {
 
       {/* Detail Modal */}
       {showDetailModal && selectedAction && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowDetailModal(false)}>
+          <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-bold flex items-center gap-2">
@@ -610,8 +610,8 @@ export default function CorrectiveActionsPage() {
 
       {/* Delete Confirmation Modal */}
       {deleteTarget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setDeleteTarget(null)}>
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-900 mb-2">개선조치 삭제</h3>
             <p className="text-gray-600 mb-4">
               정말로 이 개선조치를 삭제하시겠습니까?<br/>

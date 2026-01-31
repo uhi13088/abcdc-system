@@ -413,8 +413,8 @@ export default function LaborLawPage() {
 
       {/* 생성/수정 모달 */}
       {isCreateOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => { setIsCreateOpen(false); setEditingVersion(null); }}>
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b">
               <h2 className="text-xl font-bold">
                 {editingVersion ? '버전 수정' : '신규 버전 추가'}
