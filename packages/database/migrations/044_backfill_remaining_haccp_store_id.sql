@@ -1,11 +1,100 @@
 -- Migration: 044_backfill_remaining_haccp_store_id
--- Description: 나머지 HACCP 테이블들의 store_id 백필
+-- Description: 나머지 HACCP 테이블들의 store_id 컬럼 추가 및 백필
 -- Created: 2026-01-31
 --
--- 043_backfill_haccp_store_id.sql에서 누락된 테이블들을 백필합니다.
+-- 이 마이그레이션은:
+-- 1. store_id 컬럼이 없으면 먼저 추가
+-- 2. 기존 데이터의 store_id를 백필
+--
 -- 우선순위:
 --   1. HACCP가 활성화된 매장 (haccp_enabled = true) 중 가장 오래된 매장
 --   2. HACCP 매장이 없으면, 가장 먼저 생성된 매장으로 fallback
+
+-- =====================================================
+-- 0. 필요한 테이블들에 store_id 컬럼 추가 (없으면)
+-- =====================================================
+
+-- ccp_verifications
+ALTER TABLE ccp_verifications ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_ccp_verifications_store ON ccp_verifications(store_id);
+
+-- production_records
+ALTER TABLE production_records ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_production_records_store ON production_records(store_id);
+
+-- pest_control_checks
+ALTER TABLE pest_control_checks ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_pest_control_checks_store ON pest_control_checks(store_id);
+
+-- material_inspections
+ALTER TABLE material_inspections ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_material_inspections_store ON material_inspections(store_id);
+
+-- material_stocks
+ALTER TABLE material_stocks ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_material_stocks_store ON material_stocks(store_id);
+
+-- material_transactions
+ALTER TABLE material_transactions ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_material_transactions_store ON material_transactions(store_id);
+
+-- iot_sensors (이미 있을 수 있음)
+ALTER TABLE iot_sensors ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_iot_sensors_store ON iot_sensors(store_id);
+
+-- shipment_records
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'shipment_records') THEN
+    ALTER TABLE shipment_records ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+    CREATE INDEX IF NOT EXISTS idx_shipment_records_store ON shipment_records(store_id);
+  END IF;
+END $$;
+
+-- corrective_actions
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'corrective_actions') THEN
+    ALTER TABLE corrective_actions ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+    CREATE INDEX IF NOT EXISTS idx_corrective_actions_store ON corrective_actions(store_id);
+  END IF;
+END $$;
+
+-- storage_inspections
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'storage_inspections') THEN
+    ALTER TABLE storage_inspections ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+    CREATE INDEX IF NOT EXISTS idx_storage_inspections_store ON storage_inspections(store_id);
+  END IF;
+END $$;
+
+-- calibration_records
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'calibration_records') THEN
+    ALTER TABLE calibration_records ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+    CREATE INDEX IF NOT EXISTS idx_calibration_records_store ON calibration_records(store_id);
+  END IF;
+END $$;
+
+-- returns_disposals
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'returns_disposals') THEN
+    ALTER TABLE returns_disposals ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+    CREATE INDEX IF NOT EXISTS idx_returns_disposals_store ON returns_disposals(store_id);
+  END IF;
+END $$;
+
+-- haccp_check_status
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'haccp_check_status') THEN
+    ALTER TABLE haccp_check_status ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+    CREATE INDEX IF NOT EXISTS idx_haccp_check_status_store ON haccp_check_status(store_id);
+  END IF;
+END $$;
 
 -- =====================================================
 -- 1. ccp_verifications 테이블 백필
