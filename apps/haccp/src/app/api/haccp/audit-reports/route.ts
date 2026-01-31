@@ -45,13 +45,7 @@ export async function GET(request: NextRequest) {
         created_by_user:created_by (name),
         approved_by_user:approved_by (name)
       `)
-      .eq('company_id', userProfile.company_id);
-
-    if (currentStoreId) {
-      query = query.eq('store_id', currentStoreId);
-    }
-
-    query = query
+      .eq('company_id', userProfile.company_id)
       .order('report_date', { ascending: false });
 
     if (startDate) {
@@ -67,9 +61,47 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', status);
     }
 
-    const { data, error } = await query;
+    // store_id 필터링 시도
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    let { data, error } = await query;
+
+    // store_id 컬럼 오류 시 store_id 필터 없이 재시도
+    if (error && (error.code === '42703' || error.message?.includes('store_id'))) {
+      console.log('store_id column not found, retrying without store filter');
+      let retryQuery = adminClient
+        .from('audit_reports')
+        .select(`
+          *,
+          created_by_user:created_by (name),
+          approved_by_user:approved_by (name)
+        `)
+        .eq('company_id', userProfile.company_id)
+        .order('report_date', { ascending: false });
+
+      if (startDate) retryQuery = retryQuery.gte('report_date', startDate);
+      if (endDate) retryQuery = retryQuery.lte('report_date', endDate);
+      if (reportType) retryQuery = retryQuery.eq('report_type', reportType);
+      if (status) retryQuery = retryQuery.eq('status', status);
+
+      const retryResult = await retryQuery;
+      data = retryResult.data;
+      error = retryResult.error;
+    }
 
     if (error) {
+      // 테이블이 없으면 빈 배열 반환
+      if (
+        error.code === '42P01' ||
+        error.code === 'PGRST116' ||
+        error.message?.includes('does not exist') ||
+        error.message?.includes('relation')
+      ) {
+        console.log('audit_reports table not found, returning empty result');
+        return NextResponse.json([]);
+      }
       console.error('Error fetching audit reports:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -112,32 +144,57 @@ export async function POST(request: NextRequest) {
 
     const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
-    const { data, error } = await adminClient
+    const insertData: Record<string, unknown> = {
+      company_id: userProfile.company_id,
+      store_id: currentStoreId || null,
+      created_by: userProfile.id,
+      report_date: body.report_date || new Date().toISOString().split('T')[0],
+      report_type: body.report_type,
+      auditor_name: body.auditor_name,
+      auditor_company: body.auditor_company,
+      auditor_contact: body.auditor_contact,
+      audit_scope: body.audit_scope,
+      audit_criteria: body.audit_criteria,
+      summary: body.summary,
+      findings: body.findings || [],
+      overall_score: body.overall_score,
+      effectiveness_rating: body.effectiveness_rating,
+      recommendations: body.recommendations,
+      next_audit_date: body.next_audit_date,
+      attachment_urls: body.attachment_urls || [],
+      status: body.status || 'DRAFT',
+    };
+
+    let { data, error } = await adminClient
       .from('audit_reports')
-      .insert({
-        company_id: userProfile.company_id,
-        store_id: currentStoreId || null,
-        created_by: userProfile.id,
-        report_date: body.report_date || new Date().toISOString().split('T')[0],
-        report_type: body.report_type,
-        auditor_name: body.auditor_name,
-        auditor_company: body.auditor_company,
-        auditor_contact: body.auditor_contact,
-        audit_scope: body.audit_scope,
-        audit_criteria: body.audit_criteria,
-        summary: body.summary,
-        findings: body.findings || [],
-        overall_score: body.overall_score,
-        effectiveness_rating: body.effectiveness_rating,
-        recommendations: body.recommendations,
-        next_audit_date: body.next_audit_date,
-        attachment_urls: body.attachment_urls || [],
-        status: body.status || 'DRAFT',
-      })
+      .insert(insertData)
       .select()
       .single();
 
+    // store_id 컬럼 오류 시 store_id 없이 재시도
+    if (error && (error.code === '42703' || error.message?.includes('store_id'))) {
+      console.log('store_id column not found, retrying without store_id');
+      delete insertData.store_id;
+      const retryResult = await adminClient
+        .from('audit_reports')
+        .insert(insertData)
+        .select()
+        .single();
+      data = retryResult.data;
+      error = retryResult.error;
+    }
+
     if (error) {
+      // 테이블이 없으면 null 반환
+      if (
+        error.code === '42P01' ||
+        error.code === 'PGRST116' ||
+        error.message?.includes('does not exist') ||
+        error.message?.includes('relation')
+      ) {
+        console.log('audit_reports table not found');
+        return NextResponse.json(null);
+      }
       console.error('Error creating audit report:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -199,9 +256,21 @@ export async function PUT(request: NextRequest) {
       query = query.eq('store_id', currentStoreId);
     }
 
-    const { data, error } = await query
-      .select()
-      .single();
+    let { data, error } = await query.select().single();
+
+    // store_id 컬럼 오류 시 store_id 필터 없이 재시도
+    if (error && (error.code === '42703' || error.message?.includes('store_id'))) {
+      console.log('store_id column not found, retrying without store filter');
+      const retryResult = await adminClient
+        .from('audit_reports')
+        .update(updateData)
+        .eq('id', id)
+        .eq('company_id', userProfile.company_id)
+        .select()
+        .single();
+      data = retryResult.data;
+      error = retryResult.error;
+    }
 
     if (error) {
       console.error('Error updating audit report:', error);
