@@ -332,7 +332,6 @@ function SettingsContent() {
     fetchTaxAccountant();
     fetchLaborLaw();
     fetchPaymentMethod();
-    fetchTuyaSettings();
 
     // Handle billing callback
     const billing = searchParams.get('billing');
@@ -349,6 +348,13 @@ function SettingsContent() {
       window.history.replaceState({}, '', '/settings?tab=subscription');
     }
   }, [searchParams]);
+
+  // Fetch Tuya settings only when user is super_admin
+  useEffect(() => {
+    if (isSuperAdmin) {
+      fetchTuyaSettings();
+    }
+  }, [isSuperAdmin]);
 
   const fetchPaymentMethod = async () => {
     try {
