@@ -93,6 +93,10 @@ function StoresPageContent() {
   const [brandFilter, setBrandFilter] = useState(initialBrandId);
   const [haccpAddonEnabled, setHaccpAddonEnabled] = useState(false);
   const [roastingAddonEnabled, setRoastingAddonEnabled] = useState(false);
+  const [haccpStoreLimit, setHaccpStoreLimit] = useState(1);
+  const [currentHaccpCount, setCurrentHaccpCount] = useState(0);
+  const [showHaccpUpgradeDialog, setShowHaccpUpgradeDialog] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   // Check if company has add-ons enabled
   useEffect(() => {
@@ -108,26 +112,38 @@ function StoresPageContent() {
         .single();
 
       if (!userData?.company_id) return;
+      setUserRole(userData.role);
 
-      // super_admin has access to all addons
+      // super_admin has access to all addons with no limit
       if (userData.role === 'super_admin') {
         setHaccpAddonEnabled(true);
         setRoastingAddonEnabled(true);
+        setHaccpStoreLimit(999);
         return;
       }
 
       const { data: subscription } = await supabase
         .from('company_subscriptions')
-        .select('haccp_addon_enabled, roasting_addon_enabled')
+        .select('haccp_addon_enabled, roasting_addon_enabled, haccp_store_limit')
         .eq('company_id', userData.company_id)
         .single();
 
       if (subscription?.haccp_addon_enabled) {
         setHaccpAddonEnabled(true);
+        setHaccpStoreLimit(subscription.haccp_store_limit || 1);
       }
       if (subscription?.roasting_addon_enabled) {
         setRoastingAddonEnabled(true);
       }
+
+      // Count current HACCP enabled stores
+      const { count } = await supabase
+        .from('stores')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', userData.company_id)
+        .eq('haccp_enabled', true);
+
+      setCurrentHaccpCount(count || 0);
     }
     checkAddons();
   }, []);
@@ -583,12 +599,23 @@ function StoresPageContent() {
                       <p className="text-sm text-green-600">
                         이 매장의 모든 직원에게 HACCP 앱 접근 권한을 부여합니다
                       </p>
+                      {userRole !== 'super_admin' && (
+                        <p className="text-xs text-green-500 mt-1">
+                          사용 중: {currentHaccpCount}/{haccpStoreLimit}개 매장
+                        </p>
+                      )}
                     </div>
                   </div>
                   <input
                     type="checkbox"
                     checked={newStore.haccpEnabled}
-                    onChange={(e) => setNewStore({ ...newStore, haccpEnabled: e.target.checked })}
+                    onChange={(e) => {
+                      if (e.target.checked && currentHaccpCount >= haccpStoreLimit) {
+                        setShowHaccpUpgradeDialog(true);
+                        return;
+                      }
+                      setNewStore({ ...newStore, haccpEnabled: e.target.checked });
+                    }}
                     className="h-5 w-5 text-green-600 rounded"
                   />
                 </div>
@@ -851,12 +878,28 @@ function StoresPageContent() {
                     <p className="text-sm text-green-600">
                       이 매장의 모든 직원에게 HACCP 앱 접근 권한이 자동 부여됩니다
                     </p>
+                    {userRole !== 'super_admin' && (
+                      <p className="text-xs text-green-500 mt-1">
+                        사용 중: {editStore?.haccp_enabled ? currentHaccpCount : currentHaccpCount}/{haccpStoreLimit}개 매장
+                      </p>
+                    )}
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
                       checked={editForm.haccpEnabled}
-                      onChange={(e) => setEditForm({ ...editForm, haccpEnabled: e.target.checked })}
+                      onChange={(e) => {
+                        // 현재 매장이 이미 HACCP 활성화된 경우는 체크 해제 허용
+                        // 새로 활성화하려는 경우 제한 체크
+                        if (e.target.checked && !editStore?.haccp_enabled) {
+                          const effectiveCount = currentHaccpCount;
+                          if (effectiveCount >= haccpStoreLimit) {
+                            setShowHaccpUpgradeDialog(true);
+                            return;
+                          }
+                        }
+                        setEditForm({ ...editForm, haccpEnabled: e.target.checked });
+                      }}
                       className="sr-only peer"
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
@@ -924,6 +967,63 @@ function StoresPageContent() {
               닫기
             </Button>
             <Button onClick={() => window.print()}>인쇄</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* HACCP Upgrade Dialog */}
+      <Dialog open={showHaccpUpgradeDialog} onOpenChange={setShowHaccpUpgradeDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Factory className="h-5 w-5 text-green-600" />
+              HACCP 매장 추가 구매
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-800">HACCP 매장 한도 초과</p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    현재 사용 가능한 HACCP 매장 수({haccpStoreLimit}개)를 모두 사용 중입니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <h4 className="font-medium text-green-800 mb-2">추가 매장 구매 안내</h4>
+              <ul className="text-sm text-green-700 space-y-2">
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                  추가 HACCP 매장: 월 99,000원/매장
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                  다중 공장/매장 통합 관리 가능
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                  매장별 CCP/위생 데이터 분리 관리
+                </li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowHaccpUpgradeDialog(false)}>
+              취소
+            </Button>
+            <Button
+              onClick={() => {
+                setShowHaccpUpgradeDialog(false);
+                window.location.href = '/settings?tab=subscription&upgrade=haccp';
+              }}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              추가 구매하기
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -199,6 +199,7 @@ export interface Database {
           fcm_token: string | null;
           haccp_access: boolean;
           roasting_access: boolean;
+          current_haccp_store_id: string | null;
           created_at: string;
           updated_at: string;
           last_login_at: string | null;
@@ -226,6 +227,7 @@ export interface Database {
           fcm_token?: string | null;
           haccp_access?: boolean;
           roasting_access?: boolean;
+          current_haccp_store_id?: string | null;
           created_at?: string;
           updated_at?: string;
           last_login_at?: string | null;
@@ -253,6 +255,7 @@ export interface Database {
           fcm_token?: string | null;
           haccp_access?: boolean;
           roasting_access?: boolean;
+          current_haccp_store_id?: string | null;
           created_at?: string;
           updated_at?: string;
           last_login_at?: string | null;
@@ -517,6 +520,7 @@ export interface Database {
           haccp_addon_enabled: boolean;
           haccp_addon_started_at: string | null;
           haccp_addon_price: number;
+          haccp_store_limit: number;
           roasting_addon_enabled: boolean;
           roasting_addon_started_at: string | null;
           roasting_addon_price: number;
@@ -533,6 +537,7 @@ export interface Database {
           haccp_addon_enabled?: boolean;
           haccp_addon_started_at?: string | null;
           haccp_addon_price?: number;
+          haccp_store_limit?: number;
           roasting_addon_enabled?: boolean;
           roasting_addon_started_at?: string | null;
           roasting_addon_price?: number;
@@ -549,6 +554,7 @@ export interface Database {
           haccp_addon_enabled?: boolean;
           haccp_addon_started_at?: string | null;
           haccp_addon_price?: number;
+          haccp_store_limit?: number;
           roasting_addon_enabled?: boolean;
           roasting_addon_started_at?: string | null;
           roasting_addon_price?: number;
