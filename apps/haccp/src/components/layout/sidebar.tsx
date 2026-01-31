@@ -126,6 +126,18 @@ function SidebarComponent() {
   // HACCP Store context
   const { currentStore, haccpStores, canSwitchStore, switchStore, isLoading: storesLoading } = useHaccpStore();
 
+  // 현재 경로에 해당하는 부모 메뉴를 자동으로 펼침
+  useEffect(() => {
+    const activeParent = navigation.find(item =>
+      item.children?.some(child => pathname === child.href || pathname.startsWith(child.href + '/'))
+    );
+    if (activeParent) {
+      setExpandedItems(prev =>
+        prev.includes(activeParent.name) ? prev : [...prev, activeParent.name]
+      );
+    }
+  }, [pathname]);
+
   // Close mobile sidebar on route change
   useEffect(() => {
     setIsMobileOpen(false);
