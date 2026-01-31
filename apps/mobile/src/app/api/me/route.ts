@@ -16,7 +16,7 @@ export async function GET() {
     // Fetch user profile with store and company info using adminClient to bypass RLS
     const { data: userData, error } = await adminClient
       .from('users')
-      .select('id, name, email, role, phone, position, avatar_url, company_id, brand_id, store_id, stores(id, name, haccp_enabled), companies(id, name)')
+      .select('id, name, email, role, phone, position, avatar_url, company_id, brand_id, store_id, stores!users_store_id_fkey(id, name, haccp_enabled), companies(id, name)')
       .eq('auth_id', user.id)
       .single();
 
