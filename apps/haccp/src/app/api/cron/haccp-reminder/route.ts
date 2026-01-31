@@ -222,18 +222,22 @@ async function sendMonthlyVerificationReminders(): Promise<{ sent: number; escal
 
   for (const company of companies || []) {
     // CCP 월간 검증 필요 여부 확인
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+
     const { data: ccpDefs } = await getSupabase()
       .from('ccp_definitions')
       .select('id, process')
       .eq('company_id', company.id)
-      .eq('is_active', true);
+      .eq('status', 'ACTIVE');
 
     for (const ccp of ccpDefs || []) {
       const { data: verification } = await getSupabase()
         .from('ccp_verifications')
         .select('id')
         .eq('ccp_id', ccp.id)
-        .gte('verification_date', monthStart)
+        .eq('verification_year', currentYear)
+        .eq('verification_month', currentMonth)
         .maybeSingle();
 
       if (verification) continue;
