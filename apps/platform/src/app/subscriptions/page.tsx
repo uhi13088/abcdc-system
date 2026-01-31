@@ -464,8 +464,8 @@ export default function SubscriptionsPage() {
 
       {/* 플랜 수정 모달 */}
       {isEditPlanOpen && editingPlan && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => { setIsEditPlanOpen(false); setEditingPlan(null); }}>
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b">
               <h2 className="text-xl font-bold">플랜 수정: {editingPlan.displayName}</h2>
             </div>
@@ -584,8 +584,8 @@ export default function SubscriptionsPage() {
 
       {/* 구독 수정 모달 */}
       {isEditSubscriptionOpen && editingSubscription && editFormData && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => { setIsEditSubscriptionOpen(false); setEditingSubscription(null); setEditFormData(null); }}>
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="px-6 py-4 border-b">
               <h2 className="text-xl font-bold">구독 수정</h2>
               <p className="text-sm text-gray-500 mt-1">{editingSubscription.companyName}</p>
