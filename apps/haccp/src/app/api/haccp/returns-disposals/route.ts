@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
     // 현재 선택된 매장
     const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
-    let insertData: Record<string, unknown> = {
+    const insertData: Record<string, unknown> = {
       company_id: userProfile.company_id,
       store_id: currentStoreId || null,
       recorded_by: userProfile.id,

@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
       nextCalibrationDate = calibrationDate.toISOString().split('T')[0];
     }
 
-    let insertData: Record<string, unknown> = {
+    const insertData: Record<string, unknown> = {
       company_id: userProfile.company_id,
       store_id: currentStoreId || null,
       calibrated_by: userProfile.id,
