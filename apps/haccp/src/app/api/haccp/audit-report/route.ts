@@ -221,23 +221,23 @@ async function getCorrectiveActionStats(adminClient: any, companyId: string, sta
     .from('corrective_actions')
     .select('*')
     .eq('company_id', companyId)
-    .gte('issue_date', startDate)
-    .lte('issue_date', endDate);
+    .gte('action_date', startDate)
+    .lte('action_date', endDate);
 
   const total = (actions || []).length;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const closed = (actions || []).filter((a: any) => a.status === 'CLOSED').length;
   const open = total - closed;
 
-  // 평균 종결 시간 계산
+  // 평균 종결 시간 계산 (verification_date 기준)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const closedActions = (actions || []).filter((a: any) => a.closed_at);
+  const closedActions = (actions || []).filter((a: any) => a.verification_date);
   const avgClosureTime = closedActions.length > 0
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ? closedActions.reduce((sum: number, a: any) => {
-        const issueDate = new Date(a.issue_date);
-        const closedDate = new Date(a.closed_at);
-        return sum + differenceInDays(closedDate, issueDate);
+        const actionDate = new Date(a.action_date);
+        const verificationDate = new Date(a.verification_date);
+        return sum + differenceInDays(verificationDate, actionDate);
       }, 0) / closedActions.length
     : 0;
 
@@ -261,14 +261,14 @@ async function getCorrectiveActionStats(adminClient: any, companyId: string, sta
 async function getMaterialInspectionStats(adminClient: any, companyId: string, startDate: string, endDate: string) {
   const { data: inspections } = await adminClient
     .from('material_inspections')
-    .select('result')
+    .select('overall_result')
     .eq('company_id', companyId)
     .gte('inspection_date', startDate)
     .lte('inspection_date', endDate);
 
   const total = (inspections || []).length;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const passed = (inspections || []).filter((i: any) => i.result === 'PASS').length;
+  const passed = (inspections || []).filter((i: any) => i.overall_result === 'PASS').length;
   const rejected = total - passed;
 
   return {
@@ -283,21 +283,20 @@ async function getMaterialInspectionStats(adminClient: any, companyId: string, s
 async function getProductionStats(adminClient: any, companyId: string, startDate: string, endDate: string) {
   const { data: records } = await adminClient
     .from('production_records')
-    .select('quantity, quality')
+    .select('actual_quantity, defect_quantity')
     .eq('company_id', companyId)
     .gte('production_date', startDate)
     .lte('production_date', endDate);
 
   const totalBatches = (records || []).length;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const totalQuantity = (records || []).reduce((sum: number, r: any) => sum + (r.quantity || 0), 0);
-  const defectRates = (records || [])
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((r: any) => r.quality?.defect_rate)
-    .filter((r: number | undefined | null) => r !== undefined && r !== null);
+  const totalQuantity = (records || []).reduce((sum: number, r: any) => sum + (r.actual_quantity || 0), 0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const totalDefects = (records || []).reduce((sum: number, r: any) => sum + (r.defect_quantity || 0), 0);
 
-  const avgDefectRate = defectRates.length > 0
-    ? defectRates.reduce((a: number, b: number) => a + b, 0) / defectRates.length
+  // 평균 불량률 계산
+  const avgDefectRate = totalQuantity > 0
+    ? (totalDefects / totalQuantity) * 100
     : 0;
 
   return {
@@ -314,15 +313,37 @@ async function getCCPVerificationStats(adminClient: any, companyId: string, star
     .from('ccp_definitions')
     .select('id')
     .eq('company_id', companyId)
-    .eq('is_active', true);
+    .eq('status', 'ACTIVE');
 
-  // 검증 기록 조회
-  const { data: verifications } = await adminClient
+  // 검증 기록 조회 - 기간 내 연/월 기준
+  const startParts = startDate.split('-');
+  const endParts = endDate.split('-');
+  const startYear = parseInt(startParts[0]);
+  const startMonth = parseInt(startParts[1]);
+  const endYear = parseInt(endParts[0]);
+  const endMonth = parseInt(endParts[1]);
+
+  // 연/월 범위 내 검증 기록 조회
+  let query = adminClient
     .from('ccp_verifications')
     .select('ccp_id')
-    .eq('company_id', companyId)
-    .gte('verification_date', startDate)
-    .lte('verification_date', endDate);
+    .eq('company_id', companyId);
+
+  // 같은 연도인 경우
+  if (startYear === endYear) {
+    query = query
+      .eq('verification_year', startYear)
+      .gte('verification_month', startMonth)
+      .lte('verification_month', endMonth);
+  } else {
+    // 다른 연도인 경우 - 간단히 시작/끝 연월 사이 검증 기록 조회
+    query = query.or(
+      `and(verification_year.eq.${startYear},verification_month.gte.${startMonth}),` +
+      `and(verification_year.eq.${endYear},verification_month.lte.${endMonth})`
+    );
+  }
+
+  const { data: verifications } = await query;
 
   const totalRequired = (ccpDefs || []).length;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -339,15 +360,19 @@ async function getCCPVerificationStats(adminClient: any, companyId: string, star
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getTrainingStats(adminClient: any, companyId: string, startDate: string, endDate: string) {
   const { data: trainings } = await adminClient
-    .from('trainings')
-    .select('title, attendee_count')
+    .from('haccp_training_records')
+    .select('title, attendees')
     .eq('company_id', companyId)
+    .eq('status', 'COMPLETED')
     .gte('training_date', startDate)
     .lte('training_date', endDate);
 
   const totalSessions = (trainings || []).length;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const totalAttendees = (trainings || []).reduce((sum: number, t: any) => sum + (t.attendee_count || 0), 0);
+  const totalAttendees = (trainings || []).reduce((sum: number, t: any) => {
+    const attendeeList = t.attendees || [];
+    return sum + (Array.isArray(attendeeList) ? attendeeList.length : 0);
+  }, 0);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const topics = [...new Set((trainings || []).map((t: any) => t.title))] as string[];
 

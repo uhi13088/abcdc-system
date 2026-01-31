@@ -68,7 +68,7 @@ export async function GET() {
         .from('ccp_definitions')
         .select('id, ccp_number, process')
         .eq('company_id', company.id)
-        .eq('is_active', true);
+        .eq('status', 'ACTIVE');
 
       if (!ccpDefinitions || ccpDefinitions.length === 0) {
         results[company.id] = result;

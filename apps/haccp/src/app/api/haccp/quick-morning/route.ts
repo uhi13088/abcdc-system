@@ -201,9 +201,9 @@ export async function POST(request: NextRequest) {
       // 회사의 활성 CCP 정의 조회
       let ccpDefQuery = adminClient
         .from('ccp_definitions')
-        .select('id, ccp_number, process, critical_limit_min, critical_limit_max, target_value')
+        .select('id, ccp_number, process, critical_limit')
         .eq('company_id', userProfile.company_id)
-        .eq('is_active', true);
+        .eq('status', 'ACTIVE');
 
       if (currentStoreId) {
         ccpDefQuery = ccpDefQuery.eq('store_id', currentStoreId);
@@ -234,11 +234,13 @@ export async function POST(request: NextRequest) {
               }
             }
 
-            // 정상값 (target_value 또는 중간값)
-            const normalValue = ccp.target_value ||
-              (ccp.critical_limit_min && ccp.critical_limit_max
-                ? (ccp.critical_limit_min + ccp.critical_limit_max) / 2
-                : null);
+            // 정상값 (critical_limit의 중간값)
+            const criticalLimit = ccp.critical_limit || {};
+            const minVal = criticalLimit.min;
+            const maxVal = criticalLimit.max;
+            const normalValue = (minVal !== undefined && maxVal !== undefined)
+              ? (minVal + maxVal) / 2
+              : (minVal || maxVal || null);
 
             const { error } = await adminClient
               .from('ccp_records')
