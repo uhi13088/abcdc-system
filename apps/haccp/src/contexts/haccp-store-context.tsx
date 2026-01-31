@@ -179,6 +179,24 @@ export function HaccpStoreProvider({ children }: { children: React.ReactNode }) 
     loadStores();
   }, [loadStores]);
 
+  // Auth state 변경 시 매장 목록 다시 로드 (첫 로그인 시 세션 설정 후 재로드)
+  useEffect(() => {
+    const supabase = createClient();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      // 로그인 또는 토큰 갱신 시 매장 목록 새로 로드
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        // 약간의 딜레이 후 로드 (세션 설정 완료 대기)
+        setTimeout(() => {
+          loadStores();
+        }, 100);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [loadStores]);
+
   // 스위칭 가능 여부: 2개 이상 매장 + 매니저 이상 권한
   const canSwitchStore = haccpStores.length >= 2 && isManagerOrAbove(userRole);
 

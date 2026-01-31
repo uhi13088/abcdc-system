@@ -96,8 +96,10 @@ export async function GET(request: NextRequest) {
       if (
         error.code === '42P01' ||
         error.code === 'PGRST116' ||
+        error.code === 'PGRST205' ||
         error.message?.includes('does not exist') ||
-        error.message?.includes('relation')
+        error.message?.includes('relation') ||
+        error.message?.includes('schema cache')
       ) {
         console.log('audit_reports table not found, returning empty result');
         return NextResponse.json([]);

@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     let query = adminClient
-      .from('calibration_records')
+      .from('equipment_calibration_records')
       .select(`
         *,
         calibrated_by_user:calibrated_by (name),
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
     if (error && (error.code === '42703' || error.message?.includes('store_id'))) {
       console.log('store_id column not found, retrying without store filter');
       let retryQuery = adminClient
-        .from('calibration_records')
+        .from('equipment_calibration_records')
         .select(`
           *,
           calibrated_by_user:calibrated_by (name),
@@ -101,10 +101,12 @@ export async function GET(request: NextRequest) {
       if (
         error.code === '42P01' ||
         error.code === 'PGRST116' ||
+        error.code === 'PGRST205' ||
         error.message?.includes('does not exist') ||
-        error.message?.includes('relation')
+        error.message?.includes('relation') ||
+        error.message?.includes('schema cache')
       ) {
-        console.log('calibration_records table not found, returning empty result');
+        console.log('equipment_calibration_records table not found, returning empty result');
         return NextResponse.json([]);
       }
       console.error('Error fetching calibration records:', error);
@@ -186,7 +188,7 @@ export async function POST(request: NextRequest) {
     };
 
     let { data, error } = await adminClient
-      .from('calibration_records')
+      .from('equipment_calibration_records')
       .insert(insertData)
       .select()
       .single();
@@ -196,7 +198,7 @@ export async function POST(request: NextRequest) {
       console.log('store_id column not found, retrying without store_id');
       delete insertData.store_id;
       const retryResult = await adminClient
-        .from('calibration_records')
+        .from('equipment_calibration_records')
         .insert(insertData)
         .select()
         .single();
@@ -212,7 +214,7 @@ export async function POST(request: NextRequest) {
         error.message?.includes('does not exist') ||
         error.message?.includes('relation')
       ) {
-        console.log('calibration_records table not found');
+        console.log('equipment_calibration_records table not found');
         return NextResponse.json(null);
       }
       console.error('Error creating calibration record:', error);
@@ -266,7 +268,7 @@ export async function PUT(request: NextRequest) {
     updateData.updated_at = new Date().toISOString();
 
     let query = adminClient
-      .from('calibration_records')
+      .from('equipment_calibration_records')
       .update(updateData)
       .eq('id', id)
       .eq('company_id', userProfile.company_id);
@@ -283,7 +285,7 @@ export async function PUT(request: NextRequest) {
     if (error && (error.code === '42703' || error.message?.includes('store_id'))) {
       console.log('store_id column not found, retrying without store filter');
       const retryResult = await adminClient
-        .from('calibration_records')
+        .from('equipment_calibration_records')
         .update(updateData)
         .eq('id', id)
         .eq('company_id', userProfile.company_id)
