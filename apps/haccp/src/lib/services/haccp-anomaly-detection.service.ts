@@ -243,7 +243,7 @@ export class HACCPAnomalyDetectionService {
       .from('ccp_definitions')
       .select('id, process')
       .eq('company_id', companyId)
-      .eq('is_active', true);
+      .eq('status', 'ACTIVE');
 
     if (error || !ccps) return [];
 
