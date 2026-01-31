@@ -170,7 +170,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const currentStoreId = currentUser.current_store_id || currentUser.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const currentStoreId = currentUser.current_haccp_store_id || currentUser.current_store_id || currentUser.store_id;
 
     const body = await request.json();
     const {

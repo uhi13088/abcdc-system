@@ -66,8 +66,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 현재 선택된 매장
-    const currentStoreId = userData.current_store_id || userData.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const currentStoreId = userData.current_haccp_store_id || userData.current_store_id || userData.store_id;
 
     const status = request.nextUrl.searchParams.get('status');
     const sourceType = request.nextUrl.searchParams.get('source_type');
@@ -165,8 +165,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 현재 선택된 매장
-    const currentStoreId = userData.current_store_id || userData.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const currentStoreId = userData.current_haccp_store_id || userData.current_store_id || userData.store_id;
 
     const body = await request.json();
     const {
@@ -263,8 +263,8 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 현재 선택된 매장
-    const currentStoreId = userData.current_store_id || userData.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const currentStoreId = userData.current_haccp_store_id || userData.current_store_id || userData.store_id;
 
     const body = await request.json();
     const { id, ...updateData } = body;
@@ -331,8 +331,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 현재 선택된 매장
-    const currentStoreId = userData.current_store_id || userData.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const currentStoreId = userData.current_haccp_store_id || userData.current_store_id || userData.store_id;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

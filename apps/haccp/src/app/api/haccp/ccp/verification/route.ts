@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const currentStoreId = userData.current_store_id || userData.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const currentStoreId = userData.current_haccp_store_id || userData.current_store_id || userData.store_id;
 
     // 단일 검증 상세 조회 (응답 포함)
     if (id) {
