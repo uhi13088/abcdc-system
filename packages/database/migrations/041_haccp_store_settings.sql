@@ -14,9 +14,16 @@ ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
 ALTER TABLE haccp_company_settings
 DROP CONSTRAINT IF EXISTS haccp_company_settings_company_id_key;
 
--- 새 UNIQUE 제약조건 추가 (company_id + store_id)
-ALTER TABLE haccp_company_settings
-ADD CONSTRAINT haccp_company_settings_company_store_unique UNIQUE (company_id, store_id);
+-- 새 UNIQUE 제약조건 추가 (company_id + store_id) - 이미 존재하면 스킵
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'haccp_company_settings_company_store_unique'
+  ) THEN
+    ALTER TABLE haccp_company_settings
+    ADD CONSTRAINT haccp_company_settings_company_store_unique UNIQUE (company_id, store_id);
+  END IF;
+END $$;
 
 -- 인덱스 추가
 CREATE INDEX IF NOT EXISTS idx_haccp_company_settings_store ON haccp_company_settings(store_id);
