@@ -255,6 +255,20 @@ export default function HACCPDashboard() {
     }
   };
 
+  // 역할을 한글로 변환
+  const getRoleLabel = (role: string) => {
+    const roleLabels: Record<string, string> = {
+      'super_admin': '슈퍼관리자',
+      'company_admin': '회사 관리자',
+      'store_manager': '매장 관리자',
+      'haccp_manager': 'HACCP 팀장',
+      'manager': '관리자',
+      'staff': '직원',
+      'worker': '작업자',
+    };
+    return roleLabels[role] || role;
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -267,27 +281,28 @@ export default function HACCPDashboard() {
 
   return (
     <div className="p-4 lg:p-6">
-      {/* 유저 정보 표시 */}
-      {userInfo && (
-        <div className="mb-4 flex items-center gap-2 text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
-          <User className="w-4 h-4 text-gray-400" />
-          <span className="font-medium text-gray-900">{userInfo.name}</span>
-          {(userInfo.companyName || userInfo.storeName) && (
-            <>
-              <span className="text-gray-300">|</span>
-              <Building2 className="w-4 h-4 text-gray-400" />
-              <span>{userInfo.storeName || userInfo.companyName}</span>
-            </>
-          )}
-        </div>
-      )}
-
       <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">HACCP 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            식품 안전 관리 시스템 - 위해요소 중점관리
-          </p>
+        {/* 유저 프로필 */}
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-md">
+            {userInfo?.name?.charAt(0) || '?'}
+          </div>
+          <div>
+            <h1 className="text-xl lg:text-2xl font-bold text-gray-900">
+              {userInfo?.name || '사용자'}
+            </h1>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                {userInfo ? getRoleLabel(userInfo.role) : '로딩중...'}
+              </span>
+              {userInfo?.storeName && (
+                <span className="text-sm text-gray-500 flex items-center gap-1">
+                  <Building2 className="w-3.5 h-3.5" />
+                  {userInfo.storeName}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* 원클릭 하루 시작 버튼 */}
