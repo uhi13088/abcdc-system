@@ -71,6 +71,10 @@ ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
 
 CREATE INDEX IF NOT EXISTS idx_daily_hygiene_checks_store ON daily_hygiene_checks(store_id);
 
+-- haccp_zones (기존 테이블에 store_id 컬럼 추가)
+ALTER TABLE haccp_zones
+ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
+
 -- =====================================================
 -- 2. company_equipment_settings 테이블 생성
 -- =====================================================
