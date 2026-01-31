@@ -46,10 +46,6 @@ export async function GET(request: NextRequest) {
       `)
       .eq('company_id', userProfile.company_id);
 
-    if (currentStoreId) {
-      query = query.eq('store_id', currentStoreId);
-    }
-
     query = query.order('calibration_date', { ascending: false });
 
     if (equipmentType) {
@@ -66,9 +62,51 @@ export async function GET(request: NextRequest) {
       query = query.gte('next_calibration_date', new Date().toISOString().split('T')[0]);
     }
 
-    const { data, error } = await query;
+    // store_id 필터링 시도
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    let { data, error } = await query;
+
+    // store_id 컬럼 오류 시 store_id 필터 없이 재시도
+    if (error && (error.code === '42703' || error.message?.includes('store_id'))) {
+      console.log('store_id column not found, retrying without store filter');
+      let retryQuery = adminClient
+        .from('calibration_records')
+        .select(`
+          *,
+          calibrated_by_user:calibrated_by (name),
+          verified_by_user:verified_by (name)
+        `)
+        .eq('company_id', userProfile.company_id)
+        .order('calibration_date', { ascending: false });
+
+      if (equipmentType) retryQuery = retryQuery.eq('equipment_type', equipmentType);
+      if (status) retryQuery = retryQuery.eq('status', status);
+      if (expiringSoon === 'true') {
+        const thirtyDaysLater = new Date();
+        thirtyDaysLater.setDate(thirtyDaysLater.getDate() + 30);
+        retryQuery = retryQuery.lte('next_calibration_date', thirtyDaysLater.toISOString().split('T')[0]);
+        retryQuery = retryQuery.gte('next_calibration_date', new Date().toISOString().split('T')[0]);
+      }
+
+      const retryResult = await retryQuery;
+      data = retryResult.data;
+      error = retryResult.error;
+    }
 
     if (error) {
+      // 테이블이 없으면 빈 배열 반환
+      if (
+        error.code === '42P01' ||
+        error.code === 'PGRST116' ||
+        error.message?.includes('does not exist') ||
+        error.message?.includes('relation')
+      ) {
+        console.log('calibration_records table not found, returning empty result');
+        return NextResponse.json([]);
+      }
       console.error('Error fetching calibration records:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -119,39 +157,64 @@ export async function POST(request: NextRequest) {
       nextCalibrationDate = calibrationDate.toISOString().split('T')[0];
     }
 
-    const { data, error } = await adminClient
+    let insertData: Record<string, unknown> = {
+      company_id: userProfile.company_id,
+      store_id: currentStoreId || null,
+      calibrated_by: userProfile.id,
+      equipment_name: body.equipment_name,
+      equipment_code: body.equipment_code,
+      equipment_type: body.equipment_type,
+      manufacturer: body.manufacturer,
+      model: body.model,
+      serial_number: body.serial_number,
+      location: body.location,
+      calibration_date: body.calibration_date,
+      next_calibration_date: nextCalibrationDate,
+      calibration_cycle_months: body.calibration_cycle_months || 12,
+      calibration_type: body.calibration_type,
+      calibration_agency: body.calibration_agency,
+      certificate_number: body.certificate_number,
+      certificate_url: body.certificate_url,
+      standard_value: body.standard_value,
+      measured_value: body.measured_value,
+      tolerance: body.tolerance,
+      unit: body.unit,
+      result: body.result,
+      deviation_action: body.deviation_action,
+      notes: body.notes,
+      status: body.status || 'ACTIVE',
+    };
+
+    let { data, error } = await adminClient
       .from('calibration_records')
-      .insert({
-        company_id: userProfile.company_id,
-        store_id: currentStoreId || null,
-        calibrated_by: userProfile.id,
-        equipment_name: body.equipment_name,
-        equipment_code: body.equipment_code,
-        equipment_type: body.equipment_type,
-        manufacturer: body.manufacturer,
-        model: body.model,
-        serial_number: body.serial_number,
-        location: body.location,
-        calibration_date: body.calibration_date,
-        next_calibration_date: nextCalibrationDate,
-        calibration_cycle_months: body.calibration_cycle_months || 12,
-        calibration_type: body.calibration_type,
-        calibration_agency: body.calibration_agency,
-        certificate_number: body.certificate_number,
-        certificate_url: body.certificate_url,
-        standard_value: body.standard_value,
-        measured_value: body.measured_value,
-        tolerance: body.tolerance,
-        unit: body.unit,
-        result: body.result,
-        deviation_action: body.deviation_action,
-        notes: body.notes,
-        status: body.status || 'ACTIVE',
-      })
+      .insert(insertData)
       .select()
       .single();
 
+    // store_id 컬럼 오류 시 store_id 없이 재시도
+    if (error && (error.code === '42703' || error.message?.includes('store_id'))) {
+      console.log('store_id column not found, retrying without store_id');
+      delete insertData.store_id;
+      const retryResult = await adminClient
+        .from('calibration_records')
+        .insert(insertData)
+        .select()
+        .single();
+      data = retryResult.data;
+      error = retryResult.error;
+    }
+
     if (error) {
+      // 테이블이 없으면 null 반환
+      if (
+        error.code === '42P01' ||
+        error.code === 'PGRST116' ||
+        error.message?.includes('does not exist') ||
+        error.message?.includes('relation')
+      ) {
+        console.log('calibration_records table not found');
+        return NextResponse.json(null);
+      }
       console.error('Error creating calibration record:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -212,9 +275,23 @@ export async function PUT(request: NextRequest) {
       query = query.eq('store_id', currentStoreId);
     }
 
-    const { data, error } = await query
+    let { data, error } = await query
       .select()
       .single();
+
+    // store_id 컬럼 오류 시 store_id 필터 없이 재시도
+    if (error && (error.code === '42703' || error.message?.includes('store_id'))) {
+      console.log('store_id column not found, retrying without store filter');
+      const retryResult = await adminClient
+        .from('calibration_records')
+        .update(updateData)
+        .eq('id', id)
+        .eq('company_id', userProfile.company_id)
+        .select()
+        .single();
+      data = retryResult.data;
+      error = retryResult.error;
+    }
 
     if (error) {
       console.error('Error updating calibration record:', error);

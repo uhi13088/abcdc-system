@@ -71,7 +71,7 @@ CREATE POLICY "Trainings visible to company members" ON trainings
     FOR SELECT USING (
         company_id IS NULL OR
         company_id IN (
-            SELECT company_id FROM users WHERE id = auth.uid()
+            SELECT company_id FROM users WHERE auth_id = auth.uid()
         )
     );
 
@@ -79,7 +79,7 @@ CREATE POLICY "Trainings manageable by admins" ON trainings
     FOR ALL USING (
         EXISTS (
             SELECT 1 FROM users
-            WHERE id = auth.uid()
+            WHERE auth_id = auth.uid()
             AND role IN ('super_admin', 'company_admin', 'manager')
         )
     );
@@ -87,10 +87,10 @@ CREATE POLICY "Trainings manageable by admins" ON trainings
 -- RLS Policies for training_records
 CREATE POLICY "Training records visible to user and admins" ON training_records
     FOR SELECT USING (
-        user_id = auth.uid() OR
+        user_id IN (SELECT id FROM users WHERE auth_id = auth.uid()) OR
         EXISTS (
             SELECT 1 FROM users
-            WHERE id = auth.uid()
+            WHERE auth_id = auth.uid()
             AND role IN ('super_admin', 'company_admin', 'manager', 'store_manager')
         )
     );
@@ -99,7 +99,7 @@ CREATE POLICY "Training records manageable by admins" ON training_records
     FOR ALL USING (
         EXISTS (
             SELECT 1 FROM users
-            WHERE id = auth.uid()
+            WHERE auth_id = auth.uid()
             AND role IN ('super_admin', 'company_admin', 'manager')
         )
     );
@@ -107,21 +107,21 @@ CREATE POLICY "Training records manageable by admins" ON training_records
 -- RLS Policies for employee_evaluations
 CREATE POLICY "Evaluations visible to involved users" ON employee_evaluations
     FOR SELECT USING (
-        user_id = auth.uid() OR
-        evaluator_id = auth.uid() OR
+        user_id IN (SELECT id FROM users WHERE auth_id = auth.uid()) OR
+        evaluator_id IN (SELECT id FROM users WHERE auth_id = auth.uid()) OR
         EXISTS (
             SELECT 1 FROM users
-            WHERE id = auth.uid()
+            WHERE auth_id = auth.uid()
             AND role IN ('super_admin', 'company_admin', 'manager')
         )
     );
 
 CREATE POLICY "Evaluations manageable by admins and evaluators" ON employee_evaluations
     FOR ALL USING (
-        evaluator_id = auth.uid() OR
+        evaluator_id IN (SELECT id FROM users WHERE auth_id = auth.uid()) OR
         EXISTS (
             SELECT 1 FROM users
-            WHERE id = auth.uid()
+            WHERE auth_id = auth.uid()
             AND role IN ('super_admin', 'company_admin', 'manager')
         )
     );

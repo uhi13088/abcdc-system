@@ -68,7 +68,15 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       // 테이블이 없으면 빈 결과 반환
-      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+      // PostgreSQL error codes: 42P01 = undefined_table, 42703 = undefined_column
+      if (
+        error.code === '42P01' ||
+        error.code === 'PGRST116' ||
+        error.message?.includes('does not exist') ||
+        error.message?.includes('relation') ||
+        error.message?.includes('product_recipes')
+      ) {
+        console.log('product_recipes table not found, returning empty result');
         return NextResponse.json({ recipes: [], grouped: [] });
       }
       console.error('Failed to fetch recipes:', error);
@@ -214,7 +222,14 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       // 테이블이 없으면 빈 배열 반환
-      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+      if (
+        error.code === '42P01' ||
+        error.code === 'PGRST116' ||
+        error.message?.includes('does not exist') ||
+        error.message?.includes('relation') ||
+        error.message?.includes('product_recipes')
+      ) {
+        console.log('product_recipes table not found, returning empty result');
         return NextResponse.json([]);
       }
       console.error('Failed to create recipes:', error);
