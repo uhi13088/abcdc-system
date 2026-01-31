@@ -21,7 +21,16 @@ import {
   Loader2,
   Sunrise,
   Sunset,
+  User,
+  Building2,
 } from 'lucide-react';
+
+interface UserInfo {
+  name: string;
+  companyName: string | null;
+  storeName: string | null;
+  role: string;
+}
 
 interface DashboardStats {
   todayHygieneChecks: {
@@ -80,6 +89,7 @@ export default function HACCPDashboard() {
     success: boolean;
     message: string;
   } | null>(null);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
 
   const fetchStats = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) setRefreshing(true);
@@ -101,12 +111,25 @@ export default function HACCPDashboard() {
     }
   }, []);
 
+  const fetchUserInfo = useCallback(async () => {
+    try {
+      const response = await fetch('/api/haccp/user-info');
+      if (response.ok) {
+        const data = await response.json();
+        setUserInfo(data);
+      }
+    } catch (err) {
+      console.error('Error fetching user info:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStats();
+    fetchUserInfo();
     // 5분마다 자동 새로고침
     const interval = setInterval(() => fetchStats(false), 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [fetchStats]);
+  }, [fetchStats, fetchUserInfo]);
 
   // 원클릭 일일점검 완료
   const handleQuickDailyCheck = async () => {
@@ -244,14 +267,29 @@ export default function HACCPDashboard() {
 
   return (
     <div className="p-4 lg:p-6">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* 유저 정보 표시 */}
+      {userInfo && (
+        <div className="mb-4 flex items-center gap-2 text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
+          <User className="w-4 h-4 text-gray-400" />
+          <span className="font-medium text-gray-900">{userInfo.name}</span>
+          {(userInfo.companyName || userInfo.storeName) && (
+            <>
+              <span className="text-gray-300">|</span>
+              <Building2 className="w-4 h-4 text-gray-400" />
+              <span>{userInfo.storeName || userInfo.companyName}</span>
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl lg:text-2xl font-bold text-gray-900">HACCP 관리</h1>
           <p className="mt-1 text-sm text-gray-500">
             식품 안전 관리 시스템 - 위해요소 중점관리
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* 원클릭 하루 시작 버튼 */}
           <button
             onClick={handleMorningCheck}
@@ -328,18 +366,18 @@ export default function HACCPDashboard() {
       )}
 
       {/* 오늘 현황 요약 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         {/* CCP 이탈 현황 - 가장 중요 */}
-        <div className={`rounded-xl p-6 shadow-sm border-2 ${stats.ccpDeviations > 0 ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'}`}>
-          <div className="flex items-center justify-between mb-4">
+        <div className={`rounded-xl p-4 shadow-sm border-2 ${stats.ccpDeviations > 0 ? 'bg-red-50 border-red-300' : 'bg-green-50 border-green-300'}`}>
+          <div className="flex items-center justify-between mb-2">
             <h3 className="font-semibold text-gray-900">CCP 이탈 현황</h3>
             {stats.ccpDeviations === 0 ? (
-              <CheckCircle className="w-8 h-8 text-green-500" />
+              <CheckCircle className="w-6 h-6 text-green-500" />
             ) : (
-              <AlertTriangle className="w-8 h-8 text-red-500" />
+              <AlertTriangle className="w-6 h-6 text-red-500" />
             )}
           </div>
-          <p className={`text-5xl font-bold mb-2 ${stats.ccpDeviations > 0 ? 'text-red-600' : 'text-green-600'}`}>
+          <p className={`text-4xl font-bold mb-1 ${stats.ccpDeviations > 0 ? 'text-red-600' : 'text-green-600'}`}>
             {stats.ccpDeviations}
           </p>
           <p className="text-sm text-gray-600">
@@ -348,18 +386,18 @@ export default function HACCPDashboard() {
         </div>
 
         {/* 오늘 위생점검 */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-xl p-4 shadow-sm border">
+          <div className="flex items-center justify-between mb-2">
             <h3 className="font-semibold text-gray-900">오늘 위생점검</h3>
-            <ClipboardCheck className="w-6 h-6 text-cyan-500" />
+            <ClipboardCheck className="w-5 h-5 text-cyan-500" />
           </div>
-          <div className="flex items-end gap-2 mb-2">
-            <p className="text-4xl font-bold text-gray-900">{stats.todayHygieneChecks.completed}</p>
-            <p className="text-xl text-gray-400 mb-1">/ {stats.todayHygieneChecks.total}</p>
+          <div className="flex items-end gap-2 mb-1">
+            <p className="text-3xl font-bold text-gray-900">{stats.todayHygieneChecks.completed}</p>
+            <p className="text-lg text-gray-400 mb-0.5">/ {stats.todayHygieneChecks.total}</p>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+          <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1">
             <div
-              className="bg-cyan-500 h-2 rounded-full transition-all"
+              className="bg-cyan-500 h-1.5 rounded-full transition-all"
               style={{ width: `${(stats.todayHygieneChecks.completed / stats.todayHygieneChecks.total) * 100}%` }}
             />
           </div>
@@ -369,18 +407,18 @@ export default function HACCPDashboard() {
         </div>
 
         {/* IoT 센서 상태 */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-xl p-4 shadow-sm border">
+          <div className="flex items-center justify-between mb-2">
             <h3 className="font-semibold text-gray-900">IoT 센서 상태</h3>
             {stats.sensorStatus.offline === 0 ? (
-              <Wifi className="w-6 h-6 text-green-500" />
+              <Wifi className="w-5 h-5 text-green-500" />
             ) : (
-              <WifiOff className="w-6 h-6 text-red-500" />
+              <WifiOff className="w-5 h-5 text-red-500" />
             )}
           </div>
-          <div className="flex items-end gap-2 mb-2">
-            <p className="text-4xl font-bold text-green-600">{stats.sensorStatus.online}</p>
-            <p className="text-xl text-gray-400 mb-1">/ {stats.sensorStatus.total}</p>
+          <div className="flex items-end gap-2 mb-1">
+            <p className="text-3xl font-bold text-green-600">{stats.sensorStatus.online}</p>
+            <p className="text-lg text-gray-400 mb-0.5">/ {stats.sensorStatus.total}</p>
           </div>
           {stats.sensorStatus.offline > 0 && (
             <p className="text-sm text-red-600 font-medium">
@@ -397,46 +435,46 @@ export default function HACCPDashboard() {
       </div>
 
       {/* 주요 현황 카드 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Link href="/ccp/records" className="bg-white rounded-xl p-5 shadow-sm border hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-              <Thermometer className="w-5 h-5 text-red-600" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <Link href="/ccp/records" className="bg-white rounded-xl p-3 shadow-sm border hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+              <Thermometer className="w-4 h-4 text-red-600" />
             </div>
             <span className="text-sm text-gray-500">오늘 CCP 기록</span>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{stats.todayCcpRecords}<span className="text-lg text-gray-400 ml-1">건</span></p>
+          <p className="text-2xl font-bold text-gray-900">{stats.todayCcpRecords}<span className="text-base text-gray-400 ml-1">건</span></p>
         </Link>
 
-        <Link href="/production" className="bg-white rounded-xl p-5 shadow-sm border hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-              <Factory className="w-5 h-5 text-indigo-600" />
+        <Link href="/production" className="bg-white rounded-xl p-3 shadow-sm border hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
+              <Factory className="w-4 h-4 text-indigo-600" />
             </div>
             <span className="text-sm text-gray-500">오늘 생산</span>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{stats.todayProduction}<span className="text-lg text-gray-400 ml-1">건</span></p>
+          <p className="text-2xl font-bold text-gray-900">{stats.todayProduction}<span className="text-base text-gray-400 ml-1">건</span></p>
         </Link>
 
-        <Link href="/inspections" className="bg-white rounded-xl p-5 shadow-sm border hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <FileCheck className="w-5 h-5 text-purple-600" />
+        <Link href="/inspections" className="bg-white rounded-xl p-3 shadow-sm border hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+              <FileCheck className="w-4 h-4 text-purple-600" />
             </div>
             <span className="text-sm text-gray-500">입고검사 대기</span>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{stats.pendingInspections}<span className="text-lg text-gray-400 ml-1">건</span></p>
+          <p className="text-2xl font-bold text-gray-900">{stats.pendingInspections}<span className="text-base text-gray-400 ml-1">건</span></p>
         </Link>
 
-        <Link href="/inventory" className="bg-white rounded-xl p-5 shadow-sm border hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-orange-600" />
+        <Link href="/inventory" className="bg-white rounded-xl p-3 shadow-sm border hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+              <AlertTriangle className="w-4 h-4 text-orange-600" />
             </div>
             <span className="text-sm text-gray-500">재고 부족</span>
           </div>
-          <p className={`text-3xl font-bold ${stats.lowStockMaterials > 0 ? 'text-orange-600' : 'text-gray-900'}`}>
-            {stats.lowStockMaterials}<span className="text-lg text-gray-400 ml-1">건</span>
+          <p className={`text-2xl font-bold ${stats.lowStockMaterials > 0 ? 'text-orange-600' : 'text-gray-900'}`}>
+            {stats.lowStockMaterials}<span className="text-base text-gray-400 ml-1">건</span>
           </p>
         </Link>
       </div>
