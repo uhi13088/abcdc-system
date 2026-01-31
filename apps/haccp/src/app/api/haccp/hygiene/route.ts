@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { checkVerificationPermission } from '@/lib/utils/verification-permission';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +20,7 @@ interface HygieneCheckRequest {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
     const period = searchParams.get('period'); // 특정 작업 기간만 조회
@@ -29,9 +30,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -39,7 +40,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    let query = supabase
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
+    let query = adminClient
       .from('daily_hygiene_checks')
       .select(`
         *,
@@ -49,6 +53,11 @@ export async function GET(request: NextRequest) {
       .eq('company_id', userProfile.company_id)
       .eq('check_date', date);
 
+    // store_id 필터링
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
     if (period) {
       query = query.eq('check_period', period);
     }
@@ -56,6 +65,10 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query.order('created_at', { ascending: true });
 
     if (error) {
+      // 테이블이 없으면 빈 배열 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json([]);
+      }
       console.error('Error fetching hygiene checks:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -98,6 +111,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body: HygieneCheckRequest = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -105,9 +119,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id, name')
+      .select('id, company_id, name, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -115,11 +129,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
     // 온도 기록이 있으면 equipment_temperature_records에도 저장
     if (body.temperature_records) {
       const tempRecords = Object.entries(body.temperature_records).map(
         ([location, temp]) => ({
           company_id: userProfile.company_id,
+          store_id: currentStoreId || null,
           record_date: body.check_date,
           record_time: new Date().toTimeString().split(' ')[0],
           equipment_location: location,
@@ -130,14 +148,15 @@ export async function POST(request: NextRequest) {
       );
 
       if (tempRecords.length > 0) {
-        await supabase.from('equipment_temperature_records').insert(tempRecords);
+        await adminClient.from('equipment_temperature_records').insert(tempRecords);
       }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('daily_hygiene_checks')
       .insert({
         company_id: userProfile.company_id,
+        store_id: currentStoreId || null,
         checked_by: userProfile.id,
         checked_by_name: userProfile.name,
         check_date: body.check_date,
@@ -156,6 +175,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
+      // 테이블이 없으면 null 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json(null);
+      }
       console.error('Error creating hygiene check:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -171,6 +194,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
     const { id, action, corrective_action, improvement_result } = body;
 
@@ -179,15 +203,18 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id, name, role')
+      .select('id, company_id, name, role, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     interface UpdateData {
       verified_by?: string;
@@ -201,12 +228,17 @@ export async function PUT(request: NextRequest) {
 
     if (action === 'verify') {
       // 검증 대상 기록 조회 (작성자 확인용)
-      const { data: record } = await supabase
+      let recordQuery = adminClient
         .from('daily_hygiene_checks')
         .select('checked_by')
         .eq('id', id)
-        .eq('company_id', userProfile.company_id)
-        .single();
+        .eq('company_id', userProfile.company_id);
+
+      if (currentStoreId) {
+        recordQuery = recordQuery.eq('store_id', currentStoreId);
+      }
+
+      const { data: record } = await recordQuery.single();
 
       if (!record) {
         return NextResponse.json({ error: 'Record not found' }, { status: 404 });
@@ -243,13 +275,17 @@ export async function PUT(request: NextRequest) {
       updateData.improvement_result = improvement_result;
     }
 
-    const { data, error } = await supabase
+    let updateQuery = adminClient
       .from('daily_hygiene_checks')
       .update(updateData)
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .select()
-      .single();
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      updateQuery = updateQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await updateQuery.select().single();
 
     if (error) {
       console.error('Error updating hygiene check:', error);
@@ -267,6 +303,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -279,9 +316,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -289,13 +326,21 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 기록 존재 여부 확인
-    const { data: existing } = await supabase
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
+    // 기록 존재 여부 확인 (store_id 필터링 포함)
+    let existingQuery = adminClient
       .from('daily_hygiene_checks')
       .select('id, verified_by')
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .single();
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      existingQuery = existingQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: existing } = await existingQuery.single();
 
     if (!existing) {
       return NextResponse.json({ error: 'Record not found' }, { status: 404 });
@@ -310,11 +355,17 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 위생점검 기록 삭제
-    const { error } = await supabase
+    let deleteQuery = adminClient
       .from('daily_hygiene_checks')
       .delete()
       .eq('id', id)
       .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      deleteQuery = deleteQuery.eq('store_id', currentStoreId);
+    }
+
+    const { error } = await deleteQuery;
 
     if (error) {
       console.error('Error deleting hygiene check:', error);

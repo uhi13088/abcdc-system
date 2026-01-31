@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { format, addDays } from 'date-fns';
 
@@ -13,21 +13,46 @@ function generateActionNumber(date: Date): string {
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
+  const adminClient = createAdminClient();
 
   const { searchParams } = new URL(request.url);
   const ccpId = searchParams.get('ccp_id');
   const date = searchParams.get('date');
 
   try {
+    // 인증 확인
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // 사용자 정보 및 매장 정보 조회
+    const { data: profile } = await adminClient
+      .from('users')
+      .select('id, company_id, store_id, current_store_id')
+      .eq('auth_id', user.id)
+      .single();
+
+    if (!profile?.company_id) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+    }
+
+    // 현재 선택된 매장 (current_store_id 우선, 없으면 store_id)
+    const currentStoreId = profile.current_store_id || profile.store_id;
+
     // 기본 쿼리 (FK 조인 최소화)
-    let query = supabase
+    let query = adminClient
       .from('ccp_records')
       .select(`
         *,
         ccp_definitions (id, ccp_number, process, critical_limit, critical_limits)
       `)
-      .order('record_date', { ascending: false })
-      .order('record_time', { ascending: false });
+      .eq('company_id', profile.company_id);
+
+    // store_id 필터링
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
 
     if (ccpId) {
       query = query.eq('ccp_id', ccpId);
@@ -37,9 +62,16 @@ export async function GET(request: NextRequest) {
       query = query.eq('record_date', date);
     }
 
-    const { data, error } = await query.limit(100);
+    const { data, error } = await query
+      .order('record_date', { ascending: false })
+      .order('record_time', { ascending: false })
+      .limit(100);
 
     if (error) {
+      // 테이블이 없으면 빈 배열 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json([]);
+      }
       console.error('Error fetching CCP records:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -61,7 +93,7 @@ export async function GET(request: NextRequest) {
     // 사용자 정보 조회
     let usersMap: Record<string, { name: string }> = {};
     if (userIds.size > 0) {
-      const { data: users } = await supabase
+      const { data: users } = await adminClient
         .from('users')
         .select('id, name')
         .in('id', Array.from(userIds));
@@ -77,7 +109,7 @@ export async function GET(request: NextRequest) {
     // 개선조치 정보 조회
     let caMap: Record<string, { id: string; action_number: string; status: string }> = {};
     if (caIds.size > 0) {
-      const { data: actions } = await supabase
+      const { data: actions } = await adminClient
         .from('corrective_actions')
         .select('id, action_number, status')
         .in('id', Array.from(caIds));
@@ -107,6 +139,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
+  const adminClient = createAdminClient();
   const body = await request.json();
 
   try {
@@ -116,28 +149,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's company_id
-    const { data: profile } = await supabase
+    // Get user's company_id and store_id
+    const { data: profile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
-    if (!profile) {
-      return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
+    if (!profile?.company_id) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 현재 선택된 매장
+    const currentStoreId = profile.current_store_id || profile.store_id;
+
     // CCP 정보 조회 (이탈 시 개선조치 생성용)
-    const { data: ccpDef } = await supabase
+    const { data: ccpDef } = await adminClient
       .from('ccp_definitions')
       .select('ccp_number, process, critical_limit, critical_limits')
       .eq('id', body.ccp_id)
       .single();
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('ccp_records')
       .insert({
         company_id: profile.company_id,
+        store_id: currentStoreId || null,
         ccp_id: body.ccp_id,
         record_date: body.record_date,
         record_time: body.record_time,
@@ -153,6 +190,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
+      // 테이블이 없으면 null 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json(null);
+      }
       console.error('Error creating CCP record:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -183,10 +224,11 @@ export async function POST(request: NextRequest) {
         `${measurementDetails}\n` +
         `LOT: ${body.lot_number || '-'}`;
 
-      const { data: caData, error: caError } = await supabase
+      const { data: caData, error: caError } = await adminClient
         .from('corrective_actions')
         .insert({
           company_id: profile.company_id,
+          store_id: currentStoreId || null,
           action_number: generateActionNumber(now),
           action_date: body.record_date,
           source_type: 'CCP',
@@ -209,7 +251,7 @@ export async function POST(request: NextRequest) {
         correctiveAction = caData;
 
         // CCP 기록에 개선조치 ID 연결
-        await supabase
+        await adminClient
           .from('ccp_records')
           .update({ corrective_action_id: caData.id })
           .eq('id', data.id);
@@ -226,6 +268,7 @@ export async function POST(request: NextRequest) {
 // DELETE /api/haccp/ccp/records
 export async function DELETE(request: NextRequest) {
   const supabase = await createClient();
+  const adminClient = createAdminClient();
 
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -233,15 +276,18 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
-    if (!profile) {
-      return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
+    if (!profile?.company_id) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = profile.current_store_id || profile.store_id;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -250,13 +296,18 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Record ID is required' }, { status: 400 });
     }
 
-    // 기록 존재 여부 확인
-    const { data: existing } = await supabase
+    // 기록 존재 여부 확인 (store_id 필터링 포함)
+    let existingQuery = adminClient
       .from('ccp_records')
       .select('id, corrective_action_id')
       .eq('id', id)
-      .eq('company_id', profile.company_id)
-      .single();
+      .eq('company_id', profile.company_id);
+
+    if (currentStoreId) {
+      existingQuery = existingQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: existing } = await existingQuery.single();
 
     if (!existing) {
       return NextResponse.json({ error: 'Record not found' }, { status: 404 });
@@ -264,18 +315,24 @@ export async function DELETE(request: NextRequest) {
 
     // 연결된 개선조치가 있으면 연결 해제
     if (existing.corrective_action_id) {
-      await supabase
+      await adminClient
         .from('corrective_actions')
         .update({ source_id: null })
         .eq('id', existing.corrective_action_id);
     }
 
     // CCP 기록 삭제
-    const { error } = await supabase
+    let deleteQuery = adminClient
       .from('ccp_records')
       .delete()
       .eq('id', id)
       .eq('company_id', profile.company_id);
+
+    if (currentStoreId) {
+      deleteQuery = deleteQuery.eq('store_id', currentStoreId);
+    }
+
+    const { error } = await deleteQuery;
 
     if (error) {
       console.error('Error deleting CCP record:', error);

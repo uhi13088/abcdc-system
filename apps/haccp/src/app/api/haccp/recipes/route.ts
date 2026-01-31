@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
 // 레시피 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     // 단일 레시피 조회
     if (id) {
-      const { data, error } = await supabase
+      const { data, error } = await adminClient
         .from('product_recipes')
         .select('*')
         .eq('id', id)
@@ -37,13 +38,17 @@ export async function GET(request: NextRequest) {
         .single();
 
       if (error) {
+        // 테이블이 없으면 null 반환
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          return NextResponse.json(null);
+        }
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
       return NextResponse.json(data);
     }
 
     // 제품별 레시피 조회
-    let query = supabase
+    let query = adminClient
       .from('product_recipes')
       .select('*')
       .eq('company_id', userData.company_id)
@@ -123,14 +128,15 @@ export async function GET(request: NextRequest) {
 // 레시피 생성
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -160,13 +166,13 @@ export async function POST(request: NextRequest) {
 
     // 기존 레시피 삭제 (제품별로 전체 교체)
     if (product_id) {
-      await supabase
+      await adminClient
         .from('product_recipes')
         .delete()
         .eq('company_id', userData.company_id)
         .eq('product_id', product_id);
     } else if (semi_product_id) {
-      await supabase
+      await adminClient
         .from('product_recipes')
         .delete()
         .eq('company_id', userData.company_id)
@@ -201,12 +207,16 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('product_recipes')
       .insert(recipesToInsert)
       .select();
 
     if (error) {
+      // 테이블이 없으면 빈 배열 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json([]);
+      }
       console.error('Failed to create recipes:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -221,14 +231,15 @@ export async function POST(request: NextRequest) {
 // 레시피 수정 (단일 원료 항목)
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -250,7 +261,7 @@ export async function PUT(request: NextRequest) {
       updateData.amount_per_unit = updateData.amount / updateData.production_qty;
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('product_recipes')
       .update({
         ...updateData,
@@ -276,14 +287,15 @@ export async function PUT(request: NextRequest) {
 // 레시피 삭제
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
       .select('company_id')
       .eq('auth_id', user.id)
@@ -299,7 +311,7 @@ export async function DELETE(request: NextRequest) {
 
     // 단일 원료 항목 삭제
     if (id) {
-      const { error } = await supabase
+      const { error } = await adminClient
         .from('product_recipes')
         .delete()
         .eq('id', id)
@@ -313,7 +325,7 @@ export async function DELETE(request: NextRequest) {
 
     // 제품 전체 레시피 삭제
     if (productId) {
-      const { error } = await supabase
+      const { error } = await adminClient
         .from('product_recipes')
         .delete()
         .eq('product_id', productId)
@@ -326,7 +338,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (semiProductId) {
-      const { error } = await supabase
+      const { error } = await adminClient
         .from('product_recipes')
         .delete()
         .eq('semi_product_id', semiProductId)

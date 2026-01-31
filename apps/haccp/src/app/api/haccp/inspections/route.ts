@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { generateMaterialLotNumber } from '@/lib/utils/lot-number';
 
 export const dynamic = 'force-dynamic';
@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
     const materialType = searchParams.get('material_type');
@@ -18,9 +19,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -28,7 +29,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    let query = supabase
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
+    let query = adminClient
       .from('material_inspections')
       .select(`
         *,
@@ -37,6 +41,10 @@ export async function GET(request: NextRequest) {
       `)
       .eq('company_id', userProfile.company_id)
       .eq('inspection_date', date);
+
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
 
     if (materialType) {
       query = query.eq('material_type', materialType);
@@ -74,6 +82,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -81,9 +90,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, name, company_id')
+      .select('id, name, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -91,11 +100,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
     // 원부재료 정보 조회 (material_type, code 자동 설정)
     let materialType = body.material_type;
     let materialCode = body.material_code;
     if (body.material_id && (!materialType || !materialCode)) {
-      const { data: material } = await supabase
+      const { data: material } = await adminClient
         .from('materials')
         .select('type, code')
         .eq('id', body.material_id)
@@ -107,7 +119,7 @@ export async function POST(request: NextRequest) {
     // 검사 기준 조회하여 결과 자동 계산
     let overallResult = body.overall_result;
     if (!overallResult && materialType) {
-      const { data: standard } = await supabase
+      const { data: standard } = await adminClient
         .from('material_inspection_standards')
         .select('required_checks, pass_threshold, conditional_threshold')
         .eq('company_id', userProfile.company_id)
@@ -159,10 +171,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 로트번호 자동생성 (body에 없으면)
-    const autoLotNumber = body.lot_number || await generateMaterialLotNumber(supabase, userProfile.company_id, materialCode);
+    const autoLotNumber = body.lot_number || await generateMaterialLotNumber(adminClient, userProfile.company_id, materialCode);
 
     const insertData = {
       company_id: userProfile.company_id,
+      store_id: currentStoreId || null,
       inspected_by: userProfile.id,
       inspected_by_name: userProfile.name,
       material_type: materialType,
@@ -172,7 +185,7 @@ export async function POST(request: NextRequest) {
       supplier_id: body.supplier_id || null,
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('material_inspections')
       .insert(insertData)
       .select()
@@ -192,7 +205,7 @@ export async function POST(request: NextRequest) {
     if (finalResult === 'PASS' && body.material_id && body.quantity && body.quantity > 0) {
       try {
         // 원료 단위 정보 조회
-        const { data: material } = await supabase
+        const { data: material } = await adminClient
           .from('materials')
           .select('unit')
           .eq('id', body.material_id)
@@ -204,17 +217,22 @@ export async function POST(request: NextRequest) {
         const today = new Date().toISOString().split('T')[0];
 
         // 동일 LOT 번호 재고가 이미 있는지 확인
-        const { data: existingStock } = await supabase
+        let existingStockQuery = adminClient
           .from('material_stocks')
           .select('id, quantity')
           .eq('company_id', userProfile.company_id)
           .eq('material_id', body.material_id)
-          .eq('lot_number', lotNumber)
-          .maybeSingle();
+          .eq('lot_number', lotNumber);
+
+        if (currentStoreId) {
+          existingStockQuery = existingStockQuery.eq('store_id', currentStoreId);
+        }
+
+        const { data: existingStock } = await existingStockQuery.maybeSingle();
 
         if (existingStock) {
           // 기존 재고에 수량 추가
-          await supabase
+          await adminClient
             .from('material_stocks')
             .update({
               quantity: existingStock.quantity + body.quantity,
@@ -225,10 +243,11 @@ export async function POST(request: NextRequest) {
           stockCreated = { id: existingStock.id, action: 'updated' };
         } else {
           // 새 재고 생성
-          const { data: newStock } = await supabase
+          const { data: newStock } = await adminClient
             .from('material_stocks')
             .insert({
               company_id: userProfile.company_id,
+              store_id: currentStoreId || null,
               material_id: body.material_id,
               lot_number: lotNumber,
               quantity: body.quantity,
@@ -245,10 +264,11 @@ export async function POST(request: NextRequest) {
         }
 
         // 입고 트랜잭션 기록
-        await supabase
+        await adminClient
           .from('material_transactions')
           .insert({
             company_id: userProfile.company_id,
+            store_id: currentStoreId || null,
             material_id: body.material_id,
             transaction_type: 'IN',
             transaction_date: today,
@@ -278,6 +298,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
     const { id, ...updateData } = body;
 
@@ -290,15 +311,17 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, name, company_id')
+      .select('id, name, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     // 검증 처리
     if (updateData.verify) {
@@ -308,13 +331,17 @@ export async function PUT(request: NextRequest) {
       delete updateData.verify;
     }
 
-    const { data, error } = await supabase
+    let query = adminClient
       .from('material_inspections')
       .update(updateData)
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .select()
-      .single();
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await query.select().single();
 
     if (error) {
       console.error('Error updating inspection:', error);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,15 +7,16 @@ export const dynamic = 'force-dynamic';
 export async function GET(_request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -23,19 +24,33 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const { data, error } = await supabase
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
+    let query = adminClient
       .from('material_transactions')
       .select(`
         *,
         materials:material_id (name, code),
         recorded_by_user:recorded_by (name)
       `)
-      .eq('company_id', userProfile.company_id)
+      .eq('company_id', userProfile.company_id);
+
+    // store_id 필터링
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await query
       .order('transaction_date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(100);
 
     if (error) {
+      // 테이블이 없으면 빈 배열 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json([]);
+      }
       console.error('Error fetching transactions:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -59,6 +74,7 @@ export async function GET(_request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -66,9 +82,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -76,11 +92,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
     // Create transaction
-    const { data: txData, error: txError } = await supabase
+    const { data: txData, error: txError } = await adminClient
       .from('material_transactions')
       .insert({
         company_id: userProfile.company_id,
+        store_id: currentStoreId || null,
         recorded_by: userProfile.id,
         ...body,
         production_lot: body.production_lot || null,
@@ -89,24 +109,33 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (txError) {
+      // 테이블이 없으면 null 반환
+      if (txError.code === '42P01' || txError.message?.includes('does not exist')) {
+        return NextResponse.json(null);
+      }
       console.error('Error creating transaction:', txError);
       return NextResponse.json({ error: txError.message }, { status: 500 });
     }
 
     // Update or create stock
     if (body.transaction_type === 'IN') {
-      // Check if stock exists
-      const { data: existingStock } = await supabase
+      // Check if stock exists (store_id 필터링 추가)
+      let stockQuery = adminClient
         .from('material_stocks')
         .select('id, quantity')
         .eq('company_id', userProfile.company_id)
         .eq('material_id', body.material_id)
-        .eq('lot_number', body.lot_number)
-        .single();
+        .eq('lot_number', body.lot_number);
+
+      if (currentStoreId) {
+        stockQuery = stockQuery.eq('store_id', currentStoreId);
+      }
+
+      const { data: existingStock } = await stockQuery.single();
 
       if (existingStock) {
         // Update existing stock
-        await supabase
+        await adminClient
           .from('material_stocks')
           .update({
             quantity: existingStock.quantity + body.quantity,
@@ -114,11 +143,12 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', existingStock.id);
       } else {
-        // Create new stock
-        await supabase
+        // Create new stock (store_id 포함)
+        await adminClient
           .from('material_stocks')
           .insert({
             company_id: userProfile.company_id,
+            store_id: currentStoreId || null,
             material_id: body.material_id,
             lot_number: body.lot_number,
             quantity: body.quantity,
@@ -130,19 +160,24 @@ export async function POST(request: NextRequest) {
           });
       }
     } else if (body.transaction_type === 'OUT') {
-      // Deduct from stock
-      const { data: existingStock } = await supabase
+      // Deduct from stock (store_id 필터링 추가)
+      let stockQuery = adminClient
         .from('material_stocks')
         .select('id, quantity')
         .eq('company_id', userProfile.company_id)
         .eq('material_id', body.material_id)
-        .eq('lot_number', body.lot_number)
-        .single();
+        .eq('lot_number', body.lot_number);
+
+      if (currentStoreId) {
+        stockQuery = stockQuery.eq('store_id', currentStoreId);
+      }
+
+      const { data: existingStock } = await stockQuery.single();
 
       if (existingStock) {
         const newQuantity = existingStock.quantity - body.quantity;
         if (newQuantity <= 0) {
-          await supabase
+          await adminClient
             .from('material_stocks')
             .update({
               quantity: 0,
@@ -151,7 +186,7 @@ export async function POST(request: NextRequest) {
             })
             .eq('id', existingStock.id);
         } else {
-          await supabase
+          await adminClient
             .from('material_stocks')
             .update({
               quantity: newQuantity,
@@ -173,6 +208,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -185,9 +221,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -195,26 +231,39 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 기록 존재 여부 확인 (롤백용 정보 포함)
-    const { data: existing } = await supabase
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
+    // 기록 존재 여부 확인 (롤백용 정보 포함, store_id 필터링 추가)
+    let existingQuery = adminClient
       .from('material_transactions')
       .select('id, material_id, lot_number, quantity, transaction_type')
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .single();
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      existingQuery = existingQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: existing } = await existingQuery.single();
 
     if (!existing) {
       return NextResponse.json({ error: 'Record not found' }, { status: 404 });
     }
 
-    // 재고 롤백 처리
-    const { data: stock } = await supabase
+    // 재고 롤백 처리 (store_id 필터링 추가)
+    let stockQuery = adminClient
       .from('material_stocks')
       .select('id, quantity')
       .eq('company_id', userProfile.company_id)
       .eq('material_id', existing.material_id)
-      .eq('lot_number', existing.lot_number)
-      .single();
+      .eq('lot_number', existing.lot_number);
+
+    if (currentStoreId) {
+      stockQuery = stockQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: stock } = await stockQuery.single();
 
     if (stock) {
       let newQuantity = stock.quantity;
@@ -227,7 +276,7 @@ export async function DELETE(request: NextRequest) {
         newQuantity = stock.quantity + existing.quantity;
       }
 
-      await supabase
+      await adminClient
         .from('material_stocks')
         .update({
           quantity: newQuantity,
@@ -237,12 +286,18 @@ export async function DELETE(request: NextRequest) {
         .eq('id', stock.id);
     }
 
-    // 트랜잭션 삭제
-    const { error } = await supabase
+    // 트랜잭션 삭제 (store_id 필터링 추가)
+    let deleteQuery = adminClient
       .from('material_transactions')
       .delete()
       .eq('id', id)
       .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      deleteQuery = deleteQuery.eq('store_id', currentStoreId);
+    }
+
+    const { error } = await deleteQuery;
 
     if (error) {
       console.error('Error deleting transaction:', error);

@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createAdminClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
+
+export const dynamic = 'force-dynamic';
 
 // GET /api/haccp/team-checklists - 사용자가 속한 팀의 체크리스트 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -12,9 +15,9 @@ export async function GET(request: NextRequest) {
     }
 
     // 현재 사용자 정보 조회
-    const { data: currentUser } = await supabase
+    const { data: currentUser } = await adminClient
       .from('users')
-      .select('id, company_id, store_id, role')
+      .select('id, company_id, store_id, current_store_id, role')
       .eq('auth_id', user.id)
       .single();
 
@@ -149,22 +152,25 @@ export async function GET(request: NextRequest) {
 // POST /api/haccp/team-checklists - 체크리스트 수행 기록 생성/업데이트
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: currentUser } = await supabase
+    const { data: currentUser } = await adminClient
       .from('users')
-      .select('id, company_id, store_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
     if (!currentUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+
+    const currentStoreId = currentUser.current_store_id || currentUser.store_id;
 
     const body = await request.json();
     const {
@@ -223,6 +229,7 @@ export async function POST(request: NextRequest) {
         .from('team_checklist_records')
         .insert({
           company_id: currentUser.company_id,
+          store_id: currentStoreId || null,
           checklist_id,
           team_id,
           performed_by: currentUser.id,

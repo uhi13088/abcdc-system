@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { addHours, addDays, format } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
@@ -49,15 +49,16 @@ function generateActionNumber(date: Date): string {
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -65,17 +66,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 현재 선택된 매장
+    const currentStoreId = userData.current_store_id || userData.store_id;
+
     const status = request.nextUrl.searchParams.get('status');
     const sourceType = request.nextUrl.searchParams.get('source_type');
     const limit = parseInt(request.nextUrl.searchParams.get('limit') || '50');
 
     // 기본 쿼리 (FK 조인 없이)
-    let query = supabase
+    let query = adminClient
       .from('corrective_actions')
       .select('*')
-      .eq('company_id', userData.company_id)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+      .eq('company_id', userData.company_id);
+
+    // store_id 필터링
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
 
     if (status) {
       query = query.eq('status', status);
@@ -84,9 +91,15 @@ export async function GET(request: NextRequest) {
       query = query.eq('source_type', sourceType);
     }
 
-    const { data, error } = await query;
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
     if (error) {
+      // 테이블이 없으면 빈 배열 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json([]);
+      }
       console.error('Failed to fetch corrective actions:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -104,7 +117,7 @@ export async function GET(request: NextRequest) {
 
     let usersMap: Record<string, { id: string; name: string }> = {};
     if (userIds.size > 0) {
-      const { data: users } = await supabase
+      const { data: users } = await adminClient
         .from('users')
         .select('id, name')
         .in('id', Array.from(userIds));
@@ -135,21 +148,25 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
     if (!userData?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userData.current_store_id || userData.store_id;
 
     const body = await request.json();
     const {
@@ -171,10 +188,11 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const dueDates = calculateDueDates(severity, now);
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('corrective_actions')
       .insert({
         company_id: userData.company_id,
+        store_id: currentStoreId || null,
         action_number: generateActionNumber(now),
         action_date: format(now, 'yyyy-MM-dd'),
         source_type,
@@ -192,6 +210,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error || !data) {
+      // 테이블이 없으면 null 반환
+      if (error?.code === '42P01' || error?.message?.includes('does not exist')) {
+        return NextResponse.json(null);
+      }
       console.error('Failed to create corrective action:', error);
       return NextResponse.json({ error: error?.message || 'Failed to create corrective action' }, { status: 500 });
     }
@@ -199,7 +221,7 @@ export async function POST(request: NextRequest) {
     // 담당자에게 알림 생성
     if (responsible_person && data?.id) {
       try {
-        await supabase.from('notifications').insert({
+        await adminClient.from('notifications').insert({
           user_id: responsible_person,
           category: 'HACCP',
           priority: severity === 'CRITICAL' ? 'CRITICAL' : 'HIGH',
@@ -224,21 +246,25 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
     if (!userData?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userData.current_store_id || userData.store_id;
 
     const body = await request.json();
     const { id, ...updateData } = body;
@@ -257,16 +283,20 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const { data, error } = await supabase
+    let updateQuery = adminClient
       .from('corrective_actions')
       .update({
         ...updateData,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('company_id', userData.company_id)
-      .select()
-      .single();
+      .eq('company_id', userData.company_id);
+
+    if (currentStoreId) {
+      updateQuery = updateQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await updateQuery.select().single();
 
     if (error) {
       console.error('Failed to update corrective action:', error);
@@ -284,21 +314,25 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
     if (!userData?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userData.current_store_id || userData.store_id;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -307,13 +341,18 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
 
-    // 기록 존재 여부 확인
-    const { data: existing } = await supabase
+    // 기록 존재 여부 확인 (store_id 필터링 포함)
+    let existingQuery = adminClient
       .from('corrective_actions')
       .select('id, status')
       .eq('id', id)
-      .eq('company_id', userData.company_id)
-      .single();
+      .eq('company_id', userData.company_id);
+
+    if (currentStoreId) {
+      existingQuery = existingQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: existing } = await existingQuery.single();
 
     if (!existing) {
       return NextResponse.json({ error: 'Record not found' }, { status: 404 });
@@ -327,12 +366,18 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // 개선조치 삭제
-    const { error } = await supabase
+    // 개선조치 삭제 (store_id 필터링 포함)
+    let deleteQuery = adminClient
       .from('corrective_actions')
       .delete()
       .eq('id', id)
       .eq('company_id', userData.company_id);
+
+    if (currentStoreId) {
+      deleteQuery = deleteQuery.eq('store_id', currentStoreId);
+    }
+
+    const { error } = await deleteQuery;
 
     if (error) {
       console.error('Failed to delete corrective action:', error);

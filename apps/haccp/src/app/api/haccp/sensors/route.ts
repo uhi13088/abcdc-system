@@ -16,13 +16,16 @@ export async function GET(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status');
@@ -34,8 +37,12 @@ export async function GET(request: NextRequest) {
       let query = adminClient
         .from('iot_sensors')
         .select('*')
-        .eq('company_id', userProfile.company_id)
-        .order('created_at', { ascending: false });
+        .eq('company_id', userProfile.company_id);
+
+      // store_id 필터링
+      if (currentStoreId) {
+        query = query.eq('store_id', currentStoreId);
+      }
 
       // status 필터링
       if (status === 'active' || status === 'ONLINE') {
@@ -48,7 +55,7 @@ export async function GET(request: NextRequest) {
         query = query.eq('ccp_definition_id', ccpId);
       }
 
-      return query;
+      return query.order('created_at', { ascending: false });
     })();
 
     if (error) {
@@ -112,13 +119,16 @@ export async function POST(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     // 필수 필드 검증
     if (!body.sensor_name || !body.sensor_type || !body.protocol) {
@@ -130,13 +140,13 @@ export async function POST(request: NextRequest) {
 
     const sensorData = {
       company_id: userProfile.company_id,
+      store_id: currentStoreId || null,  // 현재 선택된 매장 자동 할당
       sensor_name: body.sensor_name,
       sensor_type: body.sensor_type,
       protocol: body.protocol,
       connection_string: body.connection_string || null,
       device_id: body.device_id || null,
       location: body.location || null,
-      store_id: body.store_id || null,
       ccp_definition_id: body.ccp_definition_id || null,
       reading_interval_seconds: body.reading_interval_seconds || 60,
       alert_enabled: body.alert_enabled !== false,

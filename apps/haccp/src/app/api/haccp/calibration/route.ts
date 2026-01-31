@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +13,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const equipmentType = searchParams.get('equipmentType');
     const status = searchParams.get('status');
@@ -23,9 +24,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -33,15 +34,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    let query = supabase
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
+    let query = adminClient
       .from('calibration_records')
       .select(`
         *,
         calibrated_by_user:calibrated_by (name),
         verified_by_user:verified_by (name)
       `)
-      .eq('company_id', userProfile.company_id)
-      .order('calibration_date', { ascending: false });
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    query = query.order('calibration_date', { ascending: false });
 
     if (equipmentType) {
       query = query.eq('equipment_type', equipmentType);
@@ -82,6 +90,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -89,15 +98,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     // 다음 검교정 일자 자동 계산
     let nextCalibrationDate = body.next_calibration_date;
@@ -107,10 +118,11 @@ export async function POST(request: NextRequest) {
       nextCalibrationDate = calibrationDate.toISOString().split('T')[0];
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('calibration_records')
       .insert({
         company_id: userProfile.company_id,
+        store_id: currentStoreId || null,
         calibrated_by: userProfile.id,
         equipment_name: body.equipment_name,
         equipment_code: body.equipment_code,
@@ -154,6 +166,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -161,15 +174,17 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     const { id, ...updateData } = body;
 
@@ -186,11 +201,17 @@ export async function PUT(request: NextRequest) {
 
     updateData.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabase
+    let query = adminClient
       .from('calibration_records')
       .update(updateData)
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await query
       .select()
       .single();
 

@@ -120,10 +120,24 @@ export default function FinishedProductStoragePage() {
 
   const fetchSensors = async () => {
     try {
-      const response = await fetch('/api/haccp/equipment');
+      const response = await fetch('/api/haccp/sensors?include_readings=true');
       if (response.ok) {
         const data = await response.json();
-        setSensors(data || []);
+        // 센서 데이터를 Sensor 인터페이스에 맞게 변환
+        const mappedSensors = (data || []).map((s: {
+          id: string;
+          name: string;
+          latest_reading?: {
+            reading_value?: number;
+          };
+          sensor_type?: string;
+        }) => ({
+          id: s.id,
+          name: s.name,
+          current_temp: s.sensor_type === 'temperature' ? s.latest_reading?.reading_value : undefined,
+          current_humidity: s.sensor_type === 'humidity' ? s.latest_reading?.reading_value : undefined,
+        }));
+        setSensors(mappedSensors);
       }
     } catch (error) {
       console.error('Failed to fetch sensors:', error);

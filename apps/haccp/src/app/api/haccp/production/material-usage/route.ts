@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,16 +25,17 @@ interface MaterialStock {
 // 생산 기록에 대한 원료 사용량 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -42,11 +43,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    const currentStoreId = userData.current_store_id || userData.store_id;
     const productionRecordId = request.nextUrl.searchParams.get('production_record_id');
 
     if (productionRecordId) {
       // 특정 생산 기록의 원료 사용 내역 조회
-      const { data: transactions, error } = await supabase
+      let query = adminClient
         .from('material_transactions')
         .select(`
           *,
@@ -55,6 +57,12 @@ export async function GET(request: NextRequest) {
         .eq('company_id', userData.company_id)
         .eq('production_lot', productionRecordId)
         .eq('transaction_type', 'OUT');
+
+      if (currentStoreId) {
+        query = query.eq('store_id', currentStoreId);
+      }
+
+      const { data: transactions, error } = await query;
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -73,22 +81,25 @@ export async function GET(request: NextRequest) {
 // 생산 완료 시 레시피 기반 원료 자동 출고
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
     if (!userData?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    const currentStoreId = userData.current_store_id || userData.store_id;
 
     const body = await request.json();
     const {
@@ -107,7 +118,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. 레시피 조회
-    let recipeQuery = supabase
+    let recipeQuery = adminClient
       .from('product_recipes')
       .select('*')
       .eq('company_id', userData.company_id);
@@ -165,7 +176,7 @@ export async function POST(request: NextRequest) {
       // 원료 ID 찾기 (material_code로 매칭)
       let materialId: string | null = null;
       if (recipe.material_code) {
-        const { data: material } = await supabase
+        const { data: material } = await adminClient
           .from('materials')
           .select('id')
           .eq('company_id', userData.company_id)
@@ -177,7 +188,7 @@ export async function POST(request: NextRequest) {
 
       // material_name으로도 시도
       if (!materialId) {
-        const { data: material } = await supabase
+        const { data: material } = await adminClient
           .from('materials')
           .select('id')
           .eq('company_id', userData.company_id)
@@ -206,13 +217,19 @@ export async function POST(request: NextRequest) {
       }
 
       // 3. FIFO로 재고에서 출고 (유통기한 빠른 순)
-      const { data: stocks } = await supabase
+      let stocksQuery = adminClient
         .from('material_stocks')
         .select('*')
         .eq('company_id', userData.company_id)
         .eq('material_id', materialId)
         .eq('status', 'AVAILABLE')
-        .gt('quantity', 0)
+        .gt('quantity', 0);
+
+      if (currentStoreId) {
+        stocksQuery = stocksQuery.eq('store_id', currentStoreId);
+      }
+
+      const { data: stocks } = await stocksQuery
         .order('expiry_date', { ascending: true, nullsFirst: false })
         .order('received_date', { ascending: true });
 
@@ -224,10 +241,11 @@ export async function POST(request: NextRequest) {
         const deductAmount = Math.min(stock.quantity, remainingAmount);
 
         // 출고 트랜잭션 생성
-        const { error: txError } = await supabase
+        const { error: txError } = await adminClient
           .from('material_transactions')
           .insert({
             company_id: userData.company_id,
+            store_id: currentStoreId || null,
             transaction_date: production_date || new Date().toISOString().split('T')[0],
             transaction_type: 'OUT',
             material_id: materialId,
@@ -256,7 +274,7 @@ export async function POST(request: NextRequest) {
           updateData.status = 'DISPOSED';
         }
 
-        await supabase
+        await adminClient
           .from('material_stocks')
           .update(updateData)
           .eq('id', stock.id);
@@ -282,7 +300,7 @@ export async function POST(request: NextRequest) {
     // 4. 생산 기록에 원료 사용 정보 업데이트 (선택적)
     const totalMaterialsUsed = results.reduce((sum, r) => sum + r.actual_amount, 0);
 
-    await supabase
+    await adminClient
       .from('production_records')
       .update({
         material_usage_processed: true,
@@ -308,16 +326,17 @@ export async function POST(request: NextRequest) {
 // 원료 사용 취소 (생산 취소 시)
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -325,6 +344,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    const currentStoreId = userData.current_store_id || userData.store_id;
     const productionRecordId = request.nextUrl.searchParams.get('production_record_id');
 
     if (!productionRecordId) {
@@ -332,12 +352,18 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 해당 생산 기록의 출고 트랜잭션 조회
-    const { data: transactions } = await supabase
+    let txQuery = adminClient
       .from('material_transactions')
       .select('*')
       .eq('company_id', userData.company_id)
       .eq('production_lot', productionRecordId)
       .eq('transaction_type', 'OUT');
+
+    if (currentStoreId) {
+      txQuery = txQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: transactions } = await txQuery;
 
     if (!transactions || transactions.length === 0) {
       return NextResponse.json({ message: 'No material transactions to reverse' });
@@ -346,16 +372,21 @@ export async function DELETE(request: NextRequest) {
     // 각 트랜잭션 복원
     for (const tx of transactions) {
       // 재고 복원
-      const { data: stock } = await supabase
+      let stockQuery = adminClient
         .from('material_stocks')
         .select('id, quantity, status')
         .eq('company_id', userData.company_id)
         .eq('material_id', tx.material_id)
-        .eq('lot_number', tx.lot_number)
-        .single();
+        .eq('lot_number', tx.lot_number);
+
+      if (currentStoreId) {
+        stockQuery = stockQuery.eq('store_id', currentStoreId);
+      }
+
+      const { data: stock } = await stockQuery.single();
 
       if (stock) {
-        await supabase
+        await adminClient
           .from('material_stocks')
           .update({
             quantity: stock.quantity + tx.quantity,
@@ -366,21 +397,23 @@ export async function DELETE(request: NextRequest) {
       }
 
       // 트랜잭션 삭제 또는 ADJUST로 변경
-      await supabase
+      await adminClient
         .from('material_transactions')
         .delete()
-        .eq('id', tx.id);
+        .eq('id', tx.id)
+        .eq('company_id', userData.company_id);
     }
 
     // 생산 기록 업데이트
-    await supabase
+    await adminClient
       .from('production_records')
       .update({
         material_usage_processed: false,
         material_usage_summary: null,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', productionRecordId);
+      .eq('id', productionRecordId)
+      .eq('company_id', userData.company_id);
 
     return NextResponse.json({
       success: true,

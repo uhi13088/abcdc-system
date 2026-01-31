@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { subDays, subHours } from 'date-fns';
 
 export const dynamic = 'force-dynamic';
@@ -12,15 +12,16 @@ export async function GET(
   try {
     const { id } = await params;
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
 
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -28,13 +29,20 @@ export async function GET(
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
     // 센서 존재 및 권한 확인
-    const { data: sensor } = await supabase
+    let sensorQuery = adminClient
       .from('iot_sensors')
       .select('id, company_id')
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .single();
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      sensorQuery = sensorQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: sensor } = await sensorQuery.single();
 
     if (!sensor) {
       return NextResponse.json({ error: 'Sensor not found' }, { status: 404 });
@@ -66,7 +74,7 @@ export async function GET(
         startDate = subDays(new Date(), 1);
     }
 
-    const { data: readings, error } = await supabase
+    const { data: readings, error } = await adminClient
       .from('sensor_readings')
       .select('*')
       .eq('sensor_id', id)
@@ -109,6 +117,7 @@ export async function POST(
   try {
     const { id } = await params;
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     // API Key 인증 (IoT 디바이스용)
@@ -122,7 +131,7 @@ export async function POST(
     }
 
     // 센서 정보 조회
-    const { data: sensor } = await supabase
+    const { data: sensor } = await adminClient
       .from('iot_sensors')
       .select('*, ccp_definition:ccp_definitions(critical_limit)')
       .eq('id', id)
@@ -169,7 +178,7 @@ export async function POST(
       recorded_at: body.recorded_at || new Date().toISOString(),
     };
 
-    const { data: reading, error: readingError } = await supabase
+    const { data: reading, error: readingError } = await adminClient
       .from('sensor_readings')
       .insert(readingData)
       .select()
@@ -187,21 +196,21 @@ export async function POST(
       status: 'ONLINE',
     };
 
-    await supabase
+    await adminClient
       .from('iot_sensors')
       .update(sensorUpdate)
       .eq('id', id);
 
     // 한계 이탈 시 알림 생성
     if (isWithinLimit === false && sensor.alert_enabled) {
-      const { data: users } = await supabase
+      const { data: users } = await adminClient
         .from('users')
         .select('id')
         .eq('company_id', sensor.company_id)
         .in('role', ['HACCP_MANAGER', 'STORE_MANAGER', 'COMPANY_ADMIN']);
 
       for (const user of users || []) {
-        await supabase.from('notifications').insert({
+        await adminClient.from('notifications').insert({
           user_id: user.id,
           category: 'HACCP',
           priority: 'HIGH',

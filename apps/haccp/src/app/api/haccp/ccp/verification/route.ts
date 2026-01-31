@@ -1,11 +1,12 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
 // CCP 월간 검증 조회
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
+  const adminClient = createAdminClient();
 
   const { searchParams } = new URL(request.url);
   const year = searchParams.get('year');
@@ -20,9 +21,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData } = await supabase
+    const { data: userData } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -30,9 +31,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    const currentStoreId = userData.current_store_id || userData.store_id;
+
     // 단일 검증 상세 조회 (응답 포함)
     if (id) {
-      const { data: verification, error } = await supabase
+      let detailQuery = adminClient
         .from('ccp_verifications')
         .select(`
           *,
@@ -40,8 +43,13 @@ export async function GET(request: NextRequest) {
           process_type:process_type_id (id, code, name, parameters)
         `)
         .eq('id', id)
-        .eq('company_id', userData.company_id)
-        .single();
+        .eq('company_id', userData.company_id);
+
+      if (currentStoreId) {
+        detailQuery = detailQuery.eq('store_id', currentStoreId);
+      }
+
+      const { data: verification, error } = await detailQuery.single();
 
       if (error) {
         console.error('Error fetching verification:', error);
@@ -55,7 +63,7 @@ export async function GET(request: NextRequest) {
 
       let usersMap: Record<string, { id: string; name: string }> = {};
       if (userIds.size > 0) {
-        const { data: users } = await supabase
+        const { data: users } = await adminClient
           .from('users')
           .select('id, name')
           .in('id', Array.from(userIds));
@@ -69,7 +77,7 @@ export async function GET(request: NextRequest) {
       }
 
       // 체크리스트 응답 조회
-      const { data: responses } = await supabase
+      const { data: responses } = await adminClient
         .from('ccp_verification_responses')
         .select(`
           *,
@@ -86,7 +94,7 @@ export async function GET(request: NextRequest) {
 
       let checkersMap: Record<string, { id: string; name: string }> = {};
       if (checkerIds.size > 0) {
-        const { data: checkers } = await supabase
+        const { data: checkers } = await adminClient
           .from('users')
           .select('id, name')
           .in('id', Array.from(checkerIds));
@@ -113,14 +121,20 @@ export async function GET(request: NextRequest) {
     }
 
     // 목록 조회
-    let query = supabase
+    let query = adminClient
       .from('ccp_verifications')
       .select(`
         *,
         ccp_definitions (id, ccp_number, process, critical_limit),
         process_type:process_type_id (id, code, name)
       `)
-      .eq('company_id', userData.company_id)
+      .eq('company_id', userData.company_id);
+
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    query = query
       .order('verification_year', { ascending: false })
       .order('verification_month', { ascending: false });
 
@@ -160,7 +174,7 @@ export async function GET(request: NextRequest) {
 
     let usersMap: Record<string, { name: string }> = {};
     if (userIds.size > 0) {
-      const { data: users } = await supabase
+      const { data: users } = await adminClient
         .from('users')
         .select('id, name')
         .in('id', Array.from(userIds));
@@ -188,7 +202,8 @@ export async function GET(request: NextRequest) {
 
 // CCP 월간 검증 생성
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
+  const adminClient = createAdminClient();
   const body = await request.json();
 
   try {
@@ -197,15 +212,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
     if (!profile) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
+
+    const currentStoreId = profile.current_store_id || profile.store_id;
 
     const {
       process_type_id,
@@ -225,10 +242,11 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // 검증 레코드 생성
-    const { data: verification, error: verificationError } = await supabase
+    const { data: verification, error: verificationError } = await adminClient
       .from('ccp_verifications')
       .insert({
         company_id: profile.company_id,
+        store_id: currentStoreId || null,
         process_type_id,
         ccp_id,
         verification_year,
@@ -276,7 +294,7 @@ export async function POST(request: NextRequest) {
         checked_at: new Date().toISOString(),
       }));
 
-      const { error: responsesError } = await supabase
+      const { error: responsesError } = await adminClient
         .from('ccp_verification_responses')
         .insert(responsesToInsert);
 
@@ -301,7 +319,7 @@ export async function POST(request: NextRequest) {
       }
 
       // 적합 상태 업데이트
-      await supabase
+      await adminClient
         .from('ccp_verifications')
         .update({ overall_compliance_status: overallStatus })
         .eq('id', verification.id);
@@ -316,7 +334,8 @@ export async function POST(request: NextRequest) {
 
 // CCP 월간 검증 수정/액션
 export async function PUT(request: NextRequest) {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
+  const adminClient = createAdminClient();
   const body = await request.json();
 
   try {
@@ -325,15 +344,17 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
     if (!profile) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
+
+    const currentStoreId = profile.current_store_id || profile.store_id;
 
     const { id, action, responses, ...updateData } = body;
 
@@ -344,16 +365,20 @@ export async function PUT(request: NextRequest) {
     // 액션별 처리
     if (action === 'submit') {
       // 제출 (검토 요청)
-      const { data, error } = await supabase
+      let submitQuery = adminClient
         .from('ccp_verifications')
         .update({
           status: 'SUBMITTED',
           submitted_at: new Date().toISOString(),
         })
         .eq('id', id)
-        .eq('company_id', profile.company_id)
-        .select()
-        .single();
+        .eq('company_id', profile.company_id);
+
+      if (currentStoreId) {
+        submitQuery = submitQuery.eq('store_id', currentStoreId);
+      }
+
+      const { data, error } = await submitQuery.select().single();
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -363,7 +388,7 @@ export async function PUT(request: NextRequest) {
 
     if (action === 'approve') {
       // 승인
-      const { data, error } = await supabase
+      let approveQuery = adminClient
         .from('ccp_verifications')
         .update({
           status: 'APPROVED',
@@ -371,9 +396,13 @@ export async function PUT(request: NextRequest) {
           approved_at: new Date().toISOString(),
         })
         .eq('id', id)
-        .eq('company_id', profile.company_id)
-        .select()
-        .single();
+        .eq('company_id', profile.company_id);
+
+      if (currentStoreId) {
+        approveQuery = approveQuery.eq('store_id', currentStoreId);
+      }
+
+      const { data, error } = await approveQuery.select().single();
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -383,7 +412,7 @@ export async function PUT(request: NextRequest) {
 
     if (action === 'reject') {
       // 반려
-      const { data, error } = await supabase
+      let rejectQuery = adminClient
         .from('ccp_verifications')
         .update({
           status: 'REJECTED',
@@ -392,9 +421,13 @@ export async function PUT(request: NextRequest) {
           approved_at: new Date().toISOString(),
         })
         .eq('id', id)
-        .eq('company_id', profile.company_id)
-        .select()
-        .single();
+        .eq('company_id', profile.company_id);
+
+      if (currentStoreId) {
+        rejectQuery = rejectQuery.eq('store_id', currentStoreId);
+      }
+
+      const { data, error } = await rejectQuery.select().single();
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -406,7 +439,7 @@ export async function PUT(request: NextRequest) {
       // 체크리스트 응답 저장/업데이트
       if (responses && responses.length > 0) {
         // 기존 응답 삭제 후 재삽입
-        await supabase
+        await adminClient
           .from('ccp_verification_responses')
           .delete()
           .eq('verification_id', id);
@@ -430,7 +463,7 @@ export async function PUT(request: NextRequest) {
           checked_at: new Date().toISOString(),
         }));
 
-        await supabase
+        await adminClient
           .from('ccp_verification_responses')
           .insert(responsesToInsert);
 
@@ -450,7 +483,7 @@ export async function PUT(request: NextRequest) {
           }
         }
 
-        await supabase
+        await adminClient
           .from('ccp_verifications')
           .update({ overall_compliance_status: overallStatus })
           .eq('id', id);
@@ -460,16 +493,20 @@ export async function PUT(request: NextRequest) {
     }
 
     // 일반 업데이트
-    const { data, error } = await supabase
+    let generalQuery = adminClient
       .from('ccp_verifications')
       .update({
         ...updateData,
         verified_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('company_id', profile.company_id)
-      .select()
-      .single();
+      .eq('company_id', profile.company_id);
+
+    if (currentStoreId) {
+      generalQuery = generalQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await generalQuery.select().single();
 
     if (error) {
       console.error('Error updating CCP verification:', error);
@@ -485,7 +522,8 @@ export async function PUT(request: NextRequest) {
 
 // CCP 월간 검증 삭제
 export async function DELETE(request: NextRequest) {
-  const supabase = await createClient();
+  const supabase = await createServerClient();
+  const adminClient = createAdminClient();
   const id = request.nextUrl.searchParams.get('id');
 
   try {
@@ -494,9 +532,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -504,22 +542,30 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
 
+    const currentStoreId = profile.current_store_id || profile.store_id;
+
     if (!id) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
     // 응답 먼저 삭제
-    await supabase
+    await adminClient
       .from('ccp_verification_responses')
       .delete()
       .eq('verification_id', id);
 
     // 검증 삭제
-    const { error } = await supabase
+    let deleteQuery = adminClient
       .from('ccp_verifications')
       .delete()
       .eq('id', id)
       .eq('company_id', profile.company_id);
+
+    if (currentStoreId) {
+      deleteQuery = deleteQuery.eq('store_id', currentStoreId);
+    }
+
+    const { error } = await deleteQuery;
 
     if (error) {
       console.error('Error deleting CCP verification:', error);

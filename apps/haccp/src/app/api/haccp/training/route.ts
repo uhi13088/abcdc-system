@@ -27,13 +27,16 @@ export async function GET(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     let query = adminClient
       .from('haccp_training_records')
@@ -42,8 +45,14 @@ export async function GET(request: NextRequest) {
         created_by_user:created_by (name),
         verified_by_user:verified_by (name)
       `)
-      .eq('company_id', userProfile.company_id)
-      .order('training_date', { ascending: false });
+      .eq('company_id', userProfile.company_id);
+
+    // store_id 필터링
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
+    query = query.order('training_date', { ascending: false });
 
     if (startDate) {
       query = query.gte('training_date', startDate);
@@ -61,6 +70,10 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
 
     if (error) {
+      // 테이블이 없으면 빈 배열 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json([]);
+      }
       console.error('Error fetching training records:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -93,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -101,10 +114,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
     const { data, error } = await adminClient
       .from('haccp_training_records')
       .insert({
         company_id: userProfile.company_id,
+        store_id: currentStoreId || null,
         created_by: userProfile.id,
         training_date: body.training_date,
         training_type: body.training_type,
@@ -123,6 +140,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
+      // 테이블이 없으면 null 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json(null);
+      }
       console.error('Error creating training record:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -148,13 +169,16 @@ export async function PUT(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     const { id, ...updateData } = body;
 
@@ -171,13 +195,17 @@ export async function PUT(request: NextRequest) {
 
     updateData.updated_at = new Date().toISOString();
 
-    const { data, error } = await adminClient
+    let updateQuery = adminClient
       .from('haccp_training_records')
       .update(updateData)
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .select()
-      .single();
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      updateQuery = updateQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await updateQuery.select().single();
 
     if (error) {
       console.error('Error updating training record:', error);
@@ -210,7 +238,7 @@ export async function DELETE(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -218,13 +246,21 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 기록 존재 여부 확인
-    const { data: existing } = await adminClient
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
+    // 기록 존재 여부 확인 (store_id 필터링 포함)
+    let existingQuery = adminClient
       .from('haccp_training_records')
       .select('id, status, verified_by')
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .single();
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      existingQuery = existingQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: existing } = await existingQuery.single();
 
     if (!existing) {
       return NextResponse.json({ error: 'Record not found' }, { status: 404 });
@@ -238,12 +274,18 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // 교육 기록 삭제
-    const { error } = await adminClient
+    // 교육 기록 삭제 (store_id 필터링 포함)
+    let deleteQuery = adminClient
       .from('haccp_training_records')
       .delete()
       .eq('id', id)
       .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      deleteQuery = deleteQuery.eq('store_id', currentStoreId);
+    }
+
+    const { error } = await deleteQuery;
 
     if (error) {
       console.error('Error deleting training record:', error);

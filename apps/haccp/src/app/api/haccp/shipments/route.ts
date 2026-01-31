@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { generateShipmentNumber } from '@/lib/utils/lot-number';
 
 export const dynamic = 'force-dynamic';
@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
     const status = searchParams.get('status');
@@ -17,9 +18,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -27,7 +28,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    let query = supabase
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
+    let query = adminClient
       .from('shipment_records')
       .select(`
         *,
@@ -37,6 +41,11 @@ export async function GET(request: NextRequest) {
       .eq('company_id', userProfile.company_id)
       .eq('shipment_date', date);
 
+    // store_id 필터링
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
+
     if (status) {
       query = query.eq('status', status);
     }
@@ -44,6 +53,10 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
+      // 테이블이 없으면 빈 배열 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json([]);
+      }
       console.error('Error fetching shipments:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -54,7 +67,7 @@ export async function GET(request: NextRequest) {
       if (shipment.items && Array.isArray(shipment.items)) {
         const productIds = shipment.items.map((item: { product_id: string }) => item.product_id).filter(Boolean);
         if (productIds.length > 0) {
-          const { data: products } = await supabase
+          const { data: products } = await adminClient
             .from('products')
             .select('id, name, code')
             .in('id', productIds);
@@ -86,6 +99,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -93,9 +107,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, name, company_id')
+      .select('id, name, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -103,11 +117,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
     // 출하번호 자동생성
     const autoShipmentNumber = body.shipment_number || await generateShipmentNumber(supabase, userProfile.company_id);
 
     const insertData = {
       company_id: userProfile.company_id,
+      store_id: currentStoreId || null,
       shipped_by: userProfile.id,
       shipped_by_name: userProfile.name,
       status: body.status || 'PENDING',
@@ -116,13 +134,17 @@ export async function POST(request: NextRequest) {
       shipment_number: autoShipmentNumber,
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('shipment_records')
       .insert(insertData)
       .select()
       .single();
 
     if (error) {
+      // 테이블이 없으면 null 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json(null);
+      }
       console.error('Error creating shipment:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -138,6 +160,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
     const { id, action, ...updateData } = body;
 
@@ -150,15 +173,18 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, name, company_id')
+      .select('id, name, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     // 특수 액션 처리
     if (action === 'pre_shipment_check') {
@@ -211,13 +237,18 @@ export async function PUT(request: NextRequest) {
       updateData.status = 'CANCELLED';
     }
 
-    const { data, error } = await supabase
+    // 업데이트 쿼리 (store_id 필터링 추가)
+    let updateQuery = adminClient
       .from('shipment_records')
       .update(updateData)
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .select()
-      .single();
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      updateQuery = updateQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await updateQuery.select().single();
 
     if (error) {
       console.error('Error updating shipment:', error);

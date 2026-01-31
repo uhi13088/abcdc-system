@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { generateProductionLotNumber } from '@/lib/utils/lot-number';
 
 export const dynamic = 'force-dynamic';
@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
     const status = searchParams.get('status');
@@ -18,9 +19,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    // 사용자 정보 조회 (store_id 포함)
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id')
+      .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -28,17 +30,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    let query = supabase
+    // 현재 선택된 매장 (current_store_id 우선, 없으면 store_id)
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
+    // 기본 데이터 조회
+    let query = adminClient
       .from('production_records')
-      .select(`
-        *,
-        products:product_id (id, name, code, category),
-        supervisor:supervisor_id (id, name),
-        quality_checker:quality_checked_by (name),
-        approver:approved_by (name)
-      `)
+      .select('*')
       .eq('company_id', userProfile.company_id)
       .eq('production_date', date);
+
+    // store_id 필터링 (매장이 선택된 경우)
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
 
     if (status) {
       query = query.eq('status', status);
@@ -59,15 +64,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // 제품 정보 별도 조회
+    const productIds = [...new Set((data || []).map((r: { product_id?: string }) => r.product_id).filter(Boolean))];
+    let productsMap: Record<string, { name: string; code: string; category?: string }> = {};
+
+    if (productIds.length > 0) {
+      const { data: products } = await adminClient
+        .from('products')
+        .select('id, name, code, category')
+        .in('id', productIds);
+
+      productsMap = (products || []).reduce((acc, p) => {
+        acc[p.id] = p;
+        return acc;
+      }, {} as Record<string, { name: string; code: string; category?: string }>);
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = (data || []).map((r: any) => ({
       ...r,
-      product_name: r.products?.name,
-      product_code: r.products?.code,
-      product_category: r.products?.category,
-      supervisor_name: r.supervisor_name || r.supervisor?.name,
-      quality_checked_by_name: r.quality_checked_by_name || r.quality_checker?.name,
-      approved_by_name: r.approved_by_name || r.approver?.name,
+      product_name: r.product_name || productsMap[r.product_id]?.name,
+      product_code: r.product_code || productsMap[r.product_id]?.code,
+      product_category: productsMap[r.product_id]?.category,
     }));
 
     return NextResponse.json(result);
@@ -81,6 +99,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
 
     const { data: userData } = await supabase.auth.getUser();
@@ -88,15 +107,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, name, company_id')
+      .select('id, name, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장 (current_store_id 우선, 없으면 store_id)
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     // 생산조건 저장 (JSONB로도 저장 - 호환성)
     const productionConditions = {
@@ -121,6 +143,7 @@ export async function POST(request: NextRequest) {
 
     const insertData = {
       company_id: userProfile.company_id,
+      store_id: currentStoreId || null,
       supervisor_id: userProfile.id,
       supervisor_name: userProfile.name,
       status: body.status || 'IN_PROGRESS',
@@ -131,13 +154,17 @@ export async function POST(request: NextRequest) {
       lot_number: autoLotNumber,
     };
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('production_records')
       .insert(insertData)
       .select()
       .single();
 
     if (error) {
+      // 테이블이 없으면 null 반환
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        return NextResponse.json(null);
+      }
       console.error('Error creating production record:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -153,6 +180,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const body = await request.json();
     const { id, action, ...updateData } = body;
 
@@ -165,15 +193,18 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, name, company_id')
+      .select('id, name, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장 (current_store_id 우선, 없으면 store_id)
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     // 특수 액션 처리
     let correctiveActionCreated = null;
@@ -220,7 +251,7 @@ export async function PUT(request: NextRequest) {
       if (qualityStatus === 'FAIL') {
         try {
           // 생산 기록 조회
-          const { data: productionRecord } = await supabase
+          const { data: productionRecord } = await adminClient
             .from('production_records')
             .select('lot_number, product_id, products:product_id(name, code)')
             .eq('id', id)
@@ -250,10 +281,11 @@ export async function PUT(request: NextRequest) {
           const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
           const actionNumber = `CA-${dateStr}-${random}`;
 
-          const { data: caData } = await supabase
+          const { data: caData } = await adminClient
             .from('corrective_actions')
             .insert({
               company_id: userProfile.company_id,
+              store_id: currentStoreId || null,
               action_number: actionNumber,
               action_date: today.toISOString().split('T')[0],
               source_type: 'PRODUCTION',
@@ -272,14 +304,14 @@ export async function PUT(request: NextRequest) {
             updateData.corrective_action_id = caData.id;
 
             // 관리자에게 알림
-            const { data: managers } = await supabase
+            const { data: managers } = await adminClient
               .from('users')
               .select('id')
               .eq('company_id', userProfile.company_id)
               .in('role', ['HACCP_MANAGER', 'COMPANY_ADMIN']);
 
             for (const manager of managers || []) {
-              await supabase.from('notifications').insert({
+              await adminClient.from('notifications').insert({
                 user_id: manager.id,
                 category: 'PRODUCTION',
                 priority: 'HIGH',
@@ -342,7 +374,7 @@ export async function PUT(request: NextRequest) {
     if (action === 'complete') {
       try {
         // 생산 기록 조회 (product_id, actual_quantity 등)
-        const { data: productionRecord } = await supabase
+        const { data: productionRecord } = await adminClient
           .from('production_records')
           .select('product_id, semi_product_id, actual_quantity, lot_number, production_date, material_usage_processed')
           .eq('id', id)
@@ -358,7 +390,7 @@ export async function PUT(request: NextRequest) {
 
           if ((productId || semiProductId) && quantityProduced && quantityProduced > 0) {
             // 레시피 조회
-            let recipeQuery = supabase
+            let recipeQuery = adminClient
               .from('product_recipes')
               .select('*')
               .eq('company_id', userProfile.company_id);
@@ -402,7 +434,7 @@ export async function PUT(request: NextRequest) {
                 // 원료 ID 찾기
                 let materialId: string | null = null;
                 if (recipe.material_code) {
-                  const { data: material } = await supabase
+                  const { data: material } = await adminClient
                     .from('materials')
                     .select('id')
                     .eq('company_id', userProfile.company_id)
@@ -412,7 +444,7 @@ export async function PUT(request: NextRequest) {
                 }
 
                 if (!materialId) {
-                  const { data: material } = await supabase
+                  const { data: material } = await adminClient
                     .from('materials')
                     .select('id')
                     .eq('company_id', userProfile.company_id)
@@ -431,14 +463,20 @@ export async function PUT(request: NextRequest) {
                   continue;
                 }
 
-                // FIFO 재고 출고
-                const { data: stocks } = await supabase
+                // FIFO 재고 출고 (store_id 필터링 추가)
+                let stockQuery = adminClient
                   .from('material_stocks')
                   .select('*')
                   .eq('company_id', userProfile.company_id)
                   .eq('material_id', materialId)
                   .eq('status', 'AVAILABLE')
-                  .gt('quantity', 0)
+                  .gt('quantity', 0);
+
+                if (currentStoreId) {
+                  stockQuery = stockQuery.eq('store_id', currentStoreId);
+                }
+
+                const { data: stocks } = await stockQuery
                   .order('expiry_date', { ascending: true, nullsFirst: false })
                   .order('received_date', { ascending: true });
 
@@ -454,11 +492,12 @@ export async function PUT(request: NextRequest) {
 
                   const deductAmount = Math.min(stock.quantity, remainingAmount);
 
-                  // 출고 트랜잭션
-                  await supabase
+                  // 출고 트랜잭션 (store_id 포함)
+                  await adminClient
                     .from('material_transactions')
                     .insert({
                       company_id: userProfile.company_id,
+                      store_id: currentStoreId || null,
                       transaction_date: productionDate || new Date().toISOString().split('T')[0],
                       transaction_type: 'OUT',
                       material_id: materialId,
@@ -472,7 +511,7 @@ export async function PUT(request: NextRequest) {
 
                   // 재고 업데이트
                   const newQty = stock.quantity - deductAmount;
-                  await supabase
+                  await adminClient
                     .from('material_stocks')
                     .update({
                       quantity: newQty,
@@ -517,7 +556,7 @@ export async function PUT(request: NextRequest) {
 
     // 생산조건 업데이트
     if (updateData.temperature !== undefined || updateData.humidity !== undefined) {
-      const { data: existing } = await supabase
+      const { data: existing } = await adminClient
         .from('production_records')
         .select('production_conditions')
         .eq('id', id)
@@ -532,13 +571,18 @@ export async function PUT(request: NextRequest) {
 
     updateData.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabase
+    // 업데이트 쿼리 (store_id 필터링 추가)
+    let updateQuery = adminClient
       .from('production_records')
       .update(updateData)
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .select()
-      .single();
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      updateQuery = updateQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data, error } = await updateQuery.select().single();
 
     if (error) {
       console.error('Error updating production record:', error);
@@ -561,6 +605,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createServerClient();
+    const adminClient = createAdminClient();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -573,9 +618,9 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -583,13 +628,21 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    // 기록 존재 여부 확인
-    const { data: existing } = await supabase
+    // 현재 선택된 매장 (current_store_id 우선, 없으면 store_id)
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
+    // 기록 존재 여부 확인 (store_id 필터링 추가)
+    let existingQuery = adminClient
       .from('production_records')
       .select('id, status')
       .eq('id', id)
-      .eq('company_id', userProfile.company_id)
-      .single();
+      .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      existingQuery = existingQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: existing } = await existingQuery.single();
 
     if (!existing) {
       return NextResponse.json({ error: 'Record not found' }, { status: 404 });
@@ -603,12 +656,18 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // 생산 기록 삭제
-    const { error } = await supabase
+    // 생산 기록 삭제 (store_id 필터링 추가)
+    let deleteQuery = adminClient
       .from('production_records')
       .delete()
       .eq('id', id)
       .eq('company_id', userProfile.company_id);
+
+    if (currentStoreId) {
+      deleteQuery = deleteQuery.eq('store_id', currentStoreId);
+    }
+
+    const { error } = await deleteQuery;
 
     if (error) {
       console.error('Error deleting production record:', error);

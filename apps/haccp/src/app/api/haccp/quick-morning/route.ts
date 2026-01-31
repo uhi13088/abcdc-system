@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 interface MorningCheckResult {
   hygiene_pre_work: boolean;
@@ -47,7 +47,8 @@ const EQUIPMENT_LOCATIONS = [
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
 
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
@@ -56,15 +57,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user profile
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, name, company_id')
+      .select('id, name, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
     if (!userProfile || !userProfile.company_id) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
+
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
 
     const body = await request.json();
     const checkDate = body.check_date || new Date().toISOString().split('T')[0];
@@ -85,21 +89,27 @@ export async function POST(request: NextRequest) {
     // ========================================
     try {
       if (skipExisting) {
-        const { data: existing } = await supabase
+        let existingQuery = adminClient
           .from('hygiene_checks')
           .select('id')
           .eq('company_id', userProfile.company_id)
           .eq('check_date', checkDate)
-          .eq('check_period', '작업전')
-          .limit(1);
+          .eq('check_period', '작업전');
+
+        if (currentStoreId) {
+          existingQuery = existingQuery.eq('store_id', currentStoreId);
+        }
+
+        const { data: existing } = await existingQuery.limit(1);
 
         if (existing && existing.length > 0) {
           result.hygiene_pre_work = true;
         } else {
-          const { error } = await supabase
+          const { error } = await adminClient
             .from('hygiene_checks')
             .insert({
               company_id: userProfile.company_id,
+              store_id: currentStoreId || null,
               check_date: checkDate,
               check_period: '작업전',
               checked_by: userProfile.id,
@@ -129,13 +139,18 @@ export async function POST(request: NextRequest) {
     for (const area of STORAGE_AREAS) {
       try {
         if (skipExisting) {
-          const { data: existing } = await supabase
+          let existingQuery = adminClient
             .from('storage_inspections')
             .select('id')
             .eq('company_id', userProfile.company_id)
             .eq('inspection_date', checkDate)
-            .eq('storage_area', area.area)
-            .limit(1);
+            .eq('storage_area', area.area);
+
+          if (currentStoreId) {
+            existingQuery = existingQuery.eq('store_id', currentStoreId);
+          }
+
+          const { data: existing } = await existingQuery.limit(1);
 
           if (existing && existing.length > 0) {
             result.storage_inspections++;
@@ -143,10 +158,11 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        const { error } = await supabase
+        const { error } = await adminClient
           .from('storage_inspections')
           .insert({
             company_id: userProfile.company_id,
+            store_id: currentStoreId || null,
             inspection_date: checkDate,
             inspection_time: currentTime,
             storage_area: area.area,
@@ -183,23 +199,34 @@ export async function POST(request: NextRequest) {
     // ========================================
     try {
       // 회사의 활성 CCP 정의 조회
-      const { data: ccpDefinitions } = await supabase
+      let ccpDefQuery = adminClient
         .from('ccp_definitions')
         .select('id, ccp_number, process, critical_limit_min, critical_limit_max, target_value')
         .eq('company_id', userProfile.company_id)
         .eq('is_active', true);
 
+      if (currentStoreId) {
+        ccpDefQuery = ccpDefQuery.eq('store_id', currentStoreId);
+      }
+
+      const { data: ccpDefinitions } = await ccpDefQuery;
+
       if (ccpDefinitions && ccpDefinitions.length > 0) {
         for (const ccp of ccpDefinitions) {
           try {
             if (skipExisting) {
-              const { data: existing } = await supabase
+              let existingQuery = adminClient
                 .from('ccp_records')
                 .select('id')
                 .eq('company_id', userProfile.company_id)
                 .eq('ccp_id', ccp.id)
-                .eq('record_date', checkDate)
-                .limit(1);
+                .eq('record_date', checkDate);
+
+              if (currentStoreId) {
+                existingQuery = existingQuery.eq('store_id', currentStoreId);
+              }
+
+              const { data: existing } = await existingQuery.limit(1);
 
               if (existing && existing.length > 0) {
                 result.ccp_records++;
@@ -213,10 +240,11 @@ export async function POST(request: NextRequest) {
                 ? (ccp.critical_limit_min + ccp.critical_limit_max) / 2
                 : null);
 
-            const { error } = await supabase
+            const { error } = await adminClient
               .from('ccp_records')
               .insert({
                 company_id: userProfile.company_id,
+                store_id: currentStoreId || null,
                 ccp_id: ccp.id,
                 record_date: checkDate,
                 record_time: currentTime,
@@ -248,13 +276,18 @@ export async function POST(request: NextRequest) {
     for (const equip of EQUIPMENT_LOCATIONS) {
       try {
         if (skipExisting) {
-          const { data: existing } = await supabase
+          let existingQuery = adminClient
             .from('equipment_temperature_records')
             .select('id')
             .eq('company_id', userProfile.company_id)
             .eq('record_date', checkDate)
-            .eq('equipment_location', equip.location)
-            .limit(1);
+            .eq('equipment_location', equip.location);
+
+          if (currentStoreId) {
+            existingQuery = existingQuery.eq('store_id', currentStoreId);
+          }
+
+          const { data: existing } = await existingQuery.limit(1);
 
           if (existing && existing.length > 0) {
             result.equipment_temps++;
@@ -266,10 +299,11 @@ export async function POST(request: NextRequest) {
           ? equip.default_temp <= equip.target_temp + 3
           : equip.default_temp <= equip.target_temp + 5 && equip.default_temp >= 0;
 
-        const { error } = await supabase
+        const { error } = await adminClient
           .from('equipment_temperature_records')
           .insert({
             company_id: userProfile.company_id,
+            store_id: currentStoreId || null,
             record_date: checkDate,
             record_time: currentTime,
             equipment_location: equip.location,
@@ -323,16 +357,17 @@ export async function POST(request: NextRequest) {
 // 오늘의 아침 점검 현황 조회
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await supabase
+    const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id')
+      .select('id, company_id, store_id, current_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -340,45 +375,77 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
 
+    // 현재 선택된 매장
+    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+
     const { searchParams } = new URL(request.url);
     const checkDate = searchParams.get('date') || new Date().toISOString().split('T')[0];
 
     // 위생점검 (작업전) 현황
-    const { data: hygieneCheck } = await supabase
+    let hygieneQuery = adminClient
       .from('hygiene_checks')
       .select('id, overall_status, checked_by_name')
       .eq('company_id', userProfile.company_id)
       .eq('check_date', checkDate)
-      .eq('check_period', '작업전')
-      .single();
+      .eq('check_period', '작업전');
+
+    if (currentStoreId) {
+      hygieneQuery = hygieneQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: hygieneCheck } = await hygieneQuery.single();
 
     // 저장소 점검 현황
-    const { data: storageChecks } = await supabase
+    let storageQuery = adminClient
       .from('storage_inspections')
       .select('storage_area, overall_result')
       .eq('company_id', userProfile.company_id)
       .eq('inspection_date', checkDate);
 
+    if (currentStoreId) {
+      storageQuery = storageQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: storageChecks } = await storageQuery;
+
     // CCP 기록 현황
-    const { data: ccpRecords } = await supabase
+    let ccpRecordsQuery = adminClient
       .from('ccp_records')
       .select('ccp_id, is_within_limit')
       .eq('company_id', userProfile.company_id)
       .eq('record_date', checkDate);
 
+    if (currentStoreId) {
+      ccpRecordsQuery = ccpRecordsQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: ccpRecords } = await ccpRecordsQuery;
+
     // CCP 정의 수
-    const { count: ccpCount } = await supabase
+    let ccpCountQuery = adminClient
       .from('ccp_definitions')
       .select('id', { count: 'exact', head: true })
       .eq('company_id', userProfile.company_id)
       .eq('is_active', true);
 
+    if (currentStoreId) {
+      ccpCountQuery = ccpCountQuery.eq('store_id', currentStoreId);
+    }
+
+    const { count: ccpCount } = await ccpCountQuery;
+
     // 장비 온도 기록 현황
-    const { data: equipTemps } = await supabase
+    let equipQuery = adminClient
       .from('equipment_temperature_records')
       .select('equipment_location, is_within_limit')
       .eq('company_id', userProfile.company_id)
       .eq('record_date', checkDate);
+
+    if (currentStoreId) {
+      equipQuery = equipQuery.eq('store_id', currentStoreId);
+    }
+
+    const { data: equipTemps } = await equipQuery;
 
     const storageStatus = STORAGE_AREAS.map(area => ({
       area: area.area,

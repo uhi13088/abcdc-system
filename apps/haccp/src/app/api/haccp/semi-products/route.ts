@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { generateSemiProductLotNumber } from '@/lib/utils/lot-number';
 
@@ -11,24 +11,44 @@ export const dynamic = 'force-dynamic';
 
 // GET - Fetch semi-products with filters
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-
-  const { searchParams } = new URL(request.url);
-  const productionDate = searchParams.get('production_date');
-  const productCode = searchParams.get('product_code');
-  const hasStock = searchParams.get('has_stock');
-  const search = searchParams.get('search');
-
   try {
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
+
+    const { searchParams } = new URL(request.url);
+    const productionDate = searchParams.get('production_date');
+    const productCode = searchParams.get('product_code');
+    const hasStock = searchParams.get('has_stock');
+    const search = searchParams.get('search');
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let query = supabase
+    // 사용자 회사 정보 조회
+    const { data: userData } = await adminClient
+      .from('users')
+      .select('company_id, store_id, current_store_id')
+      .eq('auth_id', user.id)
+      .single();
+
+    if (!userData?.company_id) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+    }
+
+    const currentStoreId = userData.current_store_id || userData.store_id;
+
+    let query = adminClient
       .from('semi_products')
       .select('*')
+      .eq('company_id', userData.company_id)
       .order('created_at', { ascending: false });
+
+    // store_id 필터링
+    if (currentStoreId) {
+      query = query.eq('store_id', currentStoreId);
+    }
 
     if (productionDate) {
       query = query.eq('production_date', productionDate);
@@ -106,25 +126,32 @@ export async function GET(request: NextRequest) {
 
 // POST - Create new semi-product record
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const body = await request.json();
-
   try {
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
+    const body = await request.json();
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user info (auth_id로 조회)
-    const { data: userData } = await supabase
+    // Get user info
+    const { data: userData } = await adminClient
       .from('users')
-      .select('id, company_id, store_id, role')
+      .select('id, company_id, store_id, current_store_id, role')
       .eq('auth_id', user.id)
       .single();
 
-    if (!userData || !['super_admin', 'company_admin', 'manager', 'store_manager', 'HACCP_MANAGER', 'COMPANY_ADMIN'].includes(userData.role)) {
+    if (!userData?.company_id) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
+    }
+
+    if (!['super_admin', 'company_admin', 'manager', 'store_manager', 'HACCP_MANAGER', 'COMPANY_ADMIN'].includes(userData.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+
+    const currentStoreId = userData.current_store_id || userData.store_id;
 
     const {
       product_code,
@@ -145,18 +172,18 @@ export async function POST(request: NextRequest) {
     }
 
     // 로트번호 자동생성 (제품코드 포함)
-    const lotNumber = await generateSemiProductLotNumber(supabase, userData.company_id, product_code);
+    const lotNumber = await generateSemiProductLotNumber(adminClient, userData.company_id, product_code);
 
     // Calculate yield
     const yieldPercentage = production?.planned_qty > 0
       ? Math.round((production.actual_qty / production.planned_qty) * 100)
       : 0;
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('semi_products')
       .insert({
         company_id: userData.company_id,
-        store_id: userData.store_id,
+        store_id: currentStoreId || null,
         lot_number: lotNumber,
         product_code,
         product_name,
@@ -206,13 +233,25 @@ export async function POST(request: NextRequest) {
 
 // PUT - Update semi-product usage
 export async function PUT(request: NextRequest) {
-  const supabase = await createClient();
-  const body = await request.json();
-
   try {
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
+    const body = await request.json();
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // 사용자 회사 정보 조회
+    const { data: userData } = await adminClient
+      .from('users')
+      .select('company_id')
+      .eq('auth_id', user.id)
+      .single();
+
+    if (!userData?.company_id) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
     const { id, used_amount, used_for } = body;
@@ -224,11 +263,12 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Get current semi-product
-    const { data: current, error: fetchError } = await supabase
+    // Get current semi-product (본인 회사 데이터만)
+    const { data: current, error: fetchError } = await adminClient
       .from('semi_products')
       .select('remaining_qty, used_qty, used_for')
       .eq('id', id)
+      .eq('company_id', userData.company_id)
       .single();
 
     if (fetchError || !current) {
@@ -252,7 +292,7 @@ export async function PUT(request: NextRequest) {
       newUsedFor.push(used_for);
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminClient
       .from('semi_products')
       .update({
         used_qty: newUsed,
@@ -261,6 +301,7 @@ export async function PUT(request: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
+      .eq('company_id', userData.company_id)
       .select()
       .single();
 

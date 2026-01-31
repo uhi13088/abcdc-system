@@ -4,22 +4,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-
-export const dynamic = 'force-dynamic';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient as createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { parseISO, differenceInDays } from 'date-fns';
 
-let _supabaseClient: SupabaseClient | null = null;
-
-function getSupabase(): SupabaseClient {
-  if (!_supabaseClient) {
-    _supabaseClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-      process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-    );
-  }
-  return _supabaseClient;
-}
+export const dynamic = 'force-dynamic';
 
 interface AuditReportSummary {
   period: {
@@ -77,30 +65,26 @@ interface AuditReportSummary {
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
+    const supabase = await createServerClient();
+    const adminClient = createAdminClient();
+
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await getSupabase().auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { data: userData } = await getSupabase()
+    const { data: userProfile } = await adminClient
       .from('users')
       .select('company_id, role')
-      .eq('auth_id', user.id)
+      .eq('auth_id', userData.user.id)
       .single();
 
-    if (!userData) {
+    if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // 권한 확인
-    if (!['COMPANY_ADMIN', 'HACCP_MANAGER', 'ADMIN'].includes(userData.role)) {
+    if (!['COMPANY_ADMIN', 'HACCP_MANAGER', 'ADMIN', 'company_admin', 'super_admin'].includes(userProfile.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -115,29 +99,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const companyId = userData.company_id;
+    const companyId = userProfile.company_id;
     const totalDays = differenceInDays(parseISO(endDate), parseISO(startDate)) + 1;
 
     // 1. 일일 위생 점검 통계
-    const dailyHygieneChecks = await getDailyHygieneStats(companyId, startDate, endDate, totalDays);
+    const dailyHygieneChecks = await getDailyHygieneStats(adminClient, companyId, startDate, endDate, totalDays);
 
     // 2. CCP 모니터링 통계
-    const ccpMonitoring = await getCCPMonitoringStats(companyId, startDate, endDate);
+    const ccpMonitoring = await getCCPMonitoringStats(adminClient, companyId, startDate, endDate);
 
     // 3. 개선조치 통계
-    const correctiveActions = await getCorrectiveActionStats(companyId, startDate, endDate);
+    const correctiveActions = await getCorrectiveActionStats(adminClient, companyId, startDate, endDate);
 
     // 4. 입고 검사 통계
-    const materialInspections = await getMaterialInspectionStats(companyId, startDate, endDate);
+    const materialInspections = await getMaterialInspectionStats(adminClient, companyId, startDate, endDate);
 
     // 5. 생산 기록 통계
-    const productionRecords = await getProductionStats(companyId, startDate, endDate);
+    const productionRecords = await getProductionStats(adminClient, companyId, startDate, endDate);
 
     // 6. CCP 검증 통계
-    const ccpVerifications = await getCCPVerificationStats(companyId, startDate, endDate);
+    const ccpVerifications = await getCCPVerificationStats(adminClient, companyId, startDate, endDate);
 
     // 7. 교육 기록 통계
-    const trainingRecords = await getTrainingStats(companyId, startDate, endDate);
+    const trainingRecords = await getTrainingStats(adminClient, companyId, startDate, endDate);
 
     const report: AuditReportSummary = {
       period: {
@@ -164,13 +148,15 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getDailyHygieneStats(
+  adminClient: any,
   companyId: string,
   startDate: string,
   endDate: string,
   totalDays: number
 ) {
-  const { data: checks } = await getSupabase()
+  const { data: checks } = await adminClient
     .from('haccp_check_status')
     .select('check_date, status')
     .eq('company_id', companyId)
@@ -178,11 +164,11 @@ async function getDailyHygieneStats(
     .gte('check_date', startDate)
     .lte('check_date', endDate);
 
-  const completed = (checks || []).filter(c => c.status === 'COMPLETED').length;
+  const completed = (checks || []).filter((c: { status: string }) => c.status === 'COMPLETED').length;
   const totalRequired = totalDays * 3; // 3 shifts per day
   const missedDates = (checks || [])
-    .filter(c => c.status !== 'COMPLETED')
-    .map(c => c.check_date);
+    .filter((c: { status: string }) => c.status !== 'COMPLETED')
+    .map((c: { check_date: string }) => c.check_date);
 
   return {
     totalRequired,
@@ -192,8 +178,9 @@ async function getDailyHygieneStats(
   };
 }
 
-async function getCCPMonitoringStats(companyId: string, startDate: string, endDate: string) {
-  const { data: records } = await getSupabase()
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getCCPMonitoringStats(adminClient: any, companyId: string, startDate: string, endDate: string) {
+  const { data: records } = await adminClient
     .from('ccp_records')
     .select('*, ccp:ccp_definitions(process, critical_limit)')
     .eq('company_id', companyId)
@@ -201,12 +188,16 @@ async function getCCPMonitoringStats(companyId: string, startDate: string, endDa
     .lte('record_date', endDate);
 
   const total = (records || []).length;
-  const passed = (records || []).filter(r => r.measurement?.result === 'PASS').length;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const passed = (records || []).filter((r: any) => r.measurement?.result === 'PASS').length;
   const failed = total - passed;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const failureDetails = (records || [])
-    .filter(r => r.measurement?.result !== 'PASS')
-    .map(r => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((r: any) => r.measurement?.result !== 'PASS')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((r: any) => ({
       date: r.record_date,
       ccpName: r.ccp?.process || 'Unknown',
       value: r.measurement?.value || 0,
@@ -224,8 +215,9 @@ async function getCCPMonitoringStats(companyId: string, startDate: string, endDa
   };
 }
 
-async function getCorrectiveActionStats(companyId: string, startDate: string, endDate: string) {
-  const { data: actions } = await getSupabase()
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getCorrectiveActionStats(adminClient: any, companyId: string, startDate: string, endDate: string) {
+  const { data: actions } = await adminClient
     .from('corrective_actions')
     .select('*')
     .eq('company_id', companyId)
@@ -233,13 +225,16 @@ async function getCorrectiveActionStats(companyId: string, startDate: string, en
     .lte('issue_date', endDate);
 
   const total = (actions || []).length;
-  const closed = (actions || []).filter(a => a.status === 'CLOSED').length;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const closed = (actions || []).filter((a: any) => a.status === 'CLOSED').length;
   const open = total - closed;
 
   // 평균 종결 시간 계산
-  const closedActions = (actions || []).filter(a => a.closed_at);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const closedActions = (actions || []).filter((a: any) => a.closed_at);
   const avgClosureTime = closedActions.length > 0
-    ? closedActions.reduce((sum, a) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? closedActions.reduce((sum: number, a: any) => {
         const issueDate = new Date(a.issue_date);
         const closedDate = new Date(a.closed_at);
         return sum + differenceInDays(closedDate, issueDate);
@@ -248,6 +243,7 @@ async function getCorrectiveActionStats(companyId: string, startDate: string, en
 
   // 상태별 집계
   const byStatus: Record<string, number> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const action of actions || []) {
     byStatus[action.status] = (byStatus[action.status] || 0) + 1;
   }
@@ -261,8 +257,9 @@ async function getCorrectiveActionStats(companyId: string, startDate: string, en
   };
 }
 
-async function getMaterialInspectionStats(companyId: string, startDate: string, endDate: string) {
-  const { data: inspections } = await getSupabase()
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getMaterialInspectionStats(adminClient: any, companyId: string, startDate: string, endDate: string) {
+  const { data: inspections } = await adminClient
     .from('material_inspections')
     .select('result')
     .eq('company_id', companyId)
@@ -270,7 +267,8 @@ async function getMaterialInspectionStats(companyId: string, startDate: string, 
     .lte('inspection_date', endDate);
 
   const total = (inspections || []).length;
-  const passed = (inspections || []).filter(i => i.result === 'PASS').length;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const passed = (inspections || []).filter((i: any) => i.result === 'PASS').length;
   const rejected = total - passed;
 
   return {
@@ -281,8 +279,9 @@ async function getMaterialInspectionStats(companyId: string, startDate: string, 
   };
 }
 
-async function getProductionStats(companyId: string, startDate: string, endDate: string) {
-  const { data: records } = await getSupabase()
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getProductionStats(adminClient: any, companyId: string, startDate: string, endDate: string) {
+  const { data: records } = await adminClient
     .from('production_records')
     .select('quantity, quality')
     .eq('company_id', companyId)
@@ -290,13 +289,15 @@ async function getProductionStats(companyId: string, startDate: string, endDate:
     .lte('production_date', endDate);
 
   const totalBatches = (records || []).length;
-  const totalQuantity = (records || []).reduce((sum, r) => sum + (r.quantity || 0), 0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const totalQuantity = (records || []).reduce((sum: number, r: any) => sum + (r.quantity || 0), 0);
   const defectRates = (records || [])
-    .map(r => r.quality?.defect_rate)
-    .filter(r => r !== undefined && r !== null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((r: any) => r.quality?.defect_rate)
+    .filter((r: number | undefined | null) => r !== undefined && r !== null);
 
   const avgDefectRate = defectRates.length > 0
-    ? defectRates.reduce((a, b) => a + b, 0) / defectRates.length
+    ? defectRates.reduce((a: number, b: number) => a + b, 0) / defectRates.length
     : 0;
 
   return {
@@ -306,16 +307,17 @@ async function getProductionStats(companyId: string, startDate: string, endDate:
   };
 }
 
-async function getCCPVerificationStats(companyId: string, startDate: string, endDate: string) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getCCPVerificationStats(adminClient: any, companyId: string, startDate: string, endDate: string) {
   // CCP 정의 수 조회
-  const { data: ccpDefs } = await getSupabase()
+  const { data: ccpDefs } = await adminClient
     .from('ccp_definitions')
     .select('id')
     .eq('company_id', companyId)
     .eq('is_active', true);
 
   // 검증 기록 조회
-  const { data: verifications } = await getSupabase()
+  const { data: verifications } = await adminClient
     .from('ccp_verifications')
     .select('ccp_id')
     .eq('company_id', companyId)
@@ -323,7 +325,8 @@ async function getCCPVerificationStats(companyId: string, startDate: string, end
     .lte('verification_date', endDate);
 
   const totalRequired = (ccpDefs || []).length;
-  const completedCCPIds = new Set((verifications || []).map(v => v.ccp_id));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const completedCCPIds = new Set((verifications || []).map((v: any) => v.ccp_id));
   const completed = completedCCPIds.size;
 
   return {
@@ -333,8 +336,9 @@ async function getCCPVerificationStats(companyId: string, startDate: string, end
   };
 }
 
-async function getTrainingStats(companyId: string, startDate: string, endDate: string) {
-  const { data: trainings } = await getSupabase()
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getTrainingStats(adminClient: any, companyId: string, startDate: string, endDate: string) {
+  const { data: trainings } = await adminClient
     .from('trainings')
     .select('title, attendee_count')
     .eq('company_id', companyId)
@@ -342,8 +346,10 @@ async function getTrainingStats(companyId: string, startDate: string, endDate: s
     .lte('training_date', endDate);
 
   const totalSessions = (trainings || []).length;
-  const totalAttendees = (trainings || []).reduce((sum, t) => sum + (t.attendee_count || 0), 0);
-  const topics = [...new Set((trainings || []).map(t => t.title))];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const totalAttendees = (trainings || []).reduce((sum: number, t: any) => sum + (t.attendee_count || 0), 0);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const topics = [...new Set((trainings || []).map((t: any) => t.title))];
 
   return {
     totalSessions,
