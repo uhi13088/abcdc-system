@@ -48,11 +48,19 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userProfile } = await adminClient
+    const { data: userProfile, error: userProfileError } = await adminClient
       .from('users')
       .select('company_id, store_id, current_store_id')
       .eq('auth_id', userData.user.id)
       .single();
+
+    if (userProfileError) {
+      console.error('Error fetching user profile:', userProfileError);
+      return NextResponse.json({
+        error: 'Failed to fetch user profile',
+        details: userProfileError.message
+      }, { status: 500 });
+    }
 
     if (!userProfile?.company_id) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
