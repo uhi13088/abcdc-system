@@ -263,7 +263,7 @@ SELECT 'Backfill completed!' as status;
 SELECT
   cd.id,
   cd.company_id,
-  cd.ccp_name,
+  cd.ccp_number,
   CASE
     WHEN cd.company_id IS NULL THEN 'company_id가 NULL'
     WHEN NOT EXISTS (SELECT 1 FROM stores WHERE company_id = cd.company_id) THEN '해당 회사에 매장이 없음'
