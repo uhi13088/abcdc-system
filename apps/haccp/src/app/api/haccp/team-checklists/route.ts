@@ -198,8 +198,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not a member of this team' }, { status: 403 });
     }
 
-    const adminClient = createAdminClient();
-
     // 오늘 기록이 있는지 확인
     const { data: existingRecord } = await supabase
       .from('team_checklist_records')
