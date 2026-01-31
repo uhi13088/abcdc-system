@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('company_id, store_id, current_store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('company_id, store_id, current_store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -202,7 +202,7 @@ export async function PUT(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('company_id, store_id, current_store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -314,7 +314,7 @@ export async function DELETE(request: NextRequest) {
 
     const { data: userData } = await adminClient
       .from('users')
-      .select('company_id, store_id, current_store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', user.id)
       .single();
 

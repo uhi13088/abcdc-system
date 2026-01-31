@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     // Get user profile
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, name, company_id, store_id, current_store_id')
+      .select('id, name, company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 현재 선택된 매장
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     const body = await request.json();
     const checkDate = body.check_date || new Date().toISOString().split('T')[0];
@@ -379,7 +379,7 @@ export async function GET(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id, store_id, current_store_id')
+      .select('id, company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', user.id)
       .single();
 
@@ -388,7 +388,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 현재 선택된 매장
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     const { searchParams } = new URL(request.url);
     const checkDate = searchParams.get('date') || new Date().toISOString().split('T')[0];

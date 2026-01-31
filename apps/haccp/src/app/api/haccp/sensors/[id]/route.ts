@@ -20,7 +20,7 @@ export async function GET(
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, store_id, current_store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -28,7 +28,7 @@ export async function GET(
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     let sensorQuery = adminClient
       .from('iot_sensors')
@@ -87,7 +87,7 @@ export async function PUT(
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, store_id, current_store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -95,7 +95,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     // 권한 확인 (같은 회사/매장 소속 센서인지)
     let existingQuery = adminClient
@@ -195,7 +195,7 @@ export async function DELETE(
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, store_id, current_store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -203,7 +203,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     // 센서 삭제 (연관 readings는 CASCADE로 자동 삭제)
     // company_id + store_id 조건 추가로 defense-in-depth 적용

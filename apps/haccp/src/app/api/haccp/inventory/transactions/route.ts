@@ -16,7 +16,7 @@ export async function GET(_request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('company_id, store_id, current_store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -25,7 +25,7 @@ export async function GET(_request: NextRequest) {
     }
 
     // 현재 선택된 매장
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     let query = adminClient
       .from('material_transactions')
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id, store_id, current_store_id')
+      .select('id, company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 현재 선택된 매장
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     // Create transaction
     const { data: txData, error: txError } = await adminClient
@@ -223,7 +223,7 @@ export async function DELETE(request: NextRequest) {
 
     const { data: userProfile } = await adminClient
       .from('users')
-      .select('id, company_id, store_id, current_store_id')
+      .select('id, company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -232,7 +232,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 현재 선택된 매장
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
 
     // 기록 존재 여부 확인 (롤백용 정보 포함, store_id 필터링 추가)
     let existingQuery = adminClient

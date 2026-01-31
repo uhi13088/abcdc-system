@@ -50,7 +50,7 @@ export async function GET(_request: NextRequest) {
 
     const { data: userProfile, error: userProfileError } = await adminClient
       .from('users')
-      .select('company_id, store_id, current_store_id')
+      .select('company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -67,7 +67,8 @@ export async function GET(_request: NextRequest) {
     }
 
     const companyId = userProfile.company_id;
-    const currentStoreId = userProfile.current_store_id || userProfile.store_id;
+    // HACCP 매장 우선순위: current_haccp_store_id > current_store_id > store_id
+    const currentStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
     const today = new Date();
     const todayStr = format(today, 'yyyy-MM-dd');
     const weekStart = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');

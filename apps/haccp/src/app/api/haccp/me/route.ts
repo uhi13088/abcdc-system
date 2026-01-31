@@ -22,7 +22,7 @@ export async function GET() {
     // 사용자 정보 조회 (store_id, current_store_id 포함)
     const { data: userProfile, error } = await adminClient
       .from('users')
-      .select('id, name, email, role, company_id, store_id, current_store_id')
+      .select('id, name, email, role, company_id, store_id, current_store_id, current_haccp_store_id')
       .eq('auth_id', userData.user.id)
       .single();
 
@@ -56,7 +56,7 @@ export async function GET() {
 
     // 현재 선택된 매장 정보
     let currentStore = null;
-    const effectiveStoreId = userProfile.current_store_id || userProfile.store_id;
+    const effectiveStoreId = userProfile.current_haccp_store_id || userProfile.current_store_id || userProfile.store_id;
     if (effectiveStoreId) {
       const { data: store } = await adminClient
         .from('stores')
