@@ -44,14 +44,29 @@ ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id);
 ALTER TABLE notification_settings
 ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES auth.users(id);
 
+-- user_id 컬럼이 없을 수 있으므로 먼저 추가 (Supabase 마이그레이션과의 호환성)
 ALTER TABLE notification_settings
-ALTER COLUMN user_id DROP NOT NULL;
+ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id) ON DELETE CASCADE;
+
+-- user_id가 NOT NULL인 경우에만 DROP NOT NULL 실행
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'notification_settings'
+    AND column_name = 'user_id'
+    AND is_nullable = 'NO'
+  ) THEN
+    ALTER TABLE notification_settings ALTER COLUMN user_id DROP NOT NULL;
+  END IF;
+END $$;
 
 ALTER TABLE notification_settings
 DROP CONSTRAINT IF EXISTS notification_settings_user_id_key;
 
 CREATE INDEX IF NOT EXISTS idx_notification_settings_store ON notification_settings(store_id);
 CREATE INDEX IF NOT EXISTS idx_notification_settings_category ON notification_settings(category);
+CREATE INDEX IF NOT EXISTS idx_notification_settings_user ON notification_settings(user_id);
 
 -- ccp_definitions
 ALTER TABLE ccp_definitions

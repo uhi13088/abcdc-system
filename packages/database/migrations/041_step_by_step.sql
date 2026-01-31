@@ -23,6 +23,10 @@ ADD COLUMN IF NOT EXISTS created_by UUID;
 ALTER TABLE notification_settings
 ADD COLUMN IF NOT EXISTS updated_by UUID;
 
+-- user_id 컬럼이 없을 수 있으므로 먼저 추가 (Supabase 마이그레이션과의 호환성)
+ALTER TABLE notification_settings
+ADD COLUMN IF NOT EXISTS user_id UUID;
+
 -- ccp_definitions (이미 있을 수 있음)
 ALTER TABLE ccp_definitions
 ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
@@ -46,6 +50,7 @@ ADD COLUMN IF NOT EXISTS store_id UUID REFERENCES stores(id) ON DELETE CASCADE;
 CREATE INDEX IF NOT EXISTS idx_haccp_company_settings_store ON haccp_company_settings(store_id);
 CREATE INDEX IF NOT EXISTS idx_notification_settings_store ON notification_settings(store_id);
 CREATE INDEX IF NOT EXISTS idx_notification_settings_category ON notification_settings(category);
+CREATE INDEX IF NOT EXISTS idx_notification_settings_user ON notification_settings(user_id);
 CREATE INDEX IF NOT EXISTS idx_ccp_definitions_store ON ccp_definitions(store_id);
 CREATE INDEX IF NOT EXISTS idx_ccp_records_store ON ccp_records(store_id);
 CREATE INDEX IF NOT EXISTS idx_daily_hygiene_checks_store ON daily_hygiene_checks(store_id);
