@@ -413,31 +413,31 @@ export default function CCPVerificationPage() {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-4 lg:p-6">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
             <Link href="/ccp" className="hover:text-primary">CCP 관리</Link>
             <span>/</span>
             <span>월간 검증점검표</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">CCP 월간 검증점검표</h1>
+          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">CCP 월간 검증점검표</h1>
           <p className="mt-1 text-sm text-gray-500">공정별 CCP 관리 현황을 월간 단위로 검증합니다</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap gap-2">
           <Link
             href="/ccp/verification/settings"
-            className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+            className="inline-flex items-center gap-2 px-3 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm whitespace-nowrap"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-4 h-4 flex-shrink-0" />
             설정
           </Link>
           <button
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm whitespace-nowrap"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 flex-shrink-0" />
             검증 작성
           </button>
         </div>

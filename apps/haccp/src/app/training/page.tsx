@@ -321,32 +321,32 @@ export default function TrainingPage() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
-            <BookOpen className="w-4 h-4 text-blue-500" />
-            <p className="text-sm text-gray-500">전체 교육</p>
+            <BookOpen className="w-4 h-4 text-blue-500 flex-shrink-0" />
+            <p className="text-sm text-gray-500 whitespace-nowrap">전체 교육</p>
           </div>
           <p className="text-2xl font-bold">{trainings.length}건</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
-            <CheckCircle className="w-4 h-4 text-green-500" />
-            <p className="text-sm text-gray-500">완료된 교육</p>
+            <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+            <p className="text-sm text-gray-500 whitespace-nowrap">완료된 교육</p>
           </div>
           <p className="text-2xl font-bold">{trainings.filter(t => t.status === 'COMPLETED').length}건</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
-            <Clock className="w-4 h-4 text-purple-500" />
-            <p className="text-sm text-gray-500">총 교육 시간</p>
+            <Clock className="w-4 h-4 text-purple-500 flex-shrink-0" />
+            <p className="text-sm text-gray-500 whitespace-nowrap">총 교육 시간</p>
           </div>
           <p className="text-2xl font-bold">{totalHours}시간</p>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border">
           <div className="flex items-center gap-2 mb-2">
-            <Award className="w-4 h-4 text-orange-500" />
-            <p className="text-sm text-gray-500">이수 인원</p>
+            <Award className="w-4 h-4 text-orange-500 flex-shrink-0" />
+            <p className="text-sm text-gray-500 whitespace-nowrap">이수 인원</p>
           </div>
           <p className="text-2xl font-bold">{totalAttendees}명</p>
         </div>

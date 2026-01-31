@@ -356,15 +356,15 @@ function CCPRecordsContent() {
   };
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-4 lg:p-6">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
             <Link href="/ccp" className="hover:text-primary">CCP 관리</Link>
             <span>/</span>
             <span>모니터링 기록</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">CCP 모니터링 기록</h1>
+          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">CCP 모니터링 기록</h1>
           <p className="mt-1 text-sm text-gray-500">중요관리점 모니터링 결과를 기록하고 관리합니다</p>
         </div>
         <button
@@ -405,16 +405,16 @@ function CCPRecordsContent() {
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border p-4 mb-6">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-500" />
-            <span className="text-sm font-medium text-gray-700">필터:</span>
+            <Filter className="w-4 h-4 text-gray-500 flex-shrink-0" />
+            <span className="text-sm font-medium text-gray-700 whitespace-nowrap">필터:</span>
           </div>
-          <div>
+          <div className="flex flex-col sm:flex-row gap-3 flex-1">
             <select
               value={selectedCcp}
               onChange={(e) => setSelectedCcp(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm"
+              className="px-3 py-2 border rounded-lg text-sm flex-1 min-w-0"
             >
               <option value="">전체 CCP</option>
               {ccpList.map((ccp) => (
@@ -423,15 +423,15 @@ function CCPRecordsContent() {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-500" />
-            <input
-              type="date"
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="px-3 py-2 border rounded-lg text-sm"
-            />
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-gray-500 flex-shrink-0" />
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm"
+              />
+            </div>
           </div>
         </div>
       </div>
