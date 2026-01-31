@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useCallback, useContext, useEffect } from 'react';
+import { useState, useCallback, useContext, useEffect, useRef } from 'react';
 import {
   LayoutDashboard,
   ShieldCheck,
@@ -27,11 +27,14 @@ import {
   Cpu,
   ListChecks,
   Bell,
+  Building2,
+  Check,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { SidebarContext } from './app-layout';
+import { useHaccpStore } from '@/contexts/haccp-store-context';
 
 interface NavItem {
   name: string;
@@ -114,14 +117,36 @@ function SidebarComponent() {
   const router = useRouter();
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [isHovered, setIsHovered] = useState(false);
+  const [showStoreDropdown, setShowStoreDropdown] = useState(false);
+  const storeDropdownRef = useRef<HTMLDivElement>(null);
 
   // Mobile sidebar state from context
   const { isMobileOpen, setIsMobileOpen } = useContext(SidebarContext);
+
+  // HACCP Store context
+  const { currentStore, haccpStores, canSwitchStore, switchStore, isLoading: storesLoading } = useHaccpStore();
 
   // Close mobile sidebar on route change
   useEffect(() => {
     setIsMobileOpen(false);
   }, [pathname, setIsMobileOpen]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (storeDropdownRef.current && !storeDropdownRef.current.contains(event.target as Node)) {
+        setShowStoreDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleStoreSwitch = useCallback(async (storeId: string) => {
+    await switchStore(storeId);
+    setShowStoreDropdown(false);
+    router.refresh();
+  }, [switchStore, router]);
 
   const handleSignOut = useCallback(async () => {
     const supabase = await createClient();
@@ -179,6 +204,83 @@ function SidebarComponent() {
           </button>
         )}
       </div>
+
+      {/* Store Switcher - Only show when multiple HACCP stores and manager+ role */}
+      {canSwitchStore && !storesLoading && (
+        <div className="px-2 py-3 border-b border-gray-200" ref={storeDropdownRef}>
+          <button
+            onClick={() => isExpanded && setShowStoreDropdown(!showStoreDropdown)}
+            className={cn(
+              'flex items-center w-full px-2 py-2 text-sm rounded-lg transition-colors',
+              'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+            )}
+            title={!isExpanded ? currentStore?.name || 'HACCP 매장' : undefined}
+          >
+            <Building2 className="w-5 h-5 flex-shrink-0 text-emerald-600" />
+            <span
+              className={cn(
+                'ml-2 flex-1 text-left font-medium truncate transition-opacity duration-200',
+                isExpanded ? 'opacity-100' : 'opacity-0'
+              )}
+            >
+              {currentStore?.name || '매장 선택'}
+            </span>
+            {isExpanded && (
+              <ChevronDown className={cn(
+                'w-4 h-4 flex-shrink-0 text-emerald-600 transition-transform',
+                showStoreDropdown && 'rotate-180'
+              )} />
+            )}
+          </button>
+
+          {/* Store Dropdown */}
+          {showStoreDropdown && isExpanded && (
+            <div className="absolute left-2 right-2 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+              {haccpStores.map((store) => (
+                <button
+                  key={store.id}
+                  onClick={() => handleStoreSwitch(store.id)}
+                  className={cn(
+                    'flex items-center w-full px-3 py-2.5 text-sm transition-colors',
+                    store.id === currentStore?.id
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  )}
+                >
+                  <Factory className="w-4 h-4 flex-shrink-0 mr-2 text-gray-400" />
+                  <span className="flex-1 text-left truncate">{store.name}</span>
+                  {store.id === currentStore?.id && (
+                    <Check className="w-4 h-4 text-emerald-600" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Current store indicator for single store (collapsed view) */}
+      {!canSwitchStore && currentStore && !storesLoading && (
+        <div className="px-2 py-3 border-b border-gray-200">
+          <div
+            className={cn(
+              'flex items-center px-2 py-2 text-sm rounded-lg',
+              'bg-gray-50 text-gray-600'
+            )}
+            title={!isExpanded ? currentStore.name : undefined}
+          >
+            <Building2 className="w-5 h-5 flex-shrink-0 text-gray-400" />
+            <span
+              className={cn(
+                'ml-2 font-medium truncate transition-opacity duration-200',
+                isExpanded ? 'opacity-100' : 'opacity-0'
+              )}
+            >
+              {currentStore.name}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 py-4 space-y-1 overflow-y-auto overflow-x-hidden scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
